@@ -11,7 +11,8 @@
       "WebFetch(domain:www.builder.io)",
       "WebFetch(domain:deepwiki.com)",
       "WebFetch(domain:docs.factory.ai)",
-      "WebFetch(domain:releasebot.io)"
+      "WebFetch(domain:releasebot.io)",
+      "Bash(dir:*)"
     ]
   }
 }

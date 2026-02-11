@@ -35,6 +35,7 @@ The site includes public-facing pages (landing, team, services/products), an AI-
 | Layer        | Technology                        | Notes                                      |
 |--------------|-----------------------------------|--------------------------------------------|
 | Frontend     | React 18+                         | Functional components, hooks only          |
+| Build Tool   | Vite                              | Dev server, HMR, production bundling       |
 | UI Framework | Bootstrap 5 (react-bootstrap)     | No custom CSS frameworks on top            |
 | State        | Redux Toolkit (RTK)               | RTK Query for API calls                    |
 | Routing      | React Router v6+                  |                                            |
@@ -44,8 +45,10 @@ The site includes public-facing pages (landing, team, services/products), an AI-
 | Auth         | Firebase Authentication           | JWT-based, verified server-side            |
 | Chatbot      | X.ai Grok API                     | RAG integration                            |
 | LinkedIn     | Third-party embed widget          | SociableKIT, Elfsight, or Juicer           |
-| Testing      | Vitest + React Testing Library     | Frontend; Supertest for API routes         |
+| Testing      | Vitest + React Testing Library     | Unit + component tests; Supertest for API  |
+| E2E Testing  | Playwright                        | End-to-end tests against Vercel previews   |
 | Linting      | ESLint + Prettier                 | Enforced via pre-commit hook               |
+| Deployment   | Vercel (Monorepo)                 | `client/` and `server/` as separate projects |
 
 ---
 
@@ -79,9 +82,12 @@ Ichnos_Protocol/
 │   │   ├── routes/               # Route definitions and guards
 │   │   └── index.jsx             # Entry point
 │   ├── .env.example
+│   ├── vercel.json               # Vercel frontend config (Vite, SPA rewrites)
 │   ├── vite.config.js
 │   └── package.json
 ├── server/                       # Express backend
+│   ├── api/
+│   │   └── index.js              # Vercel serverless entry point (wraps Express)
 │   ├── src/
 │   │   ├── config/               # DB connections, Firebase admin init, env
 │   │   ├── controllers/          # Route handlers (thin — delegate to services)
@@ -93,8 +99,20 @@ Ichnos_Protocol/
 │   │   ├── validators/           # Request validation schemas (Joi / Zod)
 │   │   └── app.js                # Express app setup
 │   ├── .env.example
+│   ├── vercel.json               # Vercel backend config (serverless, rewrites)
 │   └── package.json
+├── e2e/                          # End-to-end tests (Playwright)
+│   ├── tests/                    # Test specs
+│   ├── fixtures/                 # Test data and auth state
+│   ├── playwright.config.js      # Playwright configuration
+│   └── package.json              # Playwright dependencies
+├── .github/
+│   └── workflows/
+│       ├── ci.yml                # GitHub Actions: Lint + unit tests on every PR
+│       └── e2e.yml               # GitHub Actions: Playwright vs Vercel previews
+├── assets/                       # Brand assets (logo, images)
 ├── CLAUDE.md                     # This file
+├── AGENTS.md                     # Shared agent conventions
 ├── .gitignore
 └── README.md
 ```
@@ -399,13 +417,105 @@ CORS_ORIGIN=                     # Frontend URL
 
 ## 14. Testing Strategy
 
+### 14.1 Test Runner: Vitest
+
+**Vitest** is the test runner for both `client/` and `server/`. It shares the Vite transform pipeline, so JSX, ESM, and path aliases work without extra configuration.
+
+- Configuration lives in `vite.config.js` (client) or a dedicated `vitest.config.js` (server) using `defineConfig` from `vitest/config`.
+- Use `vi.fn()`, `vi.spyOn()`, `vi.mock()` for mocking (Vitest's API, compatible with Jest patterns).
+- Environment: `jsdom` for client tests (set via `environment: 'jsdom'` in config), `node` for server tests.
+- Coverage provider: `v8` (built-in). Run with `npm run test -- --coverage`.
+
+### 14.2 Test Types
+
+| Type            | Scope                       | Tool                          | Location                                   |
+|-----------------|-----------------------------|-------------------------------|--------------------------------------------|
+| **Unit**        | Helpers, services, repos    | Vitest                        | Co-located: `Module.test.js` next to module|
+| **Component**   | React components            | Vitest + React Testing Library| Co-located: `Component.test.jsx`           |
+| **API**         | Express endpoints           | Vitest + Supertest            | Co-located: `route.test.js` next to route  |
+| **E2E**         | Full user flows             | Playwright                    | `e2e/` directory at repository root        |
+
+### 14.3 Unit, Component, and API Tests
+
 - **Unit tests**: All helpers, services, and repositories must have unit tests.
 - **Component tests**: Use React Testing Library. Test user interactions, not implementation details.
-- **API tests**: Use Supertest for endpoint integration tests.
+- **API tests**: Use Supertest for endpoint integration tests. Import the Express app directly, no running server needed.
 - **Test file location**: Co-locate test files with the module they test (`Button.test.jsx` next to `Button.jsx`).
 - **Naming**: `<ModuleName>.test.js` or `<ModuleName>.test.jsx`.
 - **Coverage target**: Minimum 80% line coverage for helpers and services.
 - **Run tests before every commit**. A failing test suite blocks the commit.
+
+### 14.4 End-to-End Testing: Playwright
+
+Playwright runs full browser-based tests against the actual deployed application.
+
+#### Directory Structure
+
+```
+e2e/
+├── tests/                    # Test specs
+│   ├── landing.spec.js       # Landing page flows
+│   ├── services.spec.js      # Services page flows
+│   ├── team.spec.js          # Team page flows
+│   ├── chatbot.spec.js       # Chatbot interaction flows
+│   └── admin.spec.js         # Admin dashboard flows (authenticated)
+├── fixtures/                 # Test data and auth state
+├── playwright.config.js      # Playwright configuration
+└── package.json              # Playwright dependencies (separate from client/server)
+```
+
+#### Configuration
+
+- **Config file**: `e2e/playwright.config.js`.
+- **Base URL**: Read from `BASE_URL` environment variable. Defaults to `http://localhost:5173` for local dev.
+- **Browsers**: Chromium, Firefox, WebKit (all three for CI; Chromium-only for local speed).
+- **Retries**: 0 locally, 2 in CI.
+- **Timeouts**: 30s per test, 5s per action.
+
+#### Local Development Workflow
+
+Run both client and server locally, then execute Playwright:
+
+```bash
+# Terminal 1: Start backend
+cd server && npm run dev
+
+# Terminal 2: Start frontend
+cd client && npm run dev
+
+# Terminal 3: Run E2E tests against localhost
+cd e2e && npx playwright test
+
+# Run a single test file
+cd e2e && npx playwright test tests/landing.spec.js
+
+# Run in headed mode (visible browser)
+cd e2e && npx playwright test --headed
+
+# Open the HTML report
+cd e2e && npx playwright show-report
+```
+
+#### CI Workflow: Playwright Against Vercel Preview Deployments
+
+E2E tests run in GitHub Actions **after** Vercel deploys a preview for the pull request. This tests the real deployed infrastructure (serverless functions, CDN, rewrites) rather than a localhost simulation.
+
+```
+PR Push → Vercel Preview Deploy → GitHub Action Triggered → Playwright runs against preview URL → Results posted to PR
+```
+
+The GitHub Actions workflow (`.github/workflows/e2e.yml`) uses `vercel-preview-url` to wait for and retrieve the preview deployment URL, then passes it to Playwright as `BASE_URL`.
+
+#### E2E Test Rules
+
+- E2E tests live in `e2e/tests/` — never co-located with source code.
+- Name specs by page or user flow: `<page>.spec.js` or `<flow>.spec.js`.
+- Use Playwright's `page` fixture, not direct DOM manipulation.
+- Tests must be **independent**: no shared state, no test ordering dependencies.
+- Use `test.describe` to group related tests. Use `test.beforeEach` for common setup (e.g., navigation).
+- For admin tests requiring authentication, use Playwright's `storageState` to persist and reuse auth state across tests.
+- Do not assert on CSS class names or internal IDs. Assert on visible text, roles, and user-facing behavior.
+- E2E tests are **not** blocking for commits. They run in CI on pull requests only.
 
 ---
 
@@ -448,7 +558,78 @@ Before every commit, verify:
 
 ---
 
-## 16. Traycer AI Integration
+## 16. Deployment (Vercel Monorepo)
+
+This project is deployed on **Vercel** as a monorepo with two separate Vercel projects linked to the same Git repository.
+
+### Architecture
+
+```
+GitHub Repository (Ichnos_Protocol)
+    │
+    ├── Vercel Project: ichnos-client
+    │   ├── Root Directory: client/
+    │   ├── Framework: Vite
+    │   └── Output: Static site (dist/)
+    │
+    └── Vercel Project: ichnos-server
+        ├── Root Directory: server/
+        ├── Runtime: @vercel/node
+        └── Entry: api/index.js (wraps Express app)
+```
+
+### Frontend (`client/`)
+
+- **Framework preset**: Vite.
+- **Build command**: `npm run build` (outputs to `dist/`).
+- **SPA routing**: All routes rewrite to `/index.html` via `vercel.json`.
+- **Environment variables**: Set in Vercel project settings (never committed). Prefix with `VITE_`.
+
+### Backend (`server/`)
+
+- **Serverless functions**: Express app is wrapped and exported from `server/api/index.js` as a Vercel serverless function using `@vercel/node`.
+- **Rewrites**: All incoming requests route to the single serverless function, which uses Express routing internally.
+- **Environment variables**: Set in Vercel project settings (`DATABASE_URL`, `FIREBASE_SERVICE_ACCOUNT_KEY`, `XAI_API_KEY`, etc.).
+- **Cold starts**: Be aware of serverless cold start latency. Keep dependencies lean.
+
+### Vercel Configuration Files
+
+| File                  | Purpose                                                         |
+|-----------------------|-----------------------------------------------------------------|
+| `client/vercel.json`  | Vite framework, build output, SPA rewrites                     |
+| `server/vercel.json`  | Serverless build config, `@vercel/node` runtime, API rewrites   |
+| `server/api/index.js` | Thin wrapper exporting the Express app for Vercel serverless    |
+
+### Deployment Rules
+
+- **Automatic deployments**: Merges to `main` trigger production deployments for both projects.
+- **Preview deployments**: Pull requests get preview URLs automatically.
+- **Environment separation**: Use Vercel's environment scoping (Production, Preview, Development) to manage secrets per environment.
+- **CORS**: The server's `CORS_ORIGIN` must match the frontend's Vercel deployment URL (or use the `VERCEL_URL` environment variable for preview deployments).
+- **Domain**: Configure custom domains in Vercel project settings, not in code.
+- **`server/api/index.js` must stay thin**: It only imports and re-exports the Express app. No logic, no middleware, no configuration. All Express setup lives in `server/src/app.js`.
+- **Local development still uses `npm run dev`**: The Vercel serverless wrapper is only used in deployed environments.
+
+### Vercel CLI (Optional, for Manual Deploys)
+
+```bash
+# Install Vercel CLI
+npm i -g vercel
+
+# Deploy frontend preview
+cd client && vercel
+
+# Deploy backend preview
+cd server && vercel
+
+# Deploy to production
+cd client && vercel --prod
+cd server && vercel --prod
+```
+
+---
+
+## 17. Traycer AI Integration
 
 This project uses **Traycer AI** as the planning and orchestration layer. Traycer handles Epics, Phase breakdowns, and detailed implementation plans. **Claude CLI executes the plans.**
 
@@ -508,7 +689,7 @@ Plans arrive via:
 
 ---
 
-## 17. Claude-Specific Instructions
+## 18. Claude-Specific Instructions
 
 ### General Rules
 
