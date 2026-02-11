@@ -5,6 +5,7 @@
  * In local development, use `npm run dev` instead (starts Express on PORT).
  * This file is only used by Vercel's build system.
  */
-import app from '../src/app.js';
+import express from 'express';
 
+const app = express();
 export default app;
