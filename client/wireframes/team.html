@@ -1,0 +1,378 @@
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ichnos Protocol - Team Page Wireframe</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0A1628;
+            color: #E8ECF1;
+            line-height: 1.6;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+        
+        /* Navigation (same as landing) */
+        nav {
+            background: rgba(26, 39, 68, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 1rem 0;
+            border-bottom: 1px solid rgba(30, 144, 255, 0.2);
+        }
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo { 
+            font-size: 1.5rem; 
+            font-weight: 700;
+            background: linear-gradient(135deg, #14F195, #9945FF);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+        .nav-links a {
+            color: #8B9DC3;
+            text-decoration: none;
+        }
+        .nav-links a:hover { color: #1E90FF; }
+        
+        /* Page Header */
+        .page-header {
+            padding: 4rem 0 2rem;
+            text-align: center;
+        }
+        .page-header h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        .page-header p {
+            font-size: 1.25rem;
+            color: #8B9DC3;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+        
+        /* Founder Profile */
+        .founder-section {
+            padding: 4rem 0;
+        }
+        .founder-content {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 3rem;
+            align-items: start;
+            background: rgba(26, 39, 68, 0.6);
+            padding: 3rem;
+            border-radius: 12px;
+            border: 1px solid rgba(30, 144, 255, 0.2);
+        }
+        .founder-photo {
+            width: 300px;
+            height: 300px;
+            background: linear-gradient(135deg, #1E90FF, #9945FF);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.2rem;
+        }
+        .founder-bio h2 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            color: #14F195;
+        }
+        .founder-bio .title {
+            color: #C8A24E;
+            font-size: 1.1rem;
+            margin-bottom: 1.5rem;
+        }
+        .founder-bio p {
+            color: #8B9DC3;
+            margin-bottom: 1rem;
+        }
+        
+        /* Expertise Areas */
+        .expertise-section {
+            padding: 4rem 0;
+            background: linear-gradient(135deg, rgba(26, 39, 68, 0.4), rgba(10, 22, 40, 0.8));
+        }
+        .expertise-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        .expertise-card {
+            background: rgba(26, 39, 68, 0.8);
+            padding: 2rem;
+            border-radius: 12px;
+            border-left: 4px solid #1E90FF;
+        }
+        .expertise-card h3 {
+            color: #00D1C1;
+            margin-bottom: 1rem;
+        }
+        .expertise-card ul {
+            list-style: none;
+            color: #8B9DC3;
+        }
+        .expertise-card li:before {
+            content: "▸ ";
+            color: #1E90FF;
+        }
+        
+        /* Career Highlights */
+        .career-section {
+            padding: 4rem 0;
+        }
+        .timeline {
+            position: relative;
+            padding-left: 3rem;
+            margin-top: 2rem;
+        }
+        .timeline:before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(180deg, #14F195, #9945FF);
+        }
+        .timeline-item {
+            position: relative;
+            margin-bottom: 3rem;
+            padding-left: 2rem;
+        }
+        .timeline-item:before {
+            content: '';
+            position: absolute;
+            left: -3.5rem;
+            top: 0;
+            width: 12px;
+            height: 12px;
+            background: #1E90FF;
+            border-radius: 50%;
+            border: 3px solid #0A1628;
+        }
+        .timeline-item h3 {
+            color: #C8A24E;
+            margin-bottom: 0.5rem;
+        }
+        .timeline-item .year {
+            color: #8B9DC3;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        /* Vision Statement */
+        .vision-section {
+            padding: 4rem 0;
+            background: rgba(26, 39, 68, 0.3);
+        }
+        .vision-content {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+            padding: 3rem;
+            background: rgba(26, 39, 68, 0.6);
+            border-radius: 12px;
+            border: 1px solid rgba(200, 162, 78, 0.3);
+        }
+        .vision-content h2 {
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+            color: #C8A24E;
+        }
+        .vision-quote {
+            font-size: 1.3rem;
+            font-style: italic;
+            color: #E8ECF1;
+            margin-bottom: 1.5rem;
+            line-height: 1.8;
+        }
+        
+        footer {
+            background: #0A1628;
+            padding: 3rem 0;
+            border-top: 1px solid rgba(30, 144, 255, 0.2);
+            text-align: center;
+            color: #8B9DC3;
+        }
+        
+        @media (max-width: 768px) {
+            .founder-content { grid-template-columns: 1fr; }
+            .founder-photo { margin: 0 auto; }
+        }
+    </style>
+</meta></meta></head>
+<body>
+    <nav>
+        <div class="container">
+            <div class="logo">ICHNOS PROTOCOL</div>
+            <ul class="nav-links">
+                <li><a href="#home">Home</a></li>
+                <li><a href="#services">Services</a></li>
+                <li><a href="#team">Team</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="page-header">
+        <div class="container">
+            <h1>Meet the Team</h1>
+            <p>Combining deep battery engineering expertise with software innovation to drive circular economy solutions</p>
+        </div>
+    </div>
+
+    
+    <section class="founder-section">
+        <div class="container">
+            <div class="founder-content">
+                <div class="founder-photo">
+                    [Founder Photo]<br>
+                    Dr.-Ing. Francesco Maltoni
+                </br></div>
+                <div class="founder-bio">
+                    <h2>Dr.-Ing. Francesco Maltoni</h2>
+                    <div class="title">Founder & Lead Consultant</div>
+                    <p>
+                        Dr.-Ing. Maltoni founded Ichnos Protocol after a career spanning research and industry leadership 
+                        in the battery and automotive sectors. His unique combination of academic rigor, industry experience, 
+                        and software development skills positions Ichnos Protocol to deliver both regulatory compliance and 
+                        technical innovation.
+                    </p>
+                    <p>
+                        With a doctorate from RWTH Aachen University focused on circular economy for battery systems and 
+                        remanufacturing, combined with hands-on leadership as Lead Expert for Battery Systems at FEV Europe, 
+                        Dr.-Ing. Maltoni brings rare depth to battery consulting.
+                    </p>
+                    <p>
+                        His full-stack web development training at Sigma School enables Ichnos Protocol to build the 
+                        Battery Passport solution in-house, ensuring deep integration between regulatory requirements 
+                        and technical implementation.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    
+    <section class="expertise-section">
+        <div class="container">
+            <h2 style="text-align: center; margin-bottom: 2rem;">Core Competencies</h2>
+            <div class="expertise-grid">
+                <div class="expertise-card">
+                    <h3>Battery Systems Engineering</h3>
+                    <ul>
+                        <li>System architecture design</li>
+                        <li>Performance optimization</li>
+                        <li>Safety assessment</li>
+                        <li>Thermal management</li>
+                    </ul>
+                </div>
+                <div class="expertise-card">
+                    <h3>Regulatory & Compliance</h3>
+                    <ul>
+                        <li>EU Battery Regulation</li>
+                        <li>DIN SPEC 99100</li>
+                        <li>UN ECE R100, GTR No. 20</li>
+                        <li>Homologation processes</li>
+                    </ul>
+                </div>
+                <div class="expertise-card">
+                    <h3>Circular Economy</h3>
+                    <ul>
+                        <li>Remanufacturing strategies</li>
+                        <li>Second-life applications</li>
+                        <li>Repurposing assessment</li>
+                        <li>Lifecycle optimization</li>
+                    </ul>
+                </div>
+                <div class="expertise-card">
+                    <h3>Software Development</h3>
+                    <ul>
+                        <li>Full-stack web development</li>
+                        <li>Database design (SQL/NoSQL)</li>
+                        <li>Blockchain integration (Solana)</li>
+                        <li>API development</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    
+    <section class="career-section">
+        <div class="container">
+            <h2 style="text-align: center; margin-bottom: 2rem;">Career Highlights</h2>
+            <div class="timeline">
+                <div class="timeline-item">
+                    <h3>Founded Ichnos Protocol Pte. Ltd.</h3>
+                    <div class="year">2026 | Singapore</div>
+                    <p style="color: #8B9DC3;">
+                        Established consulting firm focused on battery regulation compliance and circular economy solutions, 
+                        with in-house Battery Passport development.
+                    </p>
+                </div>
+                <div class="timeline-item">
+                    <h3>Full Stack Web Development Training</h3>
+                    <div class="year">2024-2025 | Sigma School, Puchong</div>
+                    <p style="color: #8B9DC3;">
+                        Completed intensive software engineering program, enabling in-house development of the Battery Passport platform.
+                    </p>
+                </div>
+                <div class="timeline-item">
+                    <h3>Lead Expert, Battery Systems</h3>
+                    <div class="year">FEV Europe GmbH</div>
+                    <p style="color: #8B9DC3;">
+                        Led battery system development projects for automotive and motorcycle OEMs, managing requirement engineering, 
+                        testing coordination, and homologation processes.
+                    </p>
+                </div>
+                <div class="timeline-item">
+                    <h3>Doctoral Research (Dr.-Ing.)</h3>
+                    <div class="year">RWTH Aachen University</div>
+                    <p style="color: #8B9DC3;">
+                        Research focus: Circular economy for battery systems, with emphasis on remanufacturing strategies 
+                        and lifecycle optimization.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    
+    <section class="vision-section">
+        <div class="container">
+            <div class="vision-content">
+                <h2>Our Vision</h2>
+                <div class="vision-quote">
+                    "Batteries should live as long as possible. Remanufacturing and repurposing are not just 
+                    environmentally responsible—they are economically smart. The Battery Passport is the enabler, 
+                    providing the transparency and data continuity that make second-life applications viable and scalable."
+                </div>
+                <p style="color: #8B9DC3;">
+                    By combining deep domain expertise in battery engineering with hands-on software development skills, 
+                    Ichnos Protocol builds solutions that serve both regulatory compliance and real-world utility.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Ichnos Protocol Pte. Ltd. | UEN: 202606521W | Singapore</p>
+        </div>
+    </footer>
+</body>
+</html>

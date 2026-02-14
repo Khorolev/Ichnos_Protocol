@@ -107,7 +107,7 @@ cd server && vercel --prod   # deploy backend
 - Max file: 120 lines. Max function: 20 lines. Max JSX return: 60 lines.
 - Components: `PascalCase`. Hooks: `useCamelCase`. Helpers: `camelCase`. Constants: `UPPER_SNAKE_CASE`.
 - DB columns: `snake_case`. API endpoints: `kebab-case`.
-- Named exports only (exception: lazy-loaded page components).
+- Default exports for React components (atoms, molecules, organisms, pages, templates). Named exports for utilities, hooks, constants, Redux slices, helpers, and infrastructure files (store, providers).
 - Functional components only. Props destructured in signature.
 - One component per file. File name matches component name.
 - No inline styles. Use Bootstrap utility classes.
