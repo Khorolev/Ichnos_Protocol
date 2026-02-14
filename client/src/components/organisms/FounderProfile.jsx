@@ -50,8 +50,9 @@ const FounderBio = () => (
   </div>
 );
 
-const FounderProfile = () => (
-  <section className="py-5">
+export default function FounderProfile() {
+  return (
+    <section className="py-5">
     <div className="row align-items-center mb-5">
       <FounderPhoto />
       <FounderBio />
@@ -74,6 +75,5 @@ const FounderProfile = () => (
       ))}
     </div>
   </section>
-);
-
-export default FounderProfile;
+  );
+}

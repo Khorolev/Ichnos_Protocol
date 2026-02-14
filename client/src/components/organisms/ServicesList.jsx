@@ -19,8 +19,9 @@ const ServiceCard = ({ title, description, details }) => (
   </div>
 );
 
-const ServicesList = () => (
-  <section className="py-5">
+export default function ServicesList() {
+  return (
+    <section className="py-5">
     <h2 className="text-center mb-2 section-heading">
       {SERVICES_LIST_CONTENT.heading}
     </h2>
@@ -38,6 +39,5 @@ const ServicesList = () => (
       ))}
     </div>
   </section>
-);
-
-export default ServicesList;
+  );
+}

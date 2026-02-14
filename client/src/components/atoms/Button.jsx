@@ -1,18 +1,18 @@
-const Button = ({
+export default function Button({
   children,
   onClick,
   variant = 'primary',
   className = '',
   ...rest
-}) => (
-  <button
-    type="button"
-    className={`btn btn-${variant} ${className}`}
-    onClick={onClick}
-    {...rest}
-  >
-    {children}
-  </button>
-);
-
-export default Button;
+}) {
+  return (
+    <button
+      type="button"
+      className={`btn btn-${variant} ${className}`}
+      onClick={onClick}
+      {...rest}
+    >
+      {children}
+    </button>
+  );
+}

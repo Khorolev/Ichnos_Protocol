@@ -19,8 +19,9 @@ const socialLinks = [
   },
 ];
 
-const Footer = () => (
-  <footer className="footer-main mt-auto py-4 px-3">
+export default function Footer() {
+  return (
+    <footer className="footer-main mt-auto py-4 px-3">
     <div className="container">
       <div className="row gy-3">
         <div className="col-12 col-md-4">
@@ -56,6 +57,5 @@ const Footer = () => (
       </div>
     </div>
   </footer>
-);
-
-export default Footer;
+  );
+}

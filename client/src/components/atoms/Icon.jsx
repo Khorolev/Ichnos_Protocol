@@ -1,5 +1,3 @@
-const Icon = ({ name, className = '' }) => (
-  <i className={`bi bi-${name} ${className}`} />
-);
-
-export default Icon;
+export default function Icon({ name, className = '' }) {
+  return <i className={`bi bi-${name} ${className}`} />;
+}

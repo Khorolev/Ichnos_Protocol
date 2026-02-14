@@ -193,7 +193,8 @@ Follow the Atomic Design methodology strictly:
 - One component per file. The file name matches the component name.
 - Props destructured in the function signature.
 - No inline styles. Use Bootstrap utility classes or a dedicated `.module.css` when needed.
-- No anonymous components (`export const Foo = () => ...` is fine; passing unnamed `() => <div>` to higher-order functions is not).
+- Declare components as `export default function ComponentName({ prop1, prop2 }) {}`. No arrow-function components.
+- No anonymous components (passing unnamed `() => <div>` to higher-order functions is not allowed).
 - Side effects belong in `useEffect` or custom hooks, never in render logic.
 - Prefer early returns for guard clauses.
 

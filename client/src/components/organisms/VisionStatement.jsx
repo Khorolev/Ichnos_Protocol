@@ -1,8 +1,9 @@
 import Icon from '../atoms/Icon';
 import { VISION_STATEMENT, SECTION_HEADINGS } from '../../constants/teamContent';
 
-const VisionStatement = () => (
-  <section className="py-5">
+export default function VisionStatement() {
+  return (
+    <section className="py-5">
     <h2 className="text-center mb-2 section-heading">
       {SECTION_HEADINGS.vision.title}
     </h2>
@@ -25,6 +26,5 @@ const VisionStatement = () => (
       </div>
     </div>
   </section>
-);
-
-export default VisionStatement;
+  );
+}

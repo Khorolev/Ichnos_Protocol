@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const Logo = ({ className = '' }) => {
+export default function Logo({ className = '' }) {
   const [failed, setFailed] = useState(false);
 
   if (failed) {
@@ -19,6 +19,4 @@ const Logo = ({ className = '' }) => {
       onError={() => setFailed(true)}
     />
   );
-};
-
-export default Logo;
+}

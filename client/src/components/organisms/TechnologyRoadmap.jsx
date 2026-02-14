@@ -28,8 +28,9 @@ const PhaseCard = ({ title, badge, description, features }) => (
   </div>
 );
 
-const TechnologyRoadmap = () => (
-  <section className="py-5">
+export default function TechnologyRoadmap() {
+  return (
+    <section className="py-5">
     <h2 className="text-center mb-2 section-heading">
       {TECHNOLOGY_ROADMAP_CONTENT.heading}
     </h2>
@@ -51,6 +52,5 @@ const TechnologyRoadmap = () => (
       {TECHNOLOGY_ROADMAP_CONTENT.footer}
     </p>
   </section>
-);
-
-export default TechnologyRoadmap;
+  );
+}

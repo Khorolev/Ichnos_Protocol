@@ -2,8 +2,9 @@ import { Element } from 'react-scroll';
 
 import { WHY_ICHNOS_CARDS } from '../../constants/landingContent';
 
-const WhyIchnos = () => (
-  <Element name="why-ichnos">
+export default function WhyIchnos() {
+  return (
+    <Element name="why-ichnos">
     <section className="py-5">
       <div className="container">
         <h2 className="text-center fw-bold mb-5">Why Ichnos Protocol</h2>
@@ -23,6 +24,5 @@ const WhyIchnos = () => (
       </div>
     </section>
   </Element>
-);
-
-export default WhyIchnos;
+  );
+}

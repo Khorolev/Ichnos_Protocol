@@ -9,7 +9,7 @@ const prefersReducedMotion = () =>
   typeof window !== 'undefined' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const Hero = () => {
+export default function Hero() {
   const duration = prefersReducedMotion() ? 0 : SCROLL_DURATION;
 
   return (
@@ -40,6 +40,4 @@ const Hero = () => {
       </div>
     </section>
   );
-};
-
-export default Hero;
+}
