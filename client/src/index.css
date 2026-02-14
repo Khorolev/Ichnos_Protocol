@@ -183,8 +183,290 @@ body {
 }
 
 /* ========== Landing Sections ========== */
-.landing-section {
-  min-height: 50vh;
+.hero-section {
+  min-height: 85vh;
+  background: linear-gradient(
+    135deg,
+    var(--color-primary-dark) 0%,
+    var(--color-surface) 100%
+  );
+  padding: var(--spacing-3xl) 0;
+}
+
+.hero-cta-btn {
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+  color: var(--color-primary-dark);
+  border: none;
+  border-radius: 8px;
+  transition: var(--transition-base);
+}
+
+.hero-cta-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-2px);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.problem-card {
+  background-color: var(--color-surface);
+  border: 1px solid rgba(139, 157, 195, 0.15);
+  transition: var(--transition-base);
+}
+
+.problem-card:hover {
+  border-color: var(--color-accent-cyan);
+  transform: translateY(-4px);
+}
+
+.solution-section {
+  background-color: var(--color-surface);
+}
+
+.solution-section .bi-check-circle-fill {
+  color: var(--color-gradient-start);
+}
+
+.why-card-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background-color: var(--color-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-accent-cyan);
+}
+
+.service-card {
+  background-color: var(--color-surface);
+  border: 1px solid rgba(139, 157, 195, 0.15) !important;
+  transition: var(--transition-base);
+  border-radius: 8px;
+}
+
+.service-card:hover {
+  border-color: var(--color-accent-cyan) !important;
+  transform: translateY(-4px);
+}
+
+.service-card .card-title {
+  color: var(--color-text-primary);
+}
+
+.service-card .card-text {
+  color: var(--color-text-secondary);
+}
+
+.service-card a {
+  color: var(--color-accent-cyan);
+}
+
+/* ========== Page & Section Headings ========== */
+.page-title {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-bold);
+}
+
+.section-heading {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.section-subtext {
+  color: var(--color-text-secondary);
+}
+
+/* ========== Accent Text ========== */
+.text-accent {
+  color: var(--color-accent-cyan);
+}
+
+.text-muted-custom {
+  color: var(--color-text-secondary);
+}
+
+/* ========== Service Card Details ========== */
+.service-card-detail {
+  color: var(--color-text-secondary);
+}
+
+/* ========== Feature Maturity Table ========== */
+.table-dark-custom {
+  --bs-table-bg: var(--color-surface);
+  --bs-table-color: var(--color-text-primary);
+  --bs-table-border-color: rgba(139, 157, 195, 0.15);
+}
+
+.table-dark-custom thead th {
+  background-color: var(--color-primary-dark);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+  border-bottom: 2px solid var(--color-primary);
+}
+
+.table-cell-text {
+  color: var(--color-text-secondary);
+}
+
+/* ========== Status Badges ========== */
+.badge-status-live {
+  background-color: rgba(20, 241, 149, 0.15);
+  color: var(--color-gradient-start);
+}
+
+.badge-status-dev {
+  background-color: rgba(30, 144, 255, 0.15);
+  color: var(--color-primary);
+}
+
+.badge-status-planned {
+  background-color: rgba(139, 157, 195, 0.15);
+  color: var(--color-text-secondary);
+}
+
+/* ========== Roadmap Cards ========== */
+.roadmap-card {
+  background-color: var(--color-surface);
+  border: 1px solid rgba(139, 157, 195, 0.15);
+  transition: var(--transition-base);
+}
+
+.roadmap-card:hover {
+  border-color: var(--color-accent-cyan);
+}
+
+.roadmap-card-title {
+  color: var(--color-text-primary);
+}
+
+.roadmap-card-text {
+  color: var(--color-text-secondary);
+}
+
+.roadmap-card-detail {
+  color: var(--color-text-secondary);
+}
+
+.badge-roadmap-current {
+  background-color: rgba(20, 241, 149, 0.15);
+  color: var(--color-gradient-start);
+}
+
+.badge-roadmap-planned {
+  background-color: rgba(153, 69, 255, 0.15);
+  color: var(--color-gradient-end);
+}
+
+/* ========== Contact Section ========== */
+.contact-card {
+  background-color: var(--color-surface);
+  border: 1px solid rgba(139, 157, 195, 0.15);
+}
+
+.contact-card-title {
+  color: var(--color-text-primary);
+}
+
+.contact-card-text {
+  color: var(--color-text-secondary);
+}
+
+.contact-link {
+  color: var(--color-primary);
+  transition: var(--transition-base);
+}
+
+.contact-link:hover {
+  color: var(--color-accent-cyan);
+}
+
+/* ========== Founder Profile ========== */
+.founder-photo {
+  width: 200px;
+  height: 200px;
+  object-fit: cover;
+  border: 3px solid var(--color-accent-cyan);
+}
+
+.founder-photo-fallback {
+  width: 200px;
+  height: 200px;
+  background-color: var(--color-surface);
+  color: var(--color-text-secondary);
+}
+
+.founder-bio {
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-relaxed);
+}
+
+/* ========== Competency Cards ========== */
+.competency-card {
+  background-color: var(--color-surface);
+  border: 1px solid rgba(139, 157, 195, 0.15);
+  transition: var(--transition-base);
+}
+
+.competency-card:hover {
+  border-color: var(--color-accent-cyan);
+  transform: translateY(-4px);
+}
+
+/* ========== Career Timeline ========== */
+.timeline-marker {
+  width: 14px;
+  height: 14px;
+  min-height: 14px;
+  border-radius: 50%;
+  background-color: var(--color-accent-cyan);
+  border: 2px solid var(--color-primary-dark);
+}
+
+.timeline-connector {
+  width: 2px;
+  background-color: rgba(139, 157, 195, 0.25);
+}
+
+.timeline-year {
+  background-color: rgba(30, 144, 255, 0.15);
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.timeline-content {
+  color: var(--color-text-primary);
+}
+
+/* ========== Vision Statement ========== */
+.vision-container {
+  background-color: var(--color-surface);
+  border: 1px solid rgba(139, 157, 195, 0.15);
+}
+
+.vision-quote-icon {
+  font-size: var(--font-size-3xl);
+  color: var(--color-accent-cyan);
+  opacity: 0.5;
+}
+
+.vision-quote {
+  font-size: var(--font-size-lg);
+  font-style: italic;
+  color: var(--color-text-primary);
+  line-height: var(--line-height-relaxed);
+}
+
+.vision-attribution {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
 }
 
 /* ========== Reduced Motion ========== */

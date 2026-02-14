@@ -1,41 +1,33 @@
-import { useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Element, scroller } from 'react-scroll';
+import { Helmet } from 'react-helmet-async';
 
-import { LANDING_SECTIONS } from '../../constants/navigation';
-
-const SCROLL_OFFSET = -80;
-const SCROLL_DURATION = 500;
+import { LANDING_META } from '../../constants/seoMeta';
+import { useScrollToSection } from '../../hooks/useScrollToSection';
+import Hero from '../organisms/Hero';
+import ProblemStatement from '../organisms/ProblemStatement';
+import SolutionOverview from '../organisms/SolutionOverview';
+import WhyIchnos from '../organisms/WhyIchnos';
+import ServicesSnapshot from '../organisms/ServicesSnapshot';
 
 const LandingPage = () => {
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    const sectionId = location.state?.scrollTo;
-    if (!sectionId) return;
-
-    scroller.scrollTo(sectionId, {
-      smooth: true,
-      duration: SCROLL_DURATION,
-      offset: SCROLL_OFFSET,
-    });
-
-    navigate(location.pathname, { replace: true, state: {} });
-  }, [location.state, navigate, location.pathname]);
+  useScrollToSection();
 
   return (
-    <div>
-      <h1>Landing Page</h1>
-      {LANDING_SECTIONS.map(({ label, sectionId }) => (
-        <Element key={sectionId} name={sectionId}>
-          <section id={sectionId} className="py-5 landing-section">
-            <h2>{label}</h2>
-            <p>Content coming soon.</p>
-          </section>
-        </Element>
-      ))}
-    </div>
+    <>
+      <Helmet>
+        <title>{LANDING_META.title}</title>
+        <meta name="description" content={LANDING_META.description} />
+        <meta name="keywords" content={LANDING_META.keywords} />
+        <meta property="og:title" content={LANDING_META.og.title} />
+        <meta property="og:description" content={LANDING_META.og.description} />
+        <meta property="og:type" content={LANDING_META.og.type} />
+        <meta property="og:url" content={LANDING_META.og.url} />
+      </Helmet>
+      <Hero />
+      <ProblemStatement />
+      <SolutionOverview />
+      <WhyIchnos />
+      <ServicesSnapshot />
+    </>
   );
 };
 
