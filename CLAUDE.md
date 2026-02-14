@@ -6,6 +6,8 @@
 > Shared, tool-agnostic conventions are in `AGENTS.md` (auto-imported above).
 > Both files must stay aligned — update `AGENTS.md` when conventions change here.
 
+Always create yolo artifacts at the end of each task to ensure correct orchestration with planning agent
+
 ## 1. Project Overview
 
 **Ichnos Protocol** is a company website showcasing the Ichnos Battery Passport solution.
@@ -13,12 +15,12 @@ The site includes public-facing pages (landing, team, services/products), an AI-
 
 ### Pages
 
-| Route               | Access  | Purpose                                                      |
-|----------------------|---------|--------------------------------------------------------------|
-| `/`                  | Public  | Landing page — hero, value proposition, CTA, LinkedIn feed   |
-| `/team`              | Public  | Team members and roles                                       |
-| `/services`          | Public  | Services, products, and the Battery Passport showcase        |
-| `/admin/requests`    | Admin   | View customer contact requests and download uploaded documents|
+| Route             | Access | Purpose                                                        |
+| ----------------- | ------ | -------------------------------------------------------------- |
+| `/`               | Public | Landing page — hero, value proposition, CTA, LinkedIn feed     |
+| `/team`           | Public | Team members and roles                                         |
+| `/services`       | Public | Services, products, and the Battery Passport showcase          |
+| `/admin/requests` | Admin  | View customer contact requests and download uploaded documents |
 
 ### Core Integrations
 
@@ -32,23 +34,23 @@ The site includes public-facing pages (landing, team, services/products), an AI-
 
 ## 2. Tech Stack
 
-| Layer        | Technology                        | Notes                                      |
-|--------------|-----------------------------------|--------------------------------------------|
-| Frontend     | React 18+                         | Functional components, hooks only          |
-| Build Tool   | Vite                              | Dev server, HMR, production bundling       |
-| UI Framework | Bootstrap 5 (react-bootstrap)     | No custom CSS frameworks on top            |
-| State        | Redux Toolkit (RTK)               | RTK Query for API calls                    |
-| Routing      | React Router v6+                  |                                            |
-| Backend      | Express.js 5                      | REST API, ES modules (`"type": "module"`)  |
-| SQL DB       | PostgreSQL (Neon Tech)            | Accessed via `pg`                          |
-| NoSQL DB     | Firestore                         | File storage + document metadata           |
-| Auth         | Firebase Authentication           | JWT-based, verified server-side            |
-| Chatbot      | X.ai Grok API                     | RAG integration                            |
-| LinkedIn     | Third-party embed widget          | SociableKIT, Elfsight, or Juicer           |
-| Testing      | Vitest + React Testing Library     | Unit + component tests; Supertest for API  |
-| E2E Testing  | Playwright                        | End-to-end tests against Vercel previews   |
-| Linting      | ESLint + Prettier                 | Enforced via pre-commit hook               |
-| Deployment   | Vercel (Monorepo)                 | `client/` and `server/` as separate projects |
+| Layer        | Technology                     | Notes                                        |
+| ------------ | ------------------------------ | -------------------------------------------- |
+| Frontend     | React 18+                      | Functional components, hooks only            |
+| Build Tool   | Vite                           | Dev server, HMR, production bundling         |
+| UI Framework | Bootstrap 5 (react-bootstrap)  | No custom CSS frameworks on top              |
+| State        | Redux Toolkit (RTK)            | RTK Query for API calls                      |
+| Routing      | React Router v6+               |                                              |
+| Backend      | Express.js 5                   | REST API, ES modules (`"type": "module"`)    |
+| SQL DB       | PostgreSQL (Neon Tech)         | Accessed via `pg`                            |
+| NoSQL DB     | Firestore                      | File storage + document metadata             |
+| Auth         | Firebase Authentication        | JWT-based, verified server-side              |
+| Chatbot      | X.ai Grok API                  | RAG integration                              |
+| LinkedIn     | Third-party embed widget       | SociableKIT, Elfsight, or Juicer             |
+| Testing      | Vitest + React Testing Library | Unit + component tests; Supertest for API    |
+| E2E Testing  | Playwright                     | End-to-end tests against Vercel previews     |
+| Linting      | ESLint + Prettier              | Enforced via pre-commit hook                 |
+| Deployment   | Vercel (Monorepo)              | `client/` and `server/` as separate projects |
 
 ---
 
@@ -125,26 +127,26 @@ Ichnos_Protocol/
 
 Every layer has a **single responsibility**. Never mix concerns across layers.
 
-| Frontend Layer    | Responsibility                              | Must NOT contain                    |
-|-------------------|---------------------------------------------|-------------------------------------|
-| Pages             | Route entry, compose templates              | Business logic, direct API calls    |
-| Templates         | Layout structure                            | Data fetching, state logic          |
-| Organisms         | Feature-level UI blocks                     | Direct API calls (use hooks/slices) |
-| Molecules         | Small composed UI groups                    | Side effects, state management      |
-| Atoms             | Single-purpose UI primitives                | Any logic beyond prop rendering     |
-| Hooks             | Encapsulate stateful/side-effect logic      | JSX rendering                       |
-| Helpers           | Pure functions (format, compute, validate)  | Side effects, hooks, state          |
-| Features (slices) | Redux state + RTK Query endpoints           | UI rendering                        |
+| Frontend Layer    | Responsibility                             | Must NOT contain                    |
+| ----------------- | ------------------------------------------ | ----------------------------------- |
+| Pages             | Route entry, compose templates             | Business logic, direct API calls    |
+| Templates         | Layout structure                           | Data fetching, state logic          |
+| Organisms         | Feature-level UI blocks                    | Direct API calls (use hooks/slices) |
+| Molecules         | Small composed UI groups                   | Side effects, state management      |
+| Atoms             | Single-purpose UI primitives               | Any logic beyond prop rendering     |
+| Hooks             | Encapsulate stateful/side-effect logic     | JSX rendering                       |
+| Helpers           | Pure functions (format, compute, validate) | Side effects, hooks, state          |
+| Features (slices) | Redux state + RTK Query endpoints          | UI rendering                        |
 
-| Backend Layer   | Responsibility                                | Must NOT contain                      |
-|-----------------|-----------------------------------------------|---------------------------------------|
-| Routes          | Map HTTP verbs/paths to controllers           | Business logic, DB queries            |
-| Controllers     | Parse request, call service, send response    | DB queries, complex logic             |
-| Services        | Business logic and orchestration              | Direct DB access, HTTP concerns       |
-| Repositories    | Data access (SQL and Firestore)               | Business logic, HTTP concerns         |
-| Middleware      | Cross-cutting: auth, errors, validation       | Business logic                        |
-| Validators      | Request schema validation (Zod)               | Business logic, DB access             |
-| Helpers         | Pure utility functions                        | Side effects, DB access               |
+| Backend Layer | Responsibility                             | Must NOT contain                |
+| ------------- | ------------------------------------------ | ------------------------------- |
+| Routes        | Map HTTP verbs/paths to controllers        | Business logic, DB queries      |
+| Controllers   | Parse request, call service, send response | DB queries, complex logic       |
+| Services      | Business logic and orchestration           | Direct DB access, HTTP concerns |
+| Repositories  | Data access (SQL and Firestore)            | Business logic, HTTP concerns   |
+| Middleware    | Cross-cutting: auth, errors, validation    | Business logic                  |
+| Validators    | Request schema validation (Zod)            | Business logic, DB access       |
+| Helpers       | Pure utility functions                     | Side effects, DB access         |
 
 ### 4.2 SOLID Principles
 
@@ -182,7 +184,7 @@ Follow the Atomic Design methodology strictly:
   - Redux slices: `camelCase` matching the feature (`authSlice.js`)
   - DB columns: `snake_case`
   - API endpoints: `kebab-case` (`/api/customer-requests`)
-- **Exports**: Named exports only. No default exports (exception: page components for lazy loading).
+- **Exports**: Default exports for React components (atoms, molecules, organisms, pages, templates). Named exports for utilities, hooks, constants, Redux slices, helpers, and infrastructure files (store, providers).
 - **Imports**: Group and order — (1) external libraries, (2) internal modules, (3) relative imports. Blank line between groups.
 
 ### 5.2 React Rules
@@ -246,6 +248,7 @@ CREATE TABLE customer_requests (
 ```
 
 Rules:
+
 - Always use parameterized queries. **Never** interpolate user input into SQL strings.
 - Use migrations for schema changes (e.g., `node-pg-migrate` or Prisma Migrate).
 - Store Firestore file URLs as `document_url` — this is the **single reference** linking SQL to Firestore.
@@ -268,6 +271,7 @@ uploads/
 ```
 
 Rules:
+
 - Files are uploaded to **Firebase Storage**, metadata is stored in **Firestore**.
 - After upload, retrieve the public download URL and persist it in both Firestore and the `customer_requests.document_url` column in PostgreSQL.
 - Firestore security rules must restrict read access to authenticated admin users only.
@@ -320,11 +324,11 @@ LinkedIn's official Posts API (Community Management API) requires OAuth 2.0 appr
 
 Use a third-party widget service that handles the LinkedIn integration and provides an auto-updating embeddable feed. Recommended options (in priority order):
 
-| Service        | Free Tier                | Paid From | Notes                                    |
-|----------------|--------------------------|-----------|------------------------------------------|
-| **SociableKIT**| 2 sources, 3K views/mo   | ~$5/mo    | LinkedIn Page Posts widget; auto-sync    |
-| **Elfsight**   | Limited                  | ~$6/mo    | Drag-and-drop builder; many layouts      |
-| **Juicer**     | 1 widget, 200 views/mo   | $5/mo     | Multi-platform aggregator; clean UI      |
+| Service         | Free Tier              | Paid From | Notes                                 |
+| --------------- | ---------------------- | --------- | ------------------------------------- |
+| **SociableKIT** | 2 sources, 3K views/mo | ~$5/mo    | LinkedIn Page Posts widget; auto-sync |
+| **Elfsight**    | Limited                | ~$6/mo    | Drag-and-drop builder; many layouts   |
+| **Juicer**      | 1 widget, 200 views/mo | $5/mo     | Multi-platform aggregator; clean UI   |
 
 ### Implementation Rules
 
@@ -342,6 +346,7 @@ If the third-party service becomes unavailable, LinkedIn allows embedding indivi
 ### Future: Direct API Integration
 
 If the company later obtains Community Management API access, the implementation can be upgraded:
+
 - Backend caches posts via a cron job (`GET /api/linkedin/posts`), stored in PostgreSQL or in-memory cache.
 - Frontend fetches from the backend cache via RTK Query.
 - The `LinkedInFeed` organism switches from widget embed to rendering cached post data with custom styling.
@@ -353,16 +358,17 @@ If the company later obtains Community Management API access, the implementation
 
 All endpoints are prefixed with `/api`.
 
-| Method  | Endpoint                          | Auth   | Description                          |
-|---------|-----------------------------------|--------|--------------------------------------|
-| POST    | `/api/chat/message`               | Public | Send a chat message, receive reply   |
-| POST    | `/api/contact`                    | Public | Submit a contact request             |
-| POST    | `/api/contact/upload`             | Public | Upload a document (multipart)        |
-| GET     | `/api/admin/customer-requests`    | Admin  | List all customer requests           |
-| GET     | `/api/admin/customer-requests/:id`| Admin  | Get a single request with details    |
-| PATCH   | `/api/admin/customer-requests/:id`| Admin  | Update request status                |
+| Method | Endpoint                           | Auth   | Description                        |
+| ------ | ---------------------------------- | ------ | ---------------------------------- |
+| POST   | `/api/chat/message`                | Public | Send a chat message, receive reply |
+| POST   | `/api/contact`                     | Public | Submit a contact request           |
+| POST   | `/api/contact/upload`              | Public | Upload a document (multipart)      |
+| GET    | `/api/admin/customer-requests`     | Admin  | List all customer requests         |
+| GET    | `/api/admin/customer-requests/:id` | Admin  | Get a single request with details  |
+| PATCH  | `/api/admin/customer-requests/:id` | Admin  | Update request status              |
 
 Rules:
+
 - Return consistent JSON shape: `{ data, error, message }`.
 - Use plural nouns for resource collections.
 - Validate all inputs. Return 400 with descriptive errors on failure.
@@ -428,12 +434,12 @@ CORS_ORIGIN=                     # Frontend URL
 
 ### 14.2 Test Types
 
-| Type            | Scope                       | Tool                          | Location                                   |
-|-----------------|-----------------------------|-------------------------------|--------------------------------------------|
-| **Unit**        | Helpers, services, repos    | Vitest                        | Co-located: `Module.test.js` next to module|
-| **Component**   | React components            | Vitest + React Testing Library| Co-located: `Component.test.jsx`           |
-| **API**         | Express endpoints           | Vitest + Supertest            | Co-located: `route.test.js` next to route  |
-| **E2E**         | Full user flows             | Playwright                    | `e2e/` directory at repository root        |
+| Type          | Scope                    | Tool                           | Location                                    |
+| ------------- | ------------------------ | ------------------------------ | ------------------------------------------- |
+| **Unit**      | Helpers, services, repos | Vitest                         | Co-located: `Module.test.js` next to module |
+| **Component** | React components         | Vitest + React Testing Library | Co-located: `Component.test.jsx`            |
+| **API**       | Express endpoints        | Vitest + Supertest             | Co-located: `route.test.js` next to route   |
+| **E2E**       | Full user flows          | Playwright                     | `e2e/` directory at repository root         |
 
 ### 14.3 Unit, Component, and API Tests
 
@@ -542,6 +548,7 @@ Scope: client, server, db, chat, auth, admin, linkedin
 ```
 
 Examples:
+
 - `feat(client): add landing page hero section`
 - `fix(server): validate file type before Firestore upload`
 - `test(server): add unit tests for contact service`
@@ -549,6 +556,7 @@ Examples:
 ### Pre-Commit Checklist
 
 Before every commit, verify:
+
 - [ ] ESLint passes with zero warnings.
 - [ ] Prettier formatting is applied.
 - [ ] All tests pass.
@@ -594,11 +602,11 @@ GitHub Repository (Ichnos_Protocol)
 
 ### Vercel Configuration Files
 
-| File                  | Purpose                                                         |
-|-----------------------|-----------------------------------------------------------------|
-| `client/vercel.json`  | Vite framework, build output, SPA rewrites                     |
-| `server/vercel.json`  | Serverless build config, `@vercel/node` runtime, API rewrites   |
-| `server/api/index.js` | Thin wrapper exporting the Express app for Vercel serverless    |
+| File                  | Purpose                                                       |
+| --------------------- | ------------------------------------------------------------- |
+| `client/vercel.json`  | Vite framework, build output, SPA rewrites                    |
+| `server/vercel.json`  | Serverless build config, `@vercel/node` runtime, API rewrites |
+| `server/api/index.js` | Thin wrapper exporting the Express app for Vercel serverless  |
 
 ### Deployment Rules
 
@@ -666,6 +674,7 @@ User Intent
 ### Plan Format
 
 Traycer produces **Markdown plans** containing:
+
 - File analysis and codebase structure context
 - Symbol references (specific classes, functions, variables)
 - Sequential implementation steps with file-by-file instructions
@@ -673,19 +682,20 @@ Traycer produces **Markdown plans** containing:
 - Mermaid diagrams (when architectural clarity is needed)
 
 Plans arrive via:
+
 - **Clipboard paste** into Claude CLI prompt
 - **CLI handoff**: `claude "$TRAYCER_PROMPT"` or via `$TRAYCER_PROMPT_TMP_FILE` for large plans
 - **YOLO mode**: `claude --dangerously-skip-permissions "$TRAYCER_PROMPT"` (auto-approve all tool calls)
 
 ### Environment Variables (set by Traycer during handoff)
 
-| Variable                        | Purpose                                  |
-|---------------------------------|------------------------------------------|
-| `$TRAYCER_PROMPT`               | The plan/instructions text               |
-| `$TRAYCER_PROMPT_TMP_FILE`      | Path to temp file with the plan (large)  |
-| `$TRAYCER_PHASE_ID`             | Current phase identifier                 |
-| `$TRAYCER_PHASE_BREAKDOWN_ID`   | Phase list persistence identifier        |
-| `$TRAYCER_TASK_ID`              | Full task iteration tracker              |
+| Variable                      | Purpose                                 |
+| ----------------------------- | --------------------------------------- |
+| `$TRAYCER_PROMPT`             | The plan/instructions text              |
+| `$TRAYCER_PROMPT_TMP_FILE`    | Path to temp file with the plan (large) |
+| `$TRAYCER_PHASE_ID`           | Current phase identifier                |
+| `$TRAYCER_PHASE_BREAKDOWN_ID` | Phase list persistence identifier       |
+| `$TRAYCER_TASK_ID`            | Full task iteration tracker             |
 
 ---
 
