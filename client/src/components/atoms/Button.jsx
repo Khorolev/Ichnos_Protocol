@@ -1,3 +1,5 @@
+import { Button as BsButton } from 'react-bootstrap';
+
 export default function Button({
   children,
   onClick,
@@ -6,13 +8,13 @@ export default function Button({
   ...rest
 }) {
   return (
-    <button
-      type="button"
-      className={`btn btn-${variant} ${className}`}
+    <BsButton
+      variant={variant}
+      className={className}
       onClick={onClick}
       {...rest}
     >
       {children}
-    </button>
+    </BsButton>
   );
 }

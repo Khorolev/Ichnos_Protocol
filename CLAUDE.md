@@ -195,6 +195,8 @@ Follow the Atomic Design methodology strictly:
 - No inline styles. Use Bootstrap utility classes or a dedicated `.module.css` when needed.
 - Declare components as `export default function ComponentName({ prop1, prop2 }) {}`. No arrow-function components.
 - No anonymous components (passing unnamed `() => <div>` to higher-order functions is not allowed).
+- **Use react-bootstrap components** for layout and UI elements wherever a component exists: `Container`, `Row`, `Col`, `Card`, `Card.Body`, `Card.Title`, `Card.Text`, `Table`, `Badge`, `Button`, `Nav`, `Modal`, etc. Import from `react-bootstrap/<Component>` (tree-shakeable imports).
+- **Keep utility classes** for spacing (`mb-3`, `py-5`), typography (`text-center`, `fw-bold`), display (`d-flex`), and other utilities that react-bootstrap does not wrap as components.
 - Side effects belong in `useEffect` or custom hooks, never in render logic.
 - Prefer early returns for guard clauses.
 

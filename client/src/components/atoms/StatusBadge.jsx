@@ -1,3 +1,5 @@
+import Badge from 'react-bootstrap/Badge';
+
 const STATUS_VARIANTS = {
   Live: 'badge-status-live',
   'In Development': 'badge-status-dev',
@@ -6,8 +8,8 @@ const STATUS_VARIANTS = {
 
 export default function StatusBadge({ status }) {
   return (
-    <span className={`badge ${STATUS_VARIANTS[status] || 'badge-status-planned'}`}>
+    <Badge bg="" className={STATUS_VARIANTS[status] || 'badge-status-planned'}>
       {status}
-    </span>
+    </Badge>
   );
 }

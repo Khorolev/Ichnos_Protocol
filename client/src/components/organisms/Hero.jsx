@@ -1,4 +1,7 @@
 import { Link as ScrollLink } from 'react-scroll';
+import Container from 'react-bootstrap/Container';
+import Row from 'react-bootstrap/Row';
+import Col from 'react-bootstrap/Col';
 
 import { HERO_CONTENT } from '../../constants/landingContent';
 
@@ -14,9 +17,9 @@ export default function Hero() {
 
   return (
     <section className="hero-section d-flex align-items-center">
-      <div className="container">
-        <div className="row justify-content-center text-center">
-          <div className="col-lg-8 col-md-10">
+      <Container>
+        <Row className="justify-content-center text-center">
+          <Col lg={8} md={10}>
             <h1 className="display-4 fw-bold mb-4">
               <span className="gradient-text">{HERO_CONTENT.tagline}</span>
             </h1>
@@ -35,9 +38,9 @@ export default function Hero() {
             >
               {HERO_CONTENT.ctaText}
             </ScrollLink>
-          </div>
-        </div>
-      </div>
+          </Col>
+        </Row>
+      </Container>
     </section>
   );
 }
