@@ -13,8 +13,9 @@ const ContactLink = ({ href, icon, label, external = false }) => (
   </a>
 );
 
-const ContactSection = () => (
-  <section className="py-5">
+export default function ContactSection() {
+  return (
+    <section className="py-5">
     <h2 className="text-center mb-2 section-heading">
       {CONTACT_SECTION_CONTENT.heading}
     </h2>
@@ -77,6 +78,5 @@ const ContactSection = () => (
       </div>
     </div>
   </section>
-);
-
-export default ContactSection;
+  );
+}

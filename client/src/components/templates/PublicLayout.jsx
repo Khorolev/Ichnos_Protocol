@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState } from "react";
 
-import Navbar from '../organisms/Navbar';
-import MobileNavOverlay from '../organisms/MobileNavOverlay';
-import Footer from '../organisms/Footer';
+import Navbar from "../organisms/Navbar";
+import MobileNavOverlay from "../organisms/MobileNavOverlay";
+import Footer from "../organisms/Footer";
 
-const PublicLayout = ({ children }) => {
+export default function PublicLayout({ children }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -20,6 +20,4 @@ const PublicLayout = ({ children }) => {
       <Footer />
     </div>
   );
-};
-
-export default PublicLayout;
+}

@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-const NavDropdown = ({ label, items, onItemClick }) => {
+export default function NavDropdown({ label, items, onItemClick }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const navigate = useNavigate();
@@ -47,6 +47,4 @@ const NavDropdown = ({ label, items, onItemClick }) => {
       </ul>
     </div>
   );
-};
-
-export default NavDropdown;
+}

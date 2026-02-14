@@ -2,8 +2,9 @@ import { Element } from 'react-scroll';
 
 import { SOLUTION_CONTENT } from '../../constants/landingContent';
 
-const SolutionOverview = () => (
-  <Element name="solution">
+export default function SolutionOverview() {
+  return (
+    <Element name="solution">
     <section className="solution-section py-5">
       <div className="container">
         <h2 className="text-center fw-bold mb-5">
@@ -30,6 +31,5 @@ const SolutionOverview = () => (
       </div>
     </section>
   </Element>
-);
-
-export default SolutionOverview;
+  );
+}

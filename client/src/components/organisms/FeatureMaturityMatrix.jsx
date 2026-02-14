@@ -23,8 +23,9 @@ const FeatureRow = ({ feature, mandated, status, phase }) => (
   </tr>
 );
 
-const FeatureMaturityMatrix = () => (
-  <section className="py-5">
+export default function FeatureMaturityMatrix() {
+  return (
+    <section className="py-5">
     <h2 className="text-center mb-2 section-heading">
       {FEATURE_MATRIX_CONTENT.heading}
     </h2>
@@ -55,6 +56,5 @@ const FeatureMaturityMatrix = () => (
       </table>
     </div>
   </section>
-);
-
-export default FeatureMaturityMatrix;
+  );
+}

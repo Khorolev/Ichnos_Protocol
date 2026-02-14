@@ -1,14 +1,14 @@
-import { Helmet } from 'react-helmet-async';
+import { Helmet } from "react-helmet-async";
 
-import { LANDING_META } from '../../constants/seoMeta';
-import { useScrollToSection } from '../../hooks/useScrollToSection';
-import Hero from '../organisms/Hero';
-import ProblemStatement from '../organisms/ProblemStatement';
-import SolutionOverview from '../organisms/SolutionOverview';
-import WhyIchnos from '../organisms/WhyIchnos';
-import ServicesSnapshot from '../organisms/ServicesSnapshot';
+import { LANDING_META } from "../../constants/seoMeta";
+import { useScrollToSection } from "../../hooks/useScrollToSection";
+import Hero from "../organisms/Hero";
+import ProblemStatement from "../organisms/ProblemStatement";
+import SolutionOverview from "../organisms/SolutionOverview";
+import WhyIchnos from "../organisms/WhyIchnos";
+import ServicesSnapshot from "../organisms/ServicesSnapshot";
 
-const LandingPage = () => {
+export default function LandingPage() {
   useScrollToSection();
 
   return (
@@ -29,6 +29,4 @@ const LandingPage = () => {
       <ServicesSnapshot />
     </>
   );
-};
-
-export default LandingPage;
+}

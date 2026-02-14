@@ -3,7 +3,7 @@ import { NAV_LINKS, LANDING_SECTIONS } from '../../constants/navigation';
 import Icon from '../atoms/Icon';
 import NavItem from '../molecules/NavItem';
 
-const MobileNavOverlay = ({ isOpen, onClose }) => {
+export default function MobileNavOverlay({ isOpen, onClose }) {
   const navigate = useNavigate();
 
   const handleSectionClick = (sectionId) => {
@@ -52,6 +52,4 @@ const MobileNavOverlay = ({ isOpen, onClose }) => {
       </div>
     </div>
   );
-};
-
-export default MobileNavOverlay;
+}

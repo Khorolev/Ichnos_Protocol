@@ -15,8 +15,9 @@ const TimelineItem = ({ year, title, organization, description, isLast }) => (
   </div>
 );
 
-const CareerTimeline = () => (
-  <section className="py-5">
+export default function CareerTimeline() {
+  return (
+    <section className="py-5">
     <h2 className="text-center mb-2 section-heading">
       {SECTION_HEADINGS.careerHighlights.title}
     </h2>
@@ -42,6 +43,5 @@ const CareerTimeline = () => (
       </div>
     </div>
   </section>
-);
-
-export default CareerTimeline;
+  );
+}

@@ -2,8 +2,9 @@ import { Element } from 'react-scroll';
 
 import { PROBLEM_CARDS } from '../../constants/landingContent';
 
-const ProblemStatement = () => (
-  <Element name="problem">
+export default function ProblemStatement() {
+  return (
+    <Element name="problem">
     <section className="py-5">
       <div className="container">
         <h2 className="text-center fw-bold mb-5">
@@ -23,6 +24,5 @@ const ProblemStatement = () => (
       </div>
     </section>
   </Element>
-);
-
-export default ProblemStatement;
+  );
+}

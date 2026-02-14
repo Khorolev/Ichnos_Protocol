@@ -3,8 +3,9 @@ import { Element } from 'react-scroll';
 import { SERVICES_PREVIEW } from '../../constants/landingContent';
 import ServiceCard from '../molecules/ServiceCard';
 
-const ServicesSnapshot = () => (
-  <Element name="services">
+export default function ServicesSnapshot() {
+  return (
+    <Element name="services">
     <section className="py-5">
       <div className="container">
         <h2 className="text-center fw-bold mb-5">Our Services</h2>
@@ -18,6 +19,5 @@ const ServicesSnapshot = () => (
       </div>
     </section>
   </Element>
-);
-
-export default ServicesSnapshot;
+  );
+}

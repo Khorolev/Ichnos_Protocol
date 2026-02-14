@@ -4,10 +4,10 @@ const STATUS_VARIANTS = {
   Planned: 'badge-status-planned',
 };
 
-const StatusBadge = ({ status }) => (
-  <span className={`badge ${STATUS_VARIANTS[status] || 'badge-status-planned'}`}>
-    {status}
-  </span>
-);
-
-export default StatusBadge;
+export default function StatusBadge({ status }) {
+  return (
+    <span className={`badge ${STATUS_VARIANTS[status] || 'badge-status-planned'}`}>
+      {status}
+    </span>
+  );
+}
