@@ -39,8 +39,8 @@ The site includes public-facing pages (landing, team, services/products), an AI-
 | UI Framework | Bootstrap 5 (react-bootstrap)     | No custom CSS frameworks on top            |
 | State        | Redux Toolkit (RTK)               | RTK Query for API calls                    |
 | Routing      | React Router v6+                  |                                            |
-| Backend      | Express.js                        | REST API                                   |
-| SQL DB       | PostgreSQL (Neon Tech)            | Accessed via `pg` or Prisma                |
+| Backend      | Express.js 5                      | REST API, ES modules (`"type": "module"`)  |
+| SQL DB       | PostgreSQL (Neon Tech)            | Accessed via `pg`                          |
 | NoSQL DB     | Firestore                         | File storage + document metadata           |
 | Auth         | Firebase Authentication           | JWT-based, verified server-side            |
 | Chatbot      | X.ai Grok API                     | RAG integration                            |
@@ -96,7 +96,7 @@ Ichnos_Protocol/
 │   │   ├── middleware/           # Auth verification, error handler, validation
 │   │   ├── routes/               # Express router definitions
 │   │   ├── helpers/              # Pure utility functions
-│   │   ├── validators/           # Request validation schemas (Joi / Zod)
+│   │   ├── validators/           # Request validation schemas (Zod)
 │   │   └── app.js                # Express app setup
 │   ├── .env.example
 │   ├── vercel.json               # Vercel backend config (serverless, rewrites)
@@ -143,7 +143,7 @@ Every layer has a **single responsibility**. Never mix concerns across layers.
 | Services        | Business logic and orchestration              | Direct DB access, HTTP concerns       |
 | Repositories    | Data access (SQL and Firestore)               | Business logic, HTTP concerns         |
 | Middleware      | Cross-cutting: auth, errors, validation       | Business logic                        |
-| Validators      | Request schema validation                     | Business logic, DB access             |
+| Validators      | Request schema validation (Zod)               | Business logic, DB access             |
 | Helpers         | Pure utility functions                        | Side effects, DB access               |
 
 ### 4.2 SOLID Principles
@@ -403,7 +403,7 @@ CORS_ORIGIN=                     # Frontend URL
 
 ## 13. Security
 
-- **Input validation**: Validate and sanitize every user input on the server (use Zod or Joi).
+- **Input validation**: Validate and sanitize every user input on the server (use Zod).
 - **SQL injection**: Parameterized queries only. Never concatenate user input into SQL.
 - **XSS**: React escapes by default. Never use `dangerouslySetInnerHTML`.
 - **CORS**: Restrict to the frontend origin only.
@@ -707,7 +707,7 @@ When working on this project, Claude must:
 10. **Provide the `.env.example` update** whenever a new environment variable is introduced.
 11. **Use Bootstrap components and utility classes** for all styling. Do not write custom CSS unless Bootstrap cannot achieve the design.
 12. **All API communication** goes through RTK Query. No raw fetch/axios in components.
-13. **Validate inputs** at the boundary: Zod/Joi on the server, form validation on the client.
+13. **Validate inputs** at the boundary: Zod on the server, form validation on the client.
 14. **When creating a new page**, wire up the route in the router, add it to the navigation if public, and protect it if admin-only.
 15. **Run a mental test.** Before presenting code, mentally trace through the user flow to catch obvious issues.
 

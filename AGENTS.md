@@ -10,7 +10,7 @@ Monorepo: `client/` (React frontend) + `server/` (Express backend).
 | Layer        | Technology                     |
 |--------------|--------------------------------|
 | Frontend     | React 18+, Vite, Bootstrap 5, Redux Toolkit (RTK Query), React Router v6+ |
-| Backend      | Express.js, REST API           |
+| Backend      | Express.js 5, REST API, ES modules |
 | SQL DB       | PostgreSQL (Neon Tech)         |
 | NoSQL/Files  | Firebase Firestore + Storage   |
 | Auth         | Firebase Authentication        |
@@ -50,7 +50,7 @@ server/
     middleware/        # Auth, errors, validation
     routes/            # Express routers
     helpers/           # Pure utilities
-    validators/        # Request schemas (Zod / Joi)
+    validators/        # Request schemas (Zod)
   vercel.json          # Vercel backend config (serverless, rewrites)
 ```
 
@@ -145,7 +145,7 @@ cd server && vercel --prod   # deploy backend
 ## Security essentials
 
 - Parameterized SQL queries only. Never interpolate user input.
-- Validate all inputs server-side (Zod / Joi).
+- Validate all inputs server-side (Zod).
 - Firebase ID tokens verified server-side on every protected request.
 - Never use `dangerouslySetInnerHTML`.
 - CORS restricted to frontend origin only.
