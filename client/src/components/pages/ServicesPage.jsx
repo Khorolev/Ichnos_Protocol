@@ -1,4 +1,6 @@
 import { Helmet } from "react-helmet-async";
+import Container from "react-bootstrap/Container";
+
 import { SEO_META } from "../../constants/seo";
 import { SERVICES_PAGE_CONTENT } from "../../constants/services";
 import ServicesList from "../organisms/ServicesList";
@@ -20,12 +22,12 @@ export default function ServicesPage() {
         <p className="lead section-subtext">{SERVICES_PAGE_CONTENT.subtitle}</p>
       </header>
 
-      <div className="container">
+      <Container>
         <ServicesList />
         <FeatureMaturityMatrix />
         <TechnologyRoadmap />
         <ContactSection />
-      </div>
+      </Container>
     </div>
   );
 }

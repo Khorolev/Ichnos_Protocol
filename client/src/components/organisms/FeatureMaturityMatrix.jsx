@@ -1,3 +1,5 @@
+import Table from 'react-bootstrap/Table';
+
 import {
   BATTERY_PASSPORT_FEATURES,
   FEATURE_MATRIX_CONTENT,
@@ -26,14 +28,13 @@ const FeatureRow = ({ feature, mandated, status, phase }) => (
 export default function FeatureMaturityMatrix() {
   return (
     <section className="py-5">
-    <h2 className="text-center mb-2 section-heading">
-      {FEATURE_MATRIX_CONTENT.heading}
-    </h2>
-    <p className="text-center mb-5 section-subtext">
-      {FEATURE_MATRIX_CONTENT.subtext}
-    </p>
-    <div className="table-responsive">
-      <table className="table table-dark-custom align-middle">
+      <h2 className="text-center mb-2 section-heading">
+        {FEATURE_MATRIX_CONTENT.heading}
+      </h2>
+      <p className="text-center mb-5 section-subtext">
+        {FEATURE_MATRIX_CONTENT.subtext}
+      </p>
+      <Table responsive className="table-dark-custom align-middle">
         <thead>
           <tr>
             <th>{FEATURE_MATRIX_CONTENT.columns.feature}</th>
@@ -53,8 +54,7 @@ export default function FeatureMaturityMatrix() {
             <FeatureRow key={item.feature} {...item} />
           ))}
         </tbody>
-      </table>
-    </div>
-  </section>
+      </Table>
+    </section>
   );
 }

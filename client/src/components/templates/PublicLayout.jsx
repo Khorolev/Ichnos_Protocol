@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Container from "react-bootstrap/Container";
 
 import Navbar from "../organisms/Navbar";
 import MobileNavOverlay from "../organisms/MobileNavOverlay";
@@ -15,7 +16,7 @@ export default function PublicLayout({ children }) {
         onClose={() => setMobileMenuOpen(false)}
       />
       <main className="flex-grow-1">
-        <div className="container py-4">{children}</div>
+        <Container className="py-4">{children}</Container>
       </main>
       <Footer />
     </div>

@@ -110,7 +110,8 @@ cd server && vercel --prod   # deploy backend
 - Default exports for React components (atoms, molecules, organisms, pages, templates). Named exports for utilities, hooks, constants, Redux slices, helpers, and infrastructure files (store, providers).
 - Functional components only. Props destructured in signature.
 - One component per file. File name matches component name.
-- No inline styles. Use Bootstrap utility classes.
+- No inline styles. Use Bootstrap utility classes for spacing, typography, display.
+- Use react-bootstrap components (`Container`, `Row`, `Col`, `Card`, `Table`, `Badge`, `Button`, etc.) for layout and UI. Import from `react-bootstrap/<Component>`.
 - All API calls through RTK Query. No raw fetch/axios in components.
 - Extract helpers for any logic block > 3 lines. Helpers must be pure functions.
 
