@@ -4,16 +4,14 @@ import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 
 import { HERO_CONTENT } from '../../constants/landingContent';
+import { useReducedMotion } from '../../hooks/useReducedMotion';
 
 const SCROLL_OFFSET = -80;
 const SCROLL_DURATION = 500;
 
-const prefersReducedMotion = () =>
-  typeof window !== 'undefined' &&
-  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
 export default function Hero() {
-  const duration = prefersReducedMotion() ? 0 : SCROLL_DURATION;
+  const reducedMotion = useReducedMotion();
+  const duration = reducedMotion ? 0 : SCROLL_DURATION;
 
   return (
     <section className="hero-section d-flex align-items-center">

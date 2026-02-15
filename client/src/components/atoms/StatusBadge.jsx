@@ -2,6 +2,7 @@ import Badge from 'react-bootstrap/Badge';
 
 const STATUS_VARIANTS = {
   Live: 'badge-status-live',
+  Updating: 'badge-status-updating',
   'In Development': 'badge-status-dev',
   Planned: 'badge-status-planned',
 };
