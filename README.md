@@ -251,6 +251,7 @@ The color palette is derived from the **company logo** (a tree with circuit-boar
 | Testing      | Vitest, React Testing Library, Supertest | Unit, component, and API test suites |
 | E2E Testing  | Playwright                         | End-to-end tests against Vercel previews |
 | Linting      | ESLint + Prettier                  | Code quality enforcement                 |
+| Linting Plugins | eslint-plugin-vitest            | Vitest globals recognition and test-specific rules |
 | Deployment   | Vercel (Monorepo)                  | Two projects: `client/` + `server/`      |
 
 ---
@@ -291,6 +292,22 @@ cp server/.env.example server/.env
 
 See [Environment Variables](#environment-variables) for the full list.
 
+### Key Dependencies
+
+Current versions (as of last update):
+
+| Package                  | Version    | Purpose                                    |
+|--------------------------|------------|--------------------------------------------|
+| react                    | ^18.3.1    | UI library                                 |
+| react-dom                | ^18.3.1    | React DOM renderer                         |
+| react-helmet-async       | ^2.0.5     | SEO meta tags (React 18 compatible)        |
+| vite                     | ^7.3.1     | Build tool and dev server                  |
+| vitest                   | ^4.0.18    | Test runner                                |
+| eslint                   | ^9.39.1    | Linter (flat config)                       |
+| eslint-plugin-vitest     | ^0.5.4     | Vitest globals and test-specific rules     |
+
+**Note**: React 18.x is used instead of React 19 due to `react-helmet-async@2.0.5` compatibility constraints.
+
 ### Running Locally
 
 ```bash
@@ -314,7 +331,11 @@ npm run test -- path/to/file.test.jsx
 npm run test -- --coverage
 ```
 
-Vitest shares the Vite transform pipeline — JSX, ESM, and path aliases work without extra config. Client tests use `jsdom` environment; server tests use `node`.
+**Vitest Configuration**
+
+Vitest is configured with `globals: true` in `client/vite.config.js` (line 8), which injects test globals (`describe`, `it`, `expect`, `vi`) at runtime. ESLint recognizes these globals via `eslint-plugin-vitest@^0.5.4`, preventing `no-undef` errors in test files.
+
+Client tests use `jsdom` environment; server tests use `node`. Vitest shares the Vite transform pipeline — JSX, ESM, and path aliases work without extra configuration.
 
 ### End-to-End Tests (Playwright)
 
@@ -340,6 +361,16 @@ In CI, Playwright runs automatically against Vercel preview deployment URLs via 
 npm run lint      # ESLint
 npm run format    # Prettier
 ```
+
+**ESLint Configuration**
+
+The project uses ESLint 9 with flat config format (`eslint.config.js`). For test files, `eslint-plugin-vitest` is configured to:
+
+- Recognize Vitest globals (`describe`, `it`, `expect`, `vi`, `beforeEach`, `afterEach`, etc.) — resolves `no-undef` errors
+- Apply Vitest-specific lint rules (e.g., no focused tests, no disabled tests)
+- Enforce test best practices
+
+Test files are identified by the patterns: `**/*.{test,mock}.{js,jsx}`, `**/*.spec.{js,jsx}`, and `**/setupTests.js`.
 
 ---
 
