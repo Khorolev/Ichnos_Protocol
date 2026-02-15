@@ -1,6 +1,6 @@
 import js from '@eslint/js'
 import globals from 'globals'
-import vitest from 'eslint-plugin-vitest'
+import vitest from '@vitest/eslint-plugin'
 
 export default [
   {
@@ -22,7 +22,7 @@ export default [
     languageOptions: {
       globals: {
         ...globals.node,
-        ...vitest.environments.node.globals,
+        ...vitest.environments.env.globals,
       },
     },
     rules: {
