@@ -248,7 +248,7 @@ The color palette is derived from the **company logo** (a tree with circuit-boar
 | Auth         | Firebase Authentication            | JWT-based user and admin authentication  |
 | Chatbot      | X.ai Grok API (RAG)               | AI-powered visitor engagement            |
 | LinkedIn     | Third-party embed widget           | Company feed on landing page             |
-| Testing      | Vitest, React Testing Library, Supertest | Unit, component, and API test suites |
+| Testing      | Vitest, eslint-plugin-vitest, React Testing Library, Supertest | Unit, component, and API test suites |
 | E2E Testing  | Playwright                         | End-to-end tests against Vercel previews |
 | Linting      | ESLint + Prettier                  | Code quality enforcement                 |
 | Linting Plugins | eslint-plugin-vitest            | Vitest globals recognition and test-specific rules |
