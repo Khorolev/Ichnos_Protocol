@@ -330,6 +330,11 @@ body {
   color: var(--color-text-secondary);
 }
 
+.badge-status-updating {
+  background-color: rgba(255, 165, 0, 0.15);
+  color: #FFA500;
+}
+
 /* ========== Roadmap Cards ========== */
 .roadmap-card {
   background-color: var(--color-surface);
@@ -467,6 +472,36 @@ body {
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
+}
+
+/* ========== Navbar Skeleton ========== */
+.navbar-skeleton-logo {
+  width: 120px;
+  height: 40px;
+}
+
+.navbar-skeleton-link {
+  width: 60px;
+  height: 20px;
+}
+
+.navbar-skeleton-hamburger {
+  width: 32px;
+  height: 32px;
+}
+
+/* ========== Page Transitions ========== */
+.page-fade-enter {
+  opacity: 0;
+}
+
+.page-fade-enter-active {
+  opacity: 1;
+  transition: opacity var(--transition-base);
+}
+
+.page-fade-skip {
+  opacity: 1;
 }
 
 /* ========== Reduced Motion ========== */

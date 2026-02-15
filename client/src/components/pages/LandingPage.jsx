@@ -2,11 +2,23 @@ import { Helmet } from "react-helmet-async";
 
 import { LANDING_META } from "../../constants/seoMeta";
 import { useScrollToSection } from "../../hooks/useScrollToSection";
+import PageTransition from "../templates/PageTransition";
+import NavbarSkeleton from "../molecules/NavbarSkeleton";
+import HeroSkeleton from "../molecules/HeroSkeleton";
+import ContentCardSkeleton from "../molecules/ContentCardSkeleton";
 import Hero from "../organisms/Hero";
 import ProblemStatement from "../organisms/ProblemStatement";
 import SolutionOverview from "../organisms/SolutionOverview";
 import WhyIchnos from "../organisms/WhyIchnos";
 import ServicesSnapshot from "../organisms/ServicesSnapshot";
+
+const landingSkeleton = (
+  <>
+    <NavbarSkeleton />
+    <HeroSkeleton />
+    <ContentCardSkeleton count={3} />
+  </>
+);
 
 export default function LandingPage() {
   useScrollToSection();
@@ -22,11 +34,13 @@ export default function LandingPage() {
         <meta property="og:type" content={LANDING_META.og.type} />
         <meta property="og:url" content={LANDING_META.og.url} />
       </Helmet>
-      <Hero />
-      <ProblemStatement />
-      <SolutionOverview />
-      <WhyIchnos />
-      <ServicesSnapshot />
+      <PageTransition skeleton={landingSkeleton}>
+        <Hero />
+        <ProblemStatement />
+        <SolutionOverview />
+        <WhyIchnos />
+        <ServicesSnapshot />
+      </PageTransition>
     </>
   );
 }
