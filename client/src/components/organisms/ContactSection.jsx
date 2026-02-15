@@ -1,0 +1,86 @@
+import Row from 'react-bootstrap/Row';
+import Col from 'react-bootstrap/Col';
+import Card from 'react-bootstrap/Card';
+
+import { COMPANY_INFO, CONTACT_INFO } from '../../constants/companyInfo';
+import { CONTACT_SECTION_CONTENT } from '../../constants/services';
+import Icon from '../atoms/Icon';
+
+const ContactLink = ({ href, icon, label, external = false }) => (
+  <a
+    href={href}
+    className="d-flex align-items-center mb-3 text-decoration-none contact-link"
+    {...(external && { target: '_blank', rel: 'noopener noreferrer' })}
+  >
+    <Icon name={icon} className="me-2 fs-5" />
+    <span>{label}</span>
+  </a>
+);
+
+export default function ContactSection() {
+  return (
+    <section className="py-5">
+      <h2 className="text-center mb-2 section-heading">
+        {CONTACT_SECTION_CONTENT.heading}
+      </h2>
+      <p className="text-center mb-5 section-subtext">
+        {CONTACT_SECTION_CONTENT.subtext}
+      </p>
+      <Row className="justify-content-center">
+        <Col xs={12} md={6} className="mb-4">
+          <Card className="h-100 contact-card">
+            <Card.Body>
+              <h3 className="h5 mb-4 contact-card-title">
+                {CONTACT_SECTION_CONTENT.contactCardTitle}
+              </h3>
+              <ContactLink
+                href={`mailto:${CONTACT_INFO.email}`}
+                icon="envelope"
+                label={CONTACT_INFO.email}
+              />
+              <ContactLink
+                href={CONTACT_INFO.linkedInCompany}
+                icon="linkedin"
+                label={CONTACT_SECTION_CONTENT.links.linkedInCompany}
+                external
+              />
+              <ContactLink
+                href={CONTACT_INFO.linkedInFounder}
+                icon="person-circle"
+                label={CONTACT_SECTION_CONTENT.links.linkedInFounder}
+                external
+              />
+              <ContactLink
+                href={CONTACT_INFO.calendly}
+                icon="calendar-event"
+                label={CONTACT_SECTION_CONTENT.links.bookMeeting}
+                external
+              />
+            </Card.Body>
+          </Card>
+        </Col>
+        <Col xs={12} md={6} className="mb-4">
+          <Card className="h-100 contact-card">
+            <Card.Body>
+              <h3 className="h5 mb-4 contact-card-title">
+                {CONTACT_SECTION_CONTENT.companyCardTitle}
+              </h3>
+              <p className="mb-2 contact-card-text">
+                <strong>{CONTACT_SECTION_CONTENT.labels.legalName}</strong>{' '}
+                {COMPANY_INFO.legalName}
+              </p>
+              <p className="mb-2 contact-card-text">
+                <strong>{CONTACT_SECTION_CONTENT.labels.uen}</strong>{' '}
+                {COMPANY_INFO.uen}
+              </p>
+              <p className="mb-0 contact-card-text">
+                <strong>{CONTACT_SECTION_CONTENT.labels.address}</strong>{' '}
+                {COMPANY_INFO.registeredAddress}
+              </p>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
+    </section>
+  );
+}

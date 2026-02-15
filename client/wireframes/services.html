@@ -1,0 +1,495 @@
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ichnos Protocol - Services Page Wireframe</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0A1628;
+            color: #E8ECF1;
+            line-height: 1.6;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+        
+        nav {
+            background: rgba(26, 39, 68, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 1rem 0;
+            border-bottom: 1px solid rgba(30, 144, 255, 0.2);
+        }
+        nav .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .logo { 
+            font-size: 1.5rem; 
+            font-weight: 700;
+            background: linear-gradient(135deg, #14F195, #9945FF);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+        .nav-links a {
+            color: #8B9DC3;
+            text-decoration: none;
+        }
+        .nav-links a:hover { color: #1E90FF; }
+        
+        .page-header {
+            padding: 4rem 0 2rem;
+            text-align: center;
+        }
+        .page-header h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        .page-header p {
+            font-size: 1.25rem;
+            color: #8B9DC3;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        /* Services Overview */
+        .services-intro {
+            padding: 3rem 0;
+            text-align: center;
+        }
+        .services-intro p {
+            max-width: 700px;
+            margin: 0 auto;
+            color: #8B9DC3;
+            font-size: 1.1rem;
+        }
+        
+        /* Service Cards */
+        .services-section {
+            padding: 3rem 0;
+        }
+        .service-detail {
+            background: rgba(26, 39, 68, 0.6);
+            padding: 3rem;
+            border-radius: 12px;
+            border: 1px solid rgba(30, 144, 255, 0.2);
+            margin-bottom: 2rem;
+        }
+        .service-detail h2 {
+            color: #C8A24E;
+            margin-bottom: 1rem;
+            font-size: 2rem;
+        }
+        .service-detail p {
+            color: #8B9DC3;
+            margin-bottom: 1rem;
+        }
+        .service-detail ul {
+            color: #8B9DC3;
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .service-detail .cta {
+            display: inline-block;
+            margin-top: 1rem;
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #1E90FF, #00D1C1);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        
+        /* Battery Passport Showcase */
+        .passport-showcase {
+            padding: 5rem 0;
+            background: linear-gradient(135deg, rgba(20, 241, 149, 0.05), rgba(153, 69, 255, 0.05));
+        }
+        .passport-content {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .passport-content h2 {
+            font-size: 2.5rem;
+            text-align: center;
+            margin-bottom: 2rem;
+            background: linear-gradient(135deg, #14F195, #9945FF);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        /* Feature Maturity Matrix */
+        .maturity-matrix {
+            background: rgba(26, 39, 68, 0.8);
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 3rem 0;
+        }
+        .matrix-header {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            background: rgba(30, 144, 255, 0.2);
+            padding: 1rem;
+            font-weight: 600;
+            border-bottom: 2px solid #1E90FF;
+        }
+        .matrix-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            padding: 1rem;
+            border-bottom: 1px solid rgba(30, 144, 255, 0.1);
+        }
+        .matrix-row:hover {
+            background: rgba(30, 144, 255, 0.05);
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .status-live {
+            background: rgba(20, 241, 149, 0.2);
+            color: #14F195;
+            border: 1px solid #14F195;
+        }
+        .status-dev {
+            background: rgba(30, 144, 255, 0.2);
+            color: #1E90FF;
+            border: 1px solid #1E90FF;
+        }
+        .status-planned {
+            background: rgba(139, 157, 195, 0.2);
+            color: #8B9DC3;
+            border: 1px solid #8B9DC3;
+        }
+        
+        /* Technology Roadmap */
+        .tech-roadmap {
+            padding: 4rem 0;
+        }
+        .roadmap-phases {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+        .phase-card {
+            background: rgba(26, 39, 68, 0.6);
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid rgba(30, 144, 255, 0.2);
+        }
+        .phase-card h3 {
+            color: #00D1C1;
+            margin-bottom: 1rem;
+        }
+        .phase-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: rgba(200, 162, 78, 0.2);
+            color: #C8A24E;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+        }
+        
+        /* Target Industries */
+        .industries-section {
+            padding: 4rem 0;
+            background: rgba(26, 39, 68, 0.3);
+        }
+        .industries-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+        .industry-tag {
+            background: rgba(26, 39, 68, 0.8);
+            padding: 1.5rem;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid rgba(30, 144, 255, 0.2);
+        }
+        
+        footer {
+            background: #0A1628;
+            padding: 3rem 0;
+            border-top: 1px solid rgba(30, 144, 255, 0.2);
+            text-align: center;
+            color: #8B9DC3;
+        }
+        
+        @media (max-width: 768px) {
+            .matrix-header, .matrix-row { 
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+            .roadmap-phases { grid-template-columns: 1fr; }
+        }
+    </style>
+</meta></meta></head>
+<body>
+    <nav>
+        <div class="container">
+            <div class="logo">ICHNOS PROTOCOL</div>
+            <ul class="nav-links">
+                <li><a href="#home">Home</a></li>
+                <li><a href="#services">Services</a></li>
+                <li><a href="#team">Team</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <div class="page-header">
+        <div class="container">
+            <h1>Our Services</h1>
+            <p>Expert consulting and development services for companies navigating the battery regulation landscape</p>
+        </div>
+    </div>
+
+    <section class="services-intro">
+        <div class="container">
+            <p>
+                Ichnos Protocol combines deep battery engineering expertise with regulatory knowledge and software 
+                development capability to deliver pragmatic solutions designed for implementation, not just documentation.
+            </p>
+        </div>
+    </section>
+
+    
+    <section class="services-section">
+        <div class="container">
+            <div class="service-detail">
+                <h2>Battery Regulation Compliance</h2>
+                <p>
+                    Navigate the EU Battery Regulation with confidence. We provide gap analysis, compliance roadmaps, 
+                    and documentation preparation to ensure your products meet all regulatory requirements.
+                </p>
+                <ul>
+                    <li>Comprehensive gap analysis against EU Battery Regulation requirements</li>
+                    <li>Compliance roadmap development with clear milestones</li>
+                    <li>Technical documentation preparation for regulatory submissions</li>
+                    <li>Ongoing regulatory monitoring and updates</li>
+                </ul>
+            </div>
+
+            <div class="service-detail">
+                <h2>Homologation Support</h2>
+                <p>
+                    End-to-end support for type approval processes, including coordination with notified bodies 
+                    and testing centers across the EU.
+                </p>
+                <ul>
+                    <li>Type approval process management (UN ECE R100, GTR No. 20)</li>
+                    <li>Coordination with notified bodies and certification authorities</li>
+                    <li>Technical file preparation and submission</li>
+                    <li>Compliance verification and audit support</li>
+                </ul>
+            </div>
+
+            <div class="service-detail">
+                <h2>Testing Center Coordination</h2>
+                <p>
+                    Selection of and liaison with accredited testing centers for battery safety, performance, 
+                    and durability assessments.
+                </p>
+                <ul>
+                    <li>Testing center selection based on requirements and budget</li>
+                    <li>Test plan development and review</li>
+                    <li>Coordination of testing schedules and logistics</li>
+                    <li>Results analysis and reporting</li>
+                </ul>
+            </div>
+
+            <div class="service-detail">
+                <h2>Requirement Management</h2>
+                <p>
+                    Structure and manage technical, legal, and regulatory requirements for battery system development 
+                    with systematic traceability.
+                </p>
+                <ul>
+                    <li>Requirements elicitation and documentation</li>
+                    <li>Traceability matrix development</li>
+                    <li>Change management and version control</li>
+                    <li>Stakeholder alignment and communication</li>
+                </ul>
+            </div>
+
+            <div class="service-detail">
+                <h2>Battery Passport Development (In-House)</h2>
+                <p>
+                    Help your engineering team build a Battery Passport solution tailored to your products and processes, 
+                    with hands-on technical guidance.
+                </p>
+                <ul>
+                    <li>Data model design aligned with DIN SPEC 99100</li>
+                    <li>System architecture and technology selection</li>
+                    <li>Integration with existing PLM/ERP systems</li>
+                    <li>Implementation support and code review</li>
+                </ul>
+            </div>
+
+            <div class="service-detail">
+                <h2>Circular Economy Strategy</h2>
+                <p>
+                    Advisory on remanufacturing, repurposing, and second-life strategies to maximize battery asset value 
+                    and enable sustainable business models.
+                </p>
+                <ul>
+                    <li>Remanufacturing feasibility assessment</li>
+                    <li>Second-life application identification and matching</li>
+                    <li>Reverse logistics and collection strategy</li>
+                    <li>Business model development for circular operations</li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    
+    <section class="passport-showcase">
+        <div class="container">
+            <div class="passport-content">
+                <h2>The Ichnos Battery Passport</h2>
+                <p style="text-align: center; color: #8B9DC3; margin-bottom: 3rem;">
+                    Beyond compliance: a Battery Passport solution that enables real circularity
+                </p>
+
+                
+                <div class="maturity-matrix">
+                    <div class="matrix-header">
+                        <div>Feature</div>
+                        <div>Mandated</div>
+                        <div>Status</div>
+                        <div>Phase</div>
+                    </div>
+                    <div class="matrix-row">
+                        <div>Composition & Materials Data</div>
+                        <div>✓ Yes</div>
+                        <div><span class="status-badge status-live">Live</span></div>
+                        <div>Prototype</div>
+                    </div>
+                    <div class="matrix-row">
+                        <div>Performance & Durability Metrics</div>
+                        <div>✓ Yes</div>
+                        <div><span class="status-badge status-live">Live</span></div>
+                        <div>Prototype</div>
+                    </div>
+                    <div class="matrix-row">
+                        <div>Carbon Footprint Declaration</div>
+                        <div>✓ Yes</div>
+                        <div><span class="status-badge status-live">Live</span></div>
+                        <div>Prototype</div>
+                    </div>
+                    <div class="matrix-row">
+                        <div>Supply Chain Due Diligence</div>
+                        <div>✓ Yes</div>
+                        <div><span class="status-badge status-dev">In Development</span></div>
+                        <div>Prototype</div>
+                    </div>
+                    <div class="matrix-row">
+                        <div>Remanufacturing Readiness Score</div>
+                        <div>✗ No</div>
+                        <div><span class="status-badge status-live">Live</span></div>
+                        <div>Prototype</div>
+                    </div>
+                    <div class="matrix-row">
+                        <div>Second-Life Application Matching</div>
+                        <div>✗ No</div>
+                        <div><span class="status-badge status-dev">In Development</span></div>
+                        <div>Prototype</div>
+                    </div>
+                    <div class="matrix-row">
+                        <div>SME Marketplace Integration</div>
+                        <div>✗ No</div>
+                        <div><span class="status-badge status-planned">Planned</span></div>
+                        <div>Production</div>
+                    </div>
+                    <div class="matrix-row">
+                        <div>Degradation Forecasting</div>
+                        <div>✗ No</div>
+                        <div><span class="status-badge status-dev">In Development</span></div>
+                        <div>Prototype</div>
+                    </div>
+                    <div class="matrix-row">
+                        <div>Repurposer/Remanufacturer Tools</div>
+                        <div>✗ No</div>
+                        <div><span class="status-badge status-planned">Planned</span></div>
+                        <div>Production</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    
+    <section class="tech-roadmap">
+        <div class="container">
+            <h2 style="text-align: center; margin-bottom: 2rem;">Technology Roadmap</h2>
+            <div class="roadmap-phases">
+                <div class="phase-card">
+                    <span class="phase-badge">CURRENT</span>
+                    <h3>Prototype Phase</h3>
+                    <p style="color: #8B9DC3; margin-bottom: 1rem;">
+                        SQL (PostgreSQL) and NoSQL (Firestore) databases for rapid iteration and validation 
+                        of the data model.
+                    </p>
+                    <ul style="color: #8B9DC3; margin-left: 1.5rem;">
+                        <li>Fast development cycles</li>
+                        <li>Data model refinement</li>
+                        <li>Feature validation with early adopters</li>
+                        <li>Integration testing with PLM/ERP systems</li>
+                    </ul>
+                </div>
+                <div class="phase-card">
+                    <span class="phase-badge">PLANNED</span>
+                    <h3>Production Phase</h3>
+                    <p style="color: #8B9DC3; margin-bottom: 1rem;">
+                        Migration to Solana blockchain for immutable, decentralized battery lifecycle records 
+                        with transparent provenance.
+                    </p>
+                    <ul style="color: #8B9DC3; margin-left: 1.5rem;">
+                        <li>Immutable lifecycle records</li>
+                        <li>Decentralized data ownership</li>
+                        <li>High throughput, low cost</li>
+                        <li>Interoperability with sustainability dApps</li>
+                    </ul>
+                </div>
+            </div>
+            <p style="text-align: center; margin-top: 2rem; color: #8B9DC3;">
+                The Solana choice aligns with our values: high throughput, low cost, and a growing ecosystem 
+                of sustainability-focused decentralized applications.
+            </p>
+        </div>
+    </section>
+
+    
+    <section class="industries-section">
+        <div class="container">
+            <h2 style="text-align: center; margin-bottom: 2rem;">Target Industries</h2>
+            <div class="industries-grid">
+                <div class="industry-tag">🚗 Automotive</div>
+                <div class="industry-tag">🏍️ Motorcycle</div>
+                <div class="industry-tag">⚡ Energy Storage</div>
+                <div class="industry-tag">🏭 Industrial Equipment</div>
+                <div class="industry-tag">⛴️ Marine</div>
+                <div class="industry-tag">✈️ Aviation</div>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 Ichnos Protocol Pte. Ltd. | UEN: 202606521W | Singapore</p>
+        </div>
+    </footer>
+</body>
+</html>
