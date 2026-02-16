@@ -13,6 +13,7 @@
 firebase-service-account*.json
 serviceAccountKey*.json
 credentials*.json
+server/.ichnos-protocol-firebase-adminsdk-fbsvc-2046c58e9e.json
 secrets/
 
 # ============================================
