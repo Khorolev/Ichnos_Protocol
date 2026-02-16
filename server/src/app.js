@@ -9,6 +9,7 @@ import express from "express";
 import helmet from "helmet";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
+import authRoutes from "./routes/authRoutes.js";
 
 const app = express();
 
@@ -39,10 +40,8 @@ app.get("/api/health", (_req, res) => {
   res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-// API routes will be mounted here as they are implemented
-// Example: app.use('/api/chat', chatRoutes);
-// Example: app.use('/api/contact', contactRoutes);
-// Example: app.use('/api/admin', adminRoutes);
+// API routes
+app.use("/api/auth", authRoutes);
 
 // 404 handler for undefined routes
 app.use((_req, res) => {
