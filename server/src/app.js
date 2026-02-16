@@ -10,6 +10,7 @@ import helmet from "helmet";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import authRoutes from "./routes/authRoutes.js";
+import chatRoutes from "./routes/chatRoutes.js";
 
 const app = express();
 
@@ -42,6 +43,7 @@ app.get("/api/health", (_req, res) => {
 
 // API routes
 app.use("/api/auth", authRoutes);
+app.use("/api/chat", chatRoutes);
 
 // 404 handler for undefined routes
 app.use((_req, res) => {
