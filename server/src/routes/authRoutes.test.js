@@ -43,8 +43,7 @@ describe("auth routes", () => {
   });
 
   describe("POST /api/auth/sync-profile", () => {
-    it("returns 200 with synced profile data", async () => {
-      mockVerifyIdToken.mockResolvedValue(decodedToken);
+    it("returns 200 with synced profile data (unauthenticated)", async () => {
       mockQuery
         .mockResolvedValueOnce({ rows: [{ firebase_uid: "uid-1" }] })
         .mockResolvedValueOnce({
@@ -57,8 +56,7 @@ describe("auth routes", () => {
 
       const res = await request(app)
         .post("/api/auth/sync-profile")
-        .set(authHeader())
-        .send(validProfile);
+        .send({ firebaseUid: "uid-1", ...validProfile });
 
       expect(res.status).toBe(200);
       expect(res.body.data.profile.name).toBe("John");
@@ -67,7 +65,6 @@ describe("auth routes", () => {
     });
 
     it("creates user when not found, then syncs", async () => {
-      mockVerifyIdToken.mockResolvedValue(decodedToken);
       mockQuery
         .mockResolvedValueOnce({ rows: [] })
         .mockResolvedValueOnce({ rows: [{ firebase_uid: "uid-1" }] })
@@ -79,28 +76,25 @@ describe("auth routes", () => {
 
       const res = await request(app)
         .post("/api/auth/sync-profile")
-        .set(authHeader())
-        .send(validProfile);
+        .send({ firebaseUid: "uid-1", ...validProfile });
 
       expect(res.status).toBe(200);
       expect(res.body.data.isAdmin).toBe(false);
     });
 
-    it("returns 401 without auth token", async () => {
+    it("returns 400 when firebaseUid is missing", async () => {
       const res = await request(app)
         .post("/api/auth/sync-profile")
         .send(validProfile);
 
-      expect(res.status).toBe(401);
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe("Validation failed");
     });
 
     it("returns 400 on validation failure", async () => {
-      mockVerifyIdToken.mockResolvedValue(decodedToken);
-
       const res = await request(app)
         .post("/api/auth/sync-profile")
-        .set(authHeader())
-        .send({ name: "" });
+        .send({ firebaseUid: "uid-1", name: "" });
 
       expect(res.status).toBe(400);
       expect(res.body.message).toBe("Validation failed");
@@ -236,6 +230,69 @@ describe("auth routes", () => {
         .send({ name: "Jane" });
 
       expect(res.status).toBe(404);
+    });
+  });
+
+  describe("POST /api/auth/admin/claim", () => {
+    const adminToken = { uid: "admin-1", admin: true };
+
+    it("returns 200 and updates admin claim", async () => {
+      mockVerifyIdToken.mockResolvedValue(adminToken);
+      mockSetCustomUserClaims.mockResolvedValue();
+
+      const res = await request(app)
+        .post("/api/auth/admin/claim")
+        .set(authHeader())
+        .send({ firebaseUid: "uid-2", isAdmin: true });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.firebaseUid).toBe("uid-2");
+      expect(res.body.data.admin).toBe(true);
+      expect(res.body.message).toBe("Admin claim updated");
+    });
+
+    it("returns 200 when revoking admin claim", async () => {
+      mockVerifyIdToken.mockResolvedValue(adminToken);
+      mockSetCustomUserClaims.mockResolvedValue();
+
+      const res = await request(app)
+        .post("/api/auth/admin/claim")
+        .set(authHeader())
+        .send({ firebaseUid: "uid-2", isAdmin: false });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.admin).toBe(false);
+    });
+
+    it("returns 401 without auth token", async () => {
+      const res = await request(app)
+        .post("/api/auth/admin/claim")
+        .send({ firebaseUid: "uid-2", isAdmin: true });
+
+      expect(res.status).toBe(401);
+    });
+
+    it("returns 403 when user is not admin", async () => {
+      mockVerifyIdToken.mockResolvedValue(decodedToken);
+
+      const res = await request(app)
+        .post("/api/auth/admin/claim")
+        .set(authHeader())
+        .send({ firebaseUid: "uid-2", isAdmin: true });
+
+      expect(res.status).toBe(403);
+    });
+
+    it("returns 400 on invalid payload", async () => {
+      mockVerifyIdToken.mockResolvedValue(adminToken);
+
+      const res = await request(app)
+        .post("/api/auth/admin/claim")
+        .set(authHeader())
+        .send({ firebaseUid: "uid-2" });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe("Validation failed");
     });
   });
 });

@@ -9,10 +9,9 @@ import { formatResponse } from "../helpers/formatResponse.js";
 
 export async function syncProfile(req, res, next) {
   try {
-    const { uid } = req.user;
-    const profileData = req.body;
+    const { firebaseUid, ...profileData } = req.body;
 
-    const result = await authService.syncProfile(uid, profileData);
+    const result = await authService.syncProfile(firebaseUid, profileData);
 
     res.status(200).json(formatResponse(result, "Profile synced"));
   } catch (error) {
@@ -58,6 +57,18 @@ export async function updateProfile(req, res, next) {
     const profile = await authService.updateProfile(uid, updates);
 
     res.status(200).json(formatResponse(profile, "Profile updated"));
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function setAdminClaim(req, res, next) {
+  try {
+    const { firebaseUid, isAdmin } = req.body;
+
+    const result = await authService.setAdminClaim(firebaseUid, isAdmin);
+
+    res.status(200).json(formatResponse(result, "Admin claim updated"));
   } catch (error) {
     next(error);
   }

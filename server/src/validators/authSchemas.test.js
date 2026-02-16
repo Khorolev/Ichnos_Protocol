@@ -1,8 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { syncProfileSchema, updateProfileSchema } from "./authSchemas.js";
+import {
+  syncProfileSchema,
+  updateProfileSchema,
+  adminClaimSchema,
+} from "./authSchemas.js";
 
 describe("syncProfileSchema", () => {
   const validProfile = {
+    firebaseUid: "uid-1",
     name: "John",
     surname: "Doe",
     email: "john@example.com",
@@ -23,18 +28,30 @@ describe("syncProfileSchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("rejects missing firebaseUid", () => {
+    const { firebaseUid, ...noUid } = validProfile;
+    const result = syncProfileSchema.safeParse(noUid);
+    expect(result.success).toBe(false);
+  });
+
   it("rejects missing name", () => {
-    const result = syncProfileSchema.safeParse({ surname: "Doe", email: "a@b.com" });
+    const result = syncProfileSchema.safeParse({
+      firebaseUid: "uid-1", surname: "Doe", email: "a@b.com",
+    });
     expect(result.success).toBe(false);
   });
 
   it("rejects missing surname", () => {
-    const result = syncProfileSchema.safeParse({ name: "John", email: "a@b.com" });
+    const result = syncProfileSchema.safeParse({
+      firebaseUid: "uid-1", name: "John", email: "a@b.com",
+    });
     expect(result.success).toBe(false);
   });
 
   it("rejects missing email", () => {
-    const result = syncProfileSchema.safeParse({ name: "John", surname: "Doe" });
+    const result = syncProfileSchema.safeParse({
+      firebaseUid: "uid-1", name: "John", surname: "Doe",
+    });
     expect(result.success).toBe(false);
   });
 
@@ -50,6 +67,42 @@ describe("syncProfileSchema", () => {
 
   it("rejects name exceeding max length", () => {
     const result = syncProfileSchema.safeParse({ ...validProfile, name: "a".repeat(256) });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("adminClaimSchema", () => {
+  it("accepts valid payload with isAdmin true", () => {
+    const result = adminClaimSchema.safeParse({
+      firebaseUid: "uid-1",
+      isAdmin: true,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts valid payload with isAdmin false", () => {
+    const result = adminClaimSchema.safeParse({
+      firebaseUid: "uid-1",
+      isAdmin: false,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects missing firebaseUid", () => {
+    const result = adminClaimSchema.safeParse({ isAdmin: true });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects missing isAdmin", () => {
+    const result = adminClaimSchema.safeParse({ firebaseUid: "uid-1" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects non-boolean isAdmin", () => {
+    const result = adminClaimSchema.safeParse({
+      firebaseUid: "uid-1",
+      isAdmin: "yes",
+    });
     expect(result.success).toBe(false);
   });
 });
