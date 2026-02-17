@@ -79,6 +79,11 @@ lerna-debug.log*
 .claude/settings.local.json
 
 # ============================================
+# Knowledge base PDFs (large binaries, proprietary sources)
+# ============================================
+server/knowledge-base/pdfs/
+
+# ============================================
 # Misc
 # ============================================
 *.tsbuildinfo

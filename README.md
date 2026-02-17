@@ -21,6 +21,7 @@
 - [Project Structure](#project-structure)
 - [Environment Variables](#environment-variables)
 - [Deployment](#deployment)
+- [Knowledge Base Management](#knowledge-base-management)
 - [Development Workflow](#development-workflow)
 - [Legal](#legal)
 
@@ -518,6 +519,39 @@ cd client && vercel --prod
 # Deploy backend
 cd server && vercel --prod
 ```
+
+---
+
+## Knowledge Base Management
+
+The RAG chatbot is powered by a Firestore `knowledge_base` collection populated through four extraction pipelines.
+
+### Pipelines Overview
+
+| Pipeline       | Purpose                       | Command                                                              |
+|----------------|-------------------------------|----------------------------------------------------------------------|
+| Manual Seeding | Company info, services        | `node server/scripts/seedKnowledgeBase.js`                           |
+| Simple PDF     | Text-only PDFs                | `node server/scripts/extractPdfKnowledgeLegacy.js <file.pdf>`        |
+| Complex PDF    | Tables, equations, diagrams   | `python .../convertPdfToMarkdown.py` + `node .../extractMarkdownKnowledge.js` |
+| Web Content    | Catena-X, GBA, standards      | `node server/scripts/extractWebKnowledge.js <url>`                   |
+
+### Quick Start Examples
+
+```bash
+# Seed company knowledge
+node server/scripts/seedKnowledgeBase.js
+
+# Extract from a complex PDF (two-step)
+python server/scripts/python/convertPdfToMarkdown.py --input spec.pdf --output-dir ./markdown
+node server/scripts/extractMarkdownKnowledge.js ./markdown/spec.md --category batteries
+
+# Extract from Catena-X standard
+node server/scripts/extractWebKnowledge.js \
+  https://catenax-ev.github.io/docs/next/standards/CX-0143 \
+  --category regulations
+```
+
+For complete workflow documentation, troubleshooting, and periodic update procedures, see [`server/scripts/README.md`](server/scripts/README.md).
 
 ---
 
