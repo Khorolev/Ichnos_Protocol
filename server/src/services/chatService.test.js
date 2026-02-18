@@ -211,7 +211,7 @@ describe("chatService", () => {
       expect(fetchBody.messages[1].content).toContain("Document B content");
     });
 
-    it("fires topic classification without blocking", async () => {
+    it("runs topic classification before returning", async () => {
       mockGetDailyChatCount.mockResolvedValue(0);
       mockQueryKnowledgeBase.mockResolvedValue([]);
       mockFetch
@@ -224,10 +224,6 @@ describe("chatService", () => {
       const result = await sendMessage("uid-1", "Battery regulation?");
 
       expect(result.answer).toBe("Answer");
-
-      // Allow async topic classification to complete
-      await new Promise((resolve) => setTimeout(resolve, 50));
-
       expect(mockCreateTopic).toHaveBeenCalled();
     });
 

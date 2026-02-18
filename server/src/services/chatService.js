@@ -198,7 +198,7 @@ export async function sendMessage(userId, message) {
 
   await userRepository.updateUserActivity(userId);
 
-  classifyTopics(question.id, message);
+  await classifyTopics(question.id, message);
 
   return { answer, messageId: question.id, dailyCount: dailyCount + 1 };
 }
