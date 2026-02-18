@@ -72,10 +72,11 @@ const UNECE = [
   { dir: "unece-homologation", name: "UNECE_R156_Software_Update.pdf", url: "https://unece.org/sites/default/files/2021-03/R156e.pdf" },
   { dir: "unece-homologation", name: "UNECE_1958_Agreement_Rev3.pdf", url: "https://unece.org/sites/default/files/2021-03/1958-Agreement-Rev.3-E.pdf" },
   { dir: "unece-homologation", name: "UNECE_1998_Agreement.pdf", url: "https://unece.org/sites/default/files/2021-03/1998-Agreement-E.pdf" },
-  { dir: "transport-safety-recycling", name: "UN_Manual_Tests_Criteria_Rev7.pdf", url: "https://unece.org/sites/default/files/2023-01/ST-SG-AC10-11-Rev7-EN.pdf" },
-  { dir: "transport-safety-recycling", name: "UN_Model_Regulations_DG_Rev23.pdf", url: "https://unece.org/sites/default/files/2024-01/ST-SG-AC10-1-Rev23e_Vol1_Web.pdf" },
-  { dir: "transport-safety-recycling", name: "ADR_2025_Vol1.pdf", url: "https://unece.org/sites/default/files/2024-07/ADR2025e_Web_Vol1.pdf" },
-  { dir: "transport-safety-recycling", name: "ADR_2025_Vol2.pdf", url: "https://unece.org/sites/default/files/2024-07/ADR2025e_Web_Vol2.pdf" },
+  { dir: "transport-safety", name: "UN_Manual_Tests_Criteria_Rev8.pdf", url: "https://unece.org/sites/default/files/2023-01/ST-SG-AC10-11-Rev8-EN.pdf" },
+  { dir: "transport-safety", name: "UN_Model_Regulations_DG_Rev23.pdf", url: "https://unece.org/sites/default/files/2024-01/ST-SG-AC10-1-Rev23e_Vol1_Web.pdf" },
+  { dir: "transport-safety", name: "ADR_2025_Volume_1.pdf", url: "https://unece.org/sites/default/files/2025-01/2412006_E_ECE_TRANS_352_Vol.I_WEB_0.pdf" },
+  { dir: "transport-safety", name: "ADR_2025_Volume_2.pdf", url: "https://unece.org/sites/default/files/2025-01/2412010_E_ECE_TRANS_352_Vol.II_WEB.pdf" },
+  { dir: "recycling", name: "Basel_Convention_Text_2025.pdf", url: "https://www.basel.int/Portals/4/download.aspx?e=UNEP-CHW-IMPL-CONVTEXT-2025.English.pdf" },
 ];
 
 const OTHER = [
@@ -89,10 +90,11 @@ const OTHER = [
   { dir: "functional-safety", name: "NREL_Battery_Thermal_Runaway.pdf", url: "https://www.nrel.gov/docs/fy22osti/82330.pdf" },
   { dir: "functional-safety", name: "JRC_Li_Ion_Battery_Safety.pdf", url: "https://publications.jrc.ec.europa.eu/repository/bitstream/JRC113320/kjna29384enn.pdf" },
   { dir: "functional-safety", name: "Batteries_Europe_Strategic_Agenda.pdf", url: "https://batterieseurope.eu/wp-content/uploads/2022/09/Batteries-Europe_Strategic-Research-Agenda_September-2022.pdf" },
-  { dir: "china-asean-eaeu", name: "IEA_Global_EV_Outlook_2024.pdf", url: "https://iea.blob.core.windows.net/assets/a9e3544b-0b12-4e15-b407-65f5c8ce1b5f/GlobalEVOutlook2024.pdf" },
-  { dir: "middle-east-africa", name: "AU_Africa_Mining_Vision.pdf", url: "https://au.int/sites/default/files/documents/30995-doc-africa_mining_vision_english_1.pdf" },
-  { dir: "middle-east-africa", name: "AfCFTA_Agreement.pdf", url: "https://au.int/sites/default/files/treaties/36437-treaty-consolidated_text_on_cfta_-_en.pdf" },
-  { dir: "middle-east-africa", name: "IEA_Africa_Energy_Outlook_2022.pdf", url: "https://iea.blob.core.windows.net/assets/6fa5a6c0-ca73-4a7f-a243-fb5e83ecfb94/AfricaEnergyOutlook2022.pdf" },
+  { dir: "supply-chain", name: "IEA_Global_EV_Outlook_2024.pdf", url: "https://iea.blob.core.windows.net/assets/a9e3544b-0b12-4e15-b407-65f5c8ce1b5f/GlobalEVOutlook2024.pdf" },
+  { dir: "africa", name: "AU_Africa_Mining_Vision.pdf", url: "https://au.int/sites/default/files/documents/30995-doc-africa_mining_vision_english_1.pdf" },
+  { dir: "africa", name: "AfCFTA_Agreement.pdf", url: "https://au.int/sites/default/files/treaties/36437-treaty-consolidated_text_on_cfta_-_en.pdf" },
+  { dir: "africa", name: "IEA_Africa_Energy_Outlook_2022.pdf", url: "https://iea.blob.core.windows.net/assets/6fa5a6c0-ca73-4a7f-a243-fb5e83ecfb94/AfricaEnergyOutlook2022.pdf" },
+  { dir: "africa", name: "IRENA_Renewable_Energy_Market_Africa_2022.pdf", url: "https://www.irena.org/-/media/Files/IRENA/Agency/Publication/2022/Jan/IRENA_Market_Africa_2022.pdf" },
 ];
 
 // ── Helpers ──

@@ -1,6 +1,6 @@
 # Battery Regulations & Standards — Comprehensive Knowledge Base
 
-> **Generated**: 2026-02-17
+> **Generated**: 2026-02-17 | **Updated**: 2026-02-18 (all free PDFs downloaded — 120 total)
 > **Purpose**: Comprehensive collection of battery regulations, standards, and guidelines for the Ichnos Protocol Battery Passport knowledge base.
 > **Total Resources**: ~605 documents across 14 categories
 > **Download Location**: `server/knowledge-base/pdfs/`
@@ -94,17 +94,17 @@
 | 37 | **UNECE R136** — EV Category L (2/3-wheelers) | :white_check_mark: Downloaded | [UNECE](https://unece.org/fileadmin/DAM/trans/main/wp29/wp29regs/2016/R136e.pdf) | LMT battery safety |
 | 38 | **UNECE GTR 20** — EV Safety (Global) | :white_check_mark: Downloaded | [UNECE](https://unece.org/fileadmin/DAM/trans/main/wp29/wp29wgs/wp29gen/wp29registry/ECE-TRANS-180a20e.pdf) | Global technical regulation for EV safety |
 | 39 | **UNECE GTR 22** — In-Vehicle Battery Durability | :white_check_mark: Downloaded | [UNECE](https://unece.org/sites/default/files/2023-01/ECE_TRANS_180a22e.pdf) | Battery state of health monitoring |
-| 39b | **UNECE GTR 18** — OBD for L-Category Vehicles | :globe_with_meridians: Free | [UNECE](https://unece.org/transport/standards/transport/vehicle-regulations-wp29/global-technical-regulations-gtrs) | On-board diagnostics for 2/3-wheelers, relevant for LMT battery monitoring. Not downloaded — requires finding specific PDF on GTR page |
+| 39b | **UNECE GTR 18** — OBD for L-Category Vehicles | :white_check_mark: Downloaded | [UNECE](https://unece.org/transport/standards/transport/vehicle-regulations-wp29/global-technical-regulations-gtrs) | Saved as `UNECE_GTR18_OBD_L_Category.pdf` + `UNECE_GTR18_OBD_L_Category_Appendix1.pdf`. OBD for 2/3-wheelers, relevant for LMT battery monitoring |
 
 ### 2.2 Related Vehicle Regulations
 
 | # | Document | Status | URL | Notes |
 |---|----------|--------|-----|-------|
-| 40 | **UNECE R10** — Electromagnetic Compatibility | :globe_with_meridians: Free | [UNECE](https://unece.org/sites/default/files/2021-10/R010r6e.pdf) | EMC for vehicles. Not downloaded |
+| 40 | **UNECE R10** — Electromagnetic Compatibility | :white_check_mark: Downloaded | [UNECE](https://unece.org/fileadmin/DAM/trans/main/wp29/wp29regs/R010r4e.pdf) | Saved as `UNECE_R10_Rev4_EMC.pdf`. EMC for vehicles — relevant to battery management system interference. Also: Amendment 3 (`UNECE_R10_Rev4_Amendment3_EMC.pdf`) |
 | 41 | **UNECE R94** — Frontal Collision Protection | :white_check_mark: Downloaded | [UNECE](https://unece.org/sites/default/files/2021-10/R094r4e.pdf) | Crash safety (battery integrity) |
 | 42 | **UNECE R95** — Lateral Collision Protection | :white_check_mark: Downloaded | [UNECE](https://unece.org/sites/default/files/2021-10/R095r4e.pdf) | Side-impact battery protection |
 | 43 | **UNECE R34** — Fire Prevention | :white_check_mark: Downloaded | [UNECE](https://unece.org/sites/default/files/2021-10/R034r3e.pdf) | Vehicle fire prevention |
-| 44 | **UNECE R12** — Steering Mechanism Protection | :globe_with_meridians: Free | [UNECE](https://unece.org/sites/default/files/2021-10/R012r4e.pdf) | Steering system in crash. Not downloaded — requires finding on page |
+| 44 | **UNECE R12** — Steering Mechanism Protection | :white_check_mark: Downloaded | [UNECE](https://unece.org/fileadmin/DAM/trans/main/wp29/wp29regs/R012r4am4e.pdf) | Saved as `UNECE_R12_Rev4_Amendment4_Steering.pdf`. Steering system crash protection |
 | 45 | **UNECE R138** — Quiet Road Transport Vehicles (AVAS) | :white_check_mark: Downloaded | [UNECE](https://unece.org/sites/default/files/2021-10/R138r1e.pdf) | EV acoustic warning system |
 
 ### 2.3 Framework Agreements
@@ -247,11 +247,11 @@
 
 | # | Document | Status | URL | Notes |
 |---|----------|--------|-----|-------|
-| 108 | **UN Manual of Tests and Criteria** (Rev.7) — Section 38.3 | :globe_with_meridians: Free | [UNECE](https://unece.org/sites/default/files/2023-01/ST-SG-AC10-11-Rev7-EN.pdf) | Lithium battery transport test requirements |
-| 109 | **UN Model Regulations** (Rev.23) — Transport of Dangerous Goods | :globe_with_meridians: Free | [UNECE](https://unece.org/sites/default/files/2024-01/ST-SG-AC10-1-Rev23e_Vol1_Web.pdf) | Foundational transport classification |
-| 110 | **ADR 2025** — Volume 1 | :globe_with_meridians: Free | [UNECE](https://unece.org/sites/default/files/2024-07/ADR2025e_Web_Vol1.pdf) | European road transport of dangerous goods |
-| 111 | **ADR 2025** — Volume 2 | :globe_with_meridians: Free | [UNECE](https://unece.org/sites/default/files/2024-07/ADR2025e_Web_Vol2.pdf) | ADR annexes and appendices |
-| 112 | IMDG Code (Amendment 41-22) | :globe_with_meridians: Free | [IMO](https://wwwcdn.imo.org/localresources/en/OurWork/Safety/Documents/IMDG%20Code%20Amendment%2041-22.pdf) | Maritime transport of dangerous goods |
+| 108 | **UN Manual of Tests and Criteria** (Rev.8) — Section 38.3 | :white_check_mark: Downloaded | [UNECE](https://unece.org/transport/dangerous-goods/rev8-files) | Rev.8 supersedes Rev.7. Cloudflare-protected — requires headed browser with CAPTCHA. Amendment 1 to Rev.8 also downloaded |
+| 109 | **UN Model Regulations** (Rev.23) — Transport of Dangerous Goods | :white_check_mark: Downloaded | [UNECE](https://unece.org/transport/dangerous-goods/un-model-regulations-rev-23) | Foundational transport classification. Both volumes downloaded (Vol 1 from UN Digital Library, Vol 2 from UNOG) |
+| 110 | **ADR 2025** — Volume 1 | :white_check_mark: Downloaded | [UNECE](https://unece.org/transport/documents/2025/01/standards/adr-2025-volume-1) | European road transport of dangerous goods. Original URL changed; actual filename: `2412006_E_ECE_TRANS_352_Vol.I_WEB_0.pdf` |
+| 111 | **ADR 2025** — Volume 2 | :white_check_mark: Downloaded | [UNECE](https://unece.org/transport/documents/2025/01/standards/adr-2025-volume-2) | ADR annexes and appendices. Actual filename: `2412010_E_ECE_TRANS_352_Vol.II_WEB.pdf` |
+| 112 | IMDG Code (Amendment 42-24) | :moneybag: Paid | [IMO](https://www.imo.org/en/publications/pages/imdg%20code.aspx) | Maritime transport of dangerous goods. **Paid** — copyrighted IMO publication. Original link contained only an amendment roadmap, not the code itself. Current edition: 2024 (Amend. 42-24), effective Jan 2026 |
 | 113 | IATA Dangerous Goods Regulations (64th ed.) | :moneybag: Paid | [IATA](https://www.iata.org/en/publications/dgr/) | ~$300 | Air transport lithium battery rules |
 | 114 | RID 2025 — Rail Transport of Dangerous Goods | :globe_with_meridians: Free | [OTIF](https://otif.org/en/?page_id=1105) | Rail transport regulations |
 | 115 | ICAO Technical Instructions — Dangerous Goods (Air) | :moneybag: Paid | [ICAO](https://www.icao.int/safety/dangerousgoods/pages/technical-instructions.aspx) | ~$200 | Air transport technical instructions |
@@ -266,7 +266,7 @@
 
 | # | Document | Status | URL | Notes |
 |---|----------|--------|-----|-------|
-| 118 | **Basel Convention** — Text | :globe_with_meridians: Free | [Basel](http://www.basel.int/Portals/4/download.aspx?d=UNEP-CHW-IMPL-CONVTEXT.English.pdf) | Transboundary hazardous waste |
+| 118 | **Basel Convention** — Text (2025 revised) | :white_check_mark: Downloaded | [Basel](https://www.basel.int/Portals/4/download.aspx?e=UNEP-CHW-IMPL-CONVTEXT-2025.English.pdf) | Transboundary hazardous waste. Saved as `recycling/Basel_Convention_Text_2025.pdf` |
 | 119 | **Waste Shipment Regulation 2024/1157** | :white_check_mark: Downloaded | [EUR-Lex](https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32024R1157) | EU waste shipment rules |
 | 120 | **WEEE Directive 2012/19/EU** | :white_check_mark: Downloaded | [EUR-Lex](https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32012L0019) | E-waste management |
 | 121 | Stockholm Convention on POPs | :globe_with_meridians: Free | [Stockholm](http://chm.pops.int/) | Persistent organic pollutants |
@@ -278,7 +278,7 @@
 
 | # | Document | Status | URL | Notes |
 |---|----------|--------|-----|-------|
-| 125 | **NFPA — EV Emergency Field Guide** | :globe_with_meridians: Free | [NFPA](https://www.nfpa.org/~/media/files/training/AFV/Emergency_Field_Guide_Electronic.pdf) | First responder guidance for EV fires |
+| 125 | **NFPA/NHTSA — EV Emergency Response Guides** | :globe_with_meridians: Free | [NHTSA ERG](https://www.nhtsa.gov/emergency-response-guides) | As of July 2025, all EV ERGs and Rescue Sheets hosted by NHTSA (transferred from NFPA). Vehicle-specific guides in ISO-17840 format. NHTSA blocks automated access — open in browser |
 | 126 | **JRC — Safety of Lithium-Ion Batteries** | :white_check_mark: Downloaded | [JRC](https://publications.jrc.ec.europa.eu/repository/bitstream/JRC113320/kjna29384enn.pdf) | EU research on Li-ion safety |
 | 127 | NFPA 855 — Standard for Stationary ESS Installation | :moneybag: Paid | [NFPA](https://www.nfpa.org/codes-and-standards/nfpa-855-standard-for-the-installation-of-stationary-energy-storage-systems) | ~$75 | BESS fire safety |
 | 128 | FM Global DS 5-33 — Li-Ion Battery Energy Storage Systems | :lock: Auth | [FM Global](https://www.fmglobal.com/) | FM Global client access |
@@ -295,14 +295,13 @@
 
 | # | Document | Status | URL | Notes |
 |---|----------|--------|-----|-------|
-| 133 | **NHTSA — Lithium-Ion Battery EV Testing Research** | :globe_with_meridians: Free | [NHTSA](https://www.nhtsa.gov/sites/nhtsa.gov/files/documents/12848-lithiumionbatteryelectricvehicles_092717-v3-tag.pdf) | US government battery testing research |
-| 134 | **Sandia — EV Battery Safety Report** | :globe_with_meridians: Free | [Sandia](https://energy.sandia.gov/wp-content/gallery/uploads/EV-battery-testing-report-SAND2017-6925.pdf) | National lab testing results |
-| 135 | **NREL — Battery Thermal Runaway** | :globe_with_meridians: Free | [NREL](https://www.nrel.gov/docs/fy22osti/82330.pdf) | Thermal runaway research |
-| 136 | **EC — Batteries Europe Strategic Research Agenda** | :globe_with_meridians: Free | [Batteries Europe](https://batterieseurope.eu/wp-content/uploads/2022/09/Batteries-Europe_Strategic-Research-Agenda_September-2022.pdf) | EU battery R&D priorities |
-| 137 | IEC — Energy Storage White Paper | :globe_with_meridians: Free | [IEC](https://www.iec.ch/whitepaper/pdf/iecWP-energystorage-LR-en.pdf) | IEC strategic position |
-| 138 | EUCAR — Battery Requirements | :globe_with_meridians: Free | [EUCAR](https://www.eucar.be/wp-content/uploads/2022/05/TR_2022_BatteryRequirements_v1.0.pdf) | European automotive R&D |
-| 139 | USABC — EV Battery Test Procedures Manual | :globe_with_meridians: Free | [USCAR](https://www.uscar.org/commands/files_download.php?files_id=364) | US Advanced Battery Consortium |
-| 140 | INL — Battery Testing Protocols | :globe_with_meridians: Free | [INL](https://inldigitallibrary.inl.gov/sites/sti/sti/5720574.pdf) | Idaho National Lab protocols |
+| 133 | **NHTSA — Lithium-Ion Battery Safety (DOT HS 812 418)** | :white_check_mark: Downloaded | [NHTSA](https://www.nhtsa.gov/sites/nhtsa.gov/files/documents/12848-lithiumionsafetyhybrids_101217-v3-tag.pdf) | US government battery testing research |
+| 134 | **Sandia — Abuse Testing Manual (SAND2017-6925)** | :white_check_mark: Downloaded | [Sandia](https://www.sandia.gov/app/uploads/sites/163/2021/09/SNL-Abuse-Testing-Manual_July2017_FINAL.pdf) | National lab testing results |
+| 135 | **NREL — Thermal Runaway of Li-Ion Cells (82410)** | :white_check_mark: Downloaded | [NREL](https://docs.nrel.gov/docs/fy22osti/82410.pdf) | Replaces original doc 82330 (never published). Also: [87353](https://docs.nrel.gov/docs/fy24osti/87353.pdf) (propagation), [87431](https://docs.nrel.gov/docs/fy24osti/87431.pdf) (databank) |
+| 136 | **BATT4EU — Strategic Research & Innovation Agenda (2024)** | :white_check_mark: Downloaded | [BATT4EU](https://www.horizon-europe.gouv.fr/sites/default/files/2024-02/t-l-charger-le-sria-batt4eu-f-vrier-2024--6449.pdf) | "Batteries Europe" rebranded to BATT4EU. Feb 2024 SRIA |
+| 137 | EUCAR — Battery Requirements (2025 update) | :white_check_mark: Downloaded | [EUCAR](https://www.eucar.be/wp-content/uploads/2025/12/20251128-EG-BT-Battery-requirements-UPDATE-v1.pdf) | Nov 2025 update supersedes all prior editions |
+| 138 | USABC — EV Battery Test Procedures Manual | :white_check_mark: Downloaded | [USCAR](https://uscar.org/usabc/manuals-models/) | Updated Nov 2025. 3 files: EV Test Manual, Abuse Test Procedure Manual, Developer/Lab Deliverable Checklist |
+| 139 | INL — Battery Test Manual | :white_check_mark: Downloaded | [INL](https://inldigitallibrary.inl.gov/sites/sti/sti/6492291.pdf) | Corrected from wrong original link (5720574 was unrelated) |
 
 ### 8.2 Paid Standards (Reference)
 
@@ -316,6 +315,7 @@
 | 146 | **SAE J2929** — EV Battery System Safety | :moneybag: Paid | ~$109 | System-level battery safety |
 | 147 | **SAE J3400** — NACS EV Charging Connector | :moneybag: Paid | ~$109 | North American charging standard |
 | 148 | **IEC 62443** — Industrial Cybersecurity | :moneybag: Paid | ~€245/part | Industrial control system security |
+| 148b | IEC — Energy Storage White Paper (EES:2011) | :moneybag: Paid | CHF 50 | [IEC Webstore](https://webstore.iec.ch/en/publication/22374). Not free — requires purchase or subscription |
 
 ---
 
@@ -323,17 +323,18 @@
 
 | # | Document | Status | URL | Notes |
 |---|----------|--------|-----|-------|
-| 149 | **GB 38031-2020** — EV Battery Safety (UNECE summary) | :globe_with_meridians: Free | [UNECE](https://unece.org/sites/default/files/2021-01/EVS-05-04e.pdf) | Mandatory Chinese EV battery standard |
-| 150 | China NEV Development Plan 2021-2035 | :globe_with_meridians: Free | [Gov.cn](https://www.gov.cn/zhengce/content/2020-11/02/5556716/files/cdfa6be2173145d4b4cf5a8e17e54a7e.pdf) | State Council NEV strategy |
+| 149 | **GB 38031-2020** — EV Battery Safety (UNECE summary) | :white_check_mark: Downloaded | [UNECE Wiki (EVS-04-12e)](https://wiki.unece.org/download/attachments/10420383/EVS-04-12e.pdf?api=v2) | Saved as `UNECE_China_EV_Battery_Safety_Standards_EVS-04-12e.pdf`. Now superseded by GB 38031-2025. Full standard text is paid (~$330 ANSI) |
+| 149b | **GB 38031-2020** — Revision status presentation | :white_check_mark: Downloaded | [UNECE Wiki (SIGTP-01-11)](https://wiki.unece.org/download/attachments/235372834/SIGTP-01-11_%28CHN%29_Status%20of%20China%E2%80%99s%20traction%20battery%20safety%20mandatory%20standard%20GB%2038031%20revision%20%20.pdf?api=v2) | Saved as `UNECE_GB38031_Revision_Status_SIGTP-01-11.pdf` |
+| 150 | China NEV Development Plan 2021-2035 | :white_check_mark: Downloaded | [ICCT English Translation (PDF)](https://theicct.org/wp-content/uploads/2021/12/China-new-vehicle-industrial-dev-plan-jun2021.pdf) | Saved as `China_NEV_Development_Plan_2021-2035_ICCT.pdf`. Original gov.cn PDF 404 |
 | 151 | GB/T 31484 — EV Battery Cycle Life | :moneybag: Paid | [SAC](https://www.sac.gov.cn/) | ~¥50 | Chinese cycle life testing |
 | 152 | GB/T 31485 — EV Battery Safety Tests | :moneybag: Paid | [SAC](https://www.sac.gov.cn/) | ~¥50 | Chinese safety testing (being replaced) |
 | 153 | GB/T 31486 — EV Battery Electrical Performance | :moneybag: Paid | [SAC](https://www.sac.gov.cn/) | ~¥50 | Chinese performance testing |
 | 154 | GB/T 36276-2018 — Lithium-ion ESS | :moneybag: Paid | [SAC](https://www.sac.gov.cn/) | ~¥50 | Stationary storage standard |
 | 155 | GB 40165-2021 — EV Battery Swap Safety | :moneybag: Paid | [SAC](https://www.sac.gov.cn/) | ~¥50 | Battery swapping standard |
-| 156 | MIIT — Battery Traceability Management Platform | :globe_with_meridians: Free | [MIIT](https://www.miit.gov.cn/) | Chinese battery tracking system |
-| 157 | CATL — Battery Passport White Paper | :globe_with_meridians: Free | [CATL](https://www.catl.com/) | Industry perspective |
-| 158 | China RoHS (SJ/T 11364) | :globe_with_meridians: Free | [MIIT](https://www.miit.gov.cn/) | Chinese substance restrictions |
-| 159 | CCC (China Compulsory Certification) for EV components | :globe_with_meridians: Free | [CNCA](https://www.cnca.gov.cn/) | Mandatory product certification |
+| 156 | MIIT — Battery Traceability Regulation (2018) | :globe_with_meridians: Free | [Gov.cn (HTML, Chinese)](https://www.gov.cn/zhengce/zhengceku/2018-12/31/content_5439636.htm) | "Interim Regulation on Traceability Management of NEV Power Battery Recovery" (MIIT No. 35/2018). Chinese only. New stricter regulation effective Apr 2026 |
+| 157 | GBA — Battery Passport 2024 Overview (CATL pilot) | :white_check_mark: Downloaded | [GBA (PDF)](https://www.globalbattery.org/media/publications/gba-batterypassport-2024-v1-web.pdf) | Saved as `GBA_Battery_Passport_2024_Overview.pdf`. Includes CATL Shenxing/CTP pilot data. See also [GBA Pilot Progress Report](https://www.globalbattery.org/media/publications/mvp/gba-bp-progressreport-v1rev3lowres.pdf) |
+| 158 | China RoHS (SJ/T 11364-2024) | :globe_with_meridians: Free | [TUV Rheinland Summary](https://www.tuv.com/regulations-and-standards/en/china-sj-t-11364-2024-for-rohs-labeling-requirements-implemented-since-april-1-2025.html) | Updated 2024 version (effective Apr 2025). 10 restricted substances, QR code labeling. Full text paid only |
+| 159 | CCC for EV Batteries (CNCA-C09-02:2025) | :globe_with_meridians: Free | [MPR China Certification](https://www.china-certification.com/en/new-certification-rules-released-for-battery-products-in-china/) | New mandatory CCC for Li-ion batteries effective Aug 2025. First time EV batteries under CCC. Full rules paid |
 
 ---
 
@@ -341,15 +342,15 @@
 
 | # | Document | Status | URL | Notes |
 |---|----------|--------|-----|-------|
-| 160 | **ASEAN MRA** — EE Equipment Agreement | :globe_with_meridians: Free | [ASEAN](https://asean.org/wp-content/uploads/2012/05/ASEAN-MRA-for-Electrical-and-Electronic-Equipment.pdf) | Mutual recognition for electronics |
-| 161 | ASEAN Fuel Economy Roadmap | :globe_with_meridians: Free | [ASEAN](https://asean.org/wp-content/uploads/2021/09/ASEAN-Fuel-Economy-Roadmap.pdf) | Regional fuel economy strategy |
-| 162 | Thailand EV Incentive Scheme (BOI) | :globe_with_meridians: Free | [BOI](https://www.boi.go.th/) | Thai EV investment incentives |
-| 163 | Indonesia SNI Standards for Batteries | :globe_with_meridians: Free | [BSN](https://www.bsn.go.id/) | Indonesian national standards |
-| 164 | Vietnam Decree on EV Standards | :globe_with_meridians: Free | [Gov.vn](https://www.gov.vn/) | Vietnamese EV regulations |
-| 165 | Philippines PNS Standards for Batteries | :globe_with_meridians: Free | [DTI-BPS](https://www.dti.gov.ph/) | Philippine battery standards |
-| 166 | Malaysia MS Standards for EVs | :globe_with_meridians: Free | [DSM](https://www.jsm.gov.my/) | Malaysian EV standards |
-| 167 | Singapore LTA — EV Early Adoption Incentive | :globe_with_meridians: Free | [LTA](https://www.lta.gov.sg/) | Singapore EV policy |
-| 168 | ASEAN Automotive Integration Framework | :globe_with_meridians: Free | [ASEAN](https://asean.org/) | Automotive harmonization roadmap |
+| 160 | **ASEAN MRA** — EE Equipment Agreement | :white_check_mark: Downloaded | [NUS CIL (2002 agreement PDF)](https://cil.nus.edu.sg/wp-content/uploads/2019/02/2002-EE-MRA-1.pdf) | Saved as `ASEAN_MRA_EE_Equipment_2002.pdf`. Original ASEAN.org PDF 404 |
+| 161 | ASEAN Fuel Economy Roadmap | :white_check_mark: Downloaded | [OECD Implementation Report (PDF)](https://www.oecd.org/content/dam/oecd/en/publications/reports/2022/03/implementing-the-asean-fuel-economy-roadmap_53cd3b05/77b59ef8-en.pdf) | Saved as `OECD_ASEAN_Fuel_Economy_Roadmap_Implementation.pdf`. Original ASEAN.org PDF 404 |
+| 162 | Thailand EV Incentive Scheme (BOI EV 3.5) | :white_check_mark: Downloaded | [BOI Presentation (PDF)](https://thai.tokyo-sme.com/wp-content/uploads/2024/09/2567.09.18-Thailands-Investment-Promotion-Policy-for-EV-Industries-BOI.pdf) | Saved as `Thailand_BOI_EV_Investment_Policy_2024.pdf`. EV 3.5 policy (2024-2027) |
+| 163 | Indonesia SNI Standards for Batteries | :moneybag: Paid | [BSN PESTA Portal](https://pesta.bsn.go.id/) | Full SNI texts are paid. Key standards: SNI IEC 62660-1/2/3, SNI 8871:2019, SNI 8927:2020. Primarily in Bahasa Indonesia. Overview: [JETRO SNI Q&A (PDF, English)](https://www.jetro.go.jp/ext_images/_Reports/02/2020/ed0ed9c92752c4cd/sni-indqa-202003-e.pdf) |
+| 164 | Vietnam EV Policy Analysis | :white_check_mark: Downloaded | [ICCT (PDF)](https://theicct.org/wp-content/uploads/2022/12/asia-pacific-evs-promoting-development-evs-vietnam-dec22-2.pdf) | Saved as `ICCT_Vietnam_EV_Development_2022.pdf`. Key regs: Decision 876/QD-TTg (2022), Decree 51/2025/ND-CP |
+| 165 | Philippines PNS Standards for Batteries | :moneybag: Paid | [DTI-BPS e-Library](https://bps.dti.gov.ph/) | Full PNS texts are paid (in-person purchase at DTI-BPS Makati). 45 PNS related to EVs adopted: PNS IEC 61851, PNS IEC 62660, PNS UL 1974. Standards in English |
+| 166 | Malaysia MS 2818 — EV Battery Passport | :moneybag: Paid | [JSM MySOL Portal](https://mysol.jsm.gov.my/) | **First EV battery passport standard in ASEAN** (launched Nov 2025). Directly relevant to Ichnos Protocol. Must purchase via MySOL. English |
+| 167 | Singapore LTA — EV Early Adoption Incentive | :globe_with_meridians: Free | [LTA Transitioning to EVs (HTML)](https://www.lta.gov.sg/content/ltagov/en/industry_innovations/technologies/electric_vehicles/transitioning_to_evs.html) | Web page only, no downloadable PDF. EEAI: 45% ARF rebate capped at $15K (2025)/$7.5K (2026), ends Jan 2027. Also: [LTA EV Roadmap](https://www.lta.gov.sg/content/ltagov/en/industry_innovations/technologies/electric_vehicles/our_ev_roadmap.html) |
+| 168 | ASEAN Framework for Integration of Priority Sectors | :white_check_mark: Downloaded | [ASEAN (PDF)](https://arc-agreement.asean.org/file/doc/2015/02/asean-framework-agreement-for-the-integration-of-priority-sectors.pdf) | Saved as `ASEAN_Framework_Integration_Priority_Sectors.pdf`. Automotive is 1 of 11 priority sectors (signed Vientiane 2004) |
 
 ---
 
@@ -357,12 +358,12 @@
 
 | # | Document | Status | URL | Notes |
 |---|----------|--------|-----|-------|
-| 169 | EAEU TR CU 018/2011 — Safety of Wheeled Vehicles | :globe_with_meridians: Free | [EAEU](https://docs.eaeunion.org/) | Vehicle type-approval framework |
-| 170 | EAEU TR EAEU 048/2019 — Energy Efficiency | :globe_with_meridians: Free | [EAEU](https://docs.eaeunion.org/) | Energy efficiency requirements |
-| 171 | EAEU TR CU 004/2011 — LV Equipment Safety | :globe_with_meridians: Free | [EAEU](https://docs.eaeunion.org/) | Low voltage equipment |
+| 169 | EAEU TR CU 018/2011 — Safety of Wheeled Vehicles | :globe_with_meridians: Free | [EEC Official Page (Russian)](https://eec.eaeunion.org/comission/department/deptexreg/tr/bezopKolesnTrS.php) | Vehicle type-approval. Free Russian PDF: [reglament.by](https://reglament.by/wp-content/uploads/2018/05/TR-TS-018-2011-O-bezopasnosti-kolesnyh-transportnyh-sredstv.pdf). Paid English translation ~$2,400 (465 pages) |
+| 170 | EAEU TR EAEU 048/2019 — Energy Efficiency | :globe_with_meridians: Free | [CIS Legislation (online reader)](https://cis-legislation.com/document.fwx?rgn=123226) | Full text online. English summaries: [Schmidt Export](https://schmidt-export.com/tr-eaeu-0482019-requirements-energy-efficiency-energy-consuming-devices), [IEA Policy](https://www.iea.org/policies/22323-regulation-eaeu-0482019-on-requirements-for-energy-efficiency-of-energy-consuming-devices) |
+| 171 | EAEU TR CU 004/2011 — LV Equipment Safety | :white_check_mark: Downloaded | [Bellis.by English PDF](https://www.bellis.by/upload/docs/accreditation/eaeu/CU%20TR%20004-2011_LVD_EN.pdf) | Saved as `EAEU_TR_CU_004-2011_LV_Equipment_EN.pdf`. Official English translation |
 | 172 | GOST R Standards for EV batteries | :moneybag: Paid | [RST](https://www.rst.gov.ru/) | ~$30-80 | Russian national standards |
-| 173 | Kazakhstan EV Incentive Programme | :globe_with_meridians: Free | [Gov.kz](https://www.gov.kz/) | Kazakh EV policy |
-| 174 | Belarus Technical Regulation on Batteries | :globe_with_meridians: Free | [Gov.by](https://www.gov.by/) | Belarusian battery regs |
+| 173 | Kazakhstan EV Incentive Programme | :globe_with_meridians: Free | [Chambers & Partners (English)](https://chambers.com/articles/electric-vehicles-in-kazakhstan-what-is-already-available-and-what-is-still-needed) | No single standalone document. Incentives spread across Tax Code, customs regs, and decrees. Also: [Unicase Law (English)](https://unicaselaw.com/blog/electric-vehicles-in-kazakhstan-eng) |
+| 174 | Belarus — EAEU Technical Regulations | :globe_with_meridians: Free | [Gosstandart EAEU page](https://gosstandart.gov.by/en/technical-regulation-eaeu) | No standalone Belarus battery regulation exists. Belarus applies EAEU-level TR CU 004/2011 (#171) for equipment safety incl. batteries |
 
 ---
 
@@ -370,16 +371,16 @@
 
 | # | Document | Status | URL | Notes |
 |---|----------|--------|-----|-------|
-| 175 | **UAE Energy Strategy 2050** | :globe_with_meridians: Free | [UAE Gov](https://u.ae/) | UAE energy transition plan |
-| 176 | **Saudi Vision 2030** | :globe_with_meridians: Free | [Vision 2030](https://www.vision2030.gov.sa/) | Saudi energy diversification |
-| 177 | GSO Standards Overview | :globe_with_meridians: Free | [GSO](https://www.gso.org.sa/) | Gulf Standards Organization |
+| 175 | **UAE Energy Strategy 2050** | :white_check_mark: Downloaded | [UAE Gov (HTML + embedded PDF)](https://u.ae/en/about-the-uae/strategies-initiatives-and-awards/strategies-plans-and-visions/environment-and-energy/uae-energy-strategy-2050) | Saved as `UAE_Energy_Strategy_2050.pdf` (67.9 MB) |
+| 176 | **Saudi Vision 2030** | :white_check_mark: Downloaded | [IAU mirror (PDF)](https://www.iau.edu.sa/sites/default/files/vission2030sheetenglish.pdf) | Saved as `Saudi_Vision_2030_Themes_Sheet.pdf`. Themes & strategic objectives sheet. Original vision2030.gov.sa PDF link broken |
+| 177 | GSO Standards — Battery-Related | :moneybag: Paid | [GSO Standards Store](https://www.gso.org.sa/en/standards/standards-store/) | Battery standards must be purchased. Free GSO technical regulations: [Motor Vehicles (PDF)](https://www.gso.org.sa/wp-content/uploads/2023/09/GSO-Technical-Regulations-MV-2025-MY-D2.pdf), [LV Equipment (PDF)](https://www.gso.org.sa/wp-content/uploads/2017/11/Gulf-Technical-Regulation-for-Low-Voltage-Electrical-Equipment-and-Appliances-BD-142004-01.pdf) |
 | 178 | SASO — Saudi Standards for Batteries | :moneybag: Paid | [SASO](https://www.saso.gov.sa/) | ~$50-100 | Saudi Arabian standards |
-| 179 | ESMA — UAE Battery Standards | :globe_with_meridians: Free | [ESMA](https://www.esma.gov.ae/) | Emirates standardization |
-| 180 | QS — Qatar Battery Standards | :globe_with_meridians: Free | [QS](https://www.qdb.qa/) | Qatar standards |
+| 179 | ESMA/MOIAT — UAE Battery Standards | :moneybag: Paid | [ESMA Regulated Products](https://www.esma.gov.ae/en-us/Services/Pages/Regulated-Producs.aspx) | ESMA merged into MOIAT. No free battery standards PDF. See also: [MOIAT conformity](https://moiat.gov.ae/en/services/issue-conformity-certificates-for-regulated-products), [US-UAE Business Council primer (PDF)](https://usuaebusiness.org/wp-content/uploads/2017/02/Standards-and-Technical-Regulations-in-the-UAE-Final1.pdf) |
+| 180 | Qatar — Battery Standards (via GSO) | :moneybag: Paid | [GSO Standards Store](https://www.gso.org.sa/en/standards/standards-store/) | Original URL pointed to wrong org (QDB = development bank). Correct body: Qatar General Organization for Standardization (QS). Qatar adopts GSO/GCC standards. Also: [Kahramaa electrical regs](https://www.km.qa/CustomerService/Pages/ServicesRegulations.aspx) |
 | 181 | Israel SI Standards for Batteries | :moneybag: Paid | [SII](https://www.sii.org.il/) | ~$50-100 | Israeli standards institute |
-| 182 | Oman PAEW — Energy Regulations | :globe_with_meridians: Free | [PAEW](https://www.paew.gov.om/) | Oman energy authority |
-| 183 | Bahrain EWA — Battery Storage Regulations | :globe_with_meridians: Free | [EWA](https://www.ewa.bh/) | Bahrain energy authority |
-| 184 | Kuwait MEW — Energy Storage Guidelines | :globe_with_meridians: Free | [MEW](https://www.mew.gov.kw/) | Kuwait energy ministry |
+| 182 | Oman PAEW Law | :white_check_mark: Downloaded | [PAEW Law (English PDF)](https://omanpwp.om/PDF/PAEW%20Law%20English%20.pdf) | Saved as `Oman_PAEW_Law.pdf`. Energy regulation framework |
+| 183 | Bahrain EWA — Electrical Installation Regulations | :white_check_mark: Downloaded | [EWA Regulation (PDF)](https://legacy.ewa.bh/en/Business/OtherServices/Documents/EDD%20Regulation%20for%20Electricty%20Installaltions%20_En.pdf) | Saved as `Bahrain_EWA_Electrical_Installation_Regulation.pdf`. No dedicated battery storage regulation exists |
+| 184 | Kuwait MEW — Electrical Installation Regulations | :white_check_mark: Downloaded | [MEW R-1 Regulation (PDF)](https://www.mew.gov.kw/media/230lp1h2/regulation-m-e-w-r-1-04-03-14.pdf) | Saved as `Kuwait_MEW_R1_Electrical_Installation_Regulation.pdf`. Closest to energy storage guidelines |
 
 ---
 
@@ -387,22 +388,22 @@
 
 | # | Document | Status | URL | Notes |
 |---|----------|--------|-----|-------|
-| 185 | **AU — Africa Mining Vision** | :white_check_mark: Downloaded | [AU](https://au.int/sites/default/files/documents/30995-doc-africa_mining_vision_english_1.pdf) | Continental mining strategy |
-| 186 | **AfCFTA Agreement** | :white_check_mark: Downloaded | [AU](https://au.int/sites/default/files/treaties/36437-treaty-consolidated_text_on_cfta_-_en.pdf) | African free trade area |
-| 187 | **IEA — Africa Energy Outlook 2022** | :white_check_mark: Downloaded | [IEA](https://iea.blob.core.windows.net/assets/6fa5a6c0-ca73-4a7f-a243-fb5e83ecfb94/AfricaEnergyOutlook2022.pdf) | Energy landscape analysis |
-| 188 | **IRENA — Renewable Energy Market Africa** | :globe_with_meridians: Free | [IRENA](https://www.irena.org/-/media/Files/IRENA/Agency/Publication/2022/Jan/IRENA_Market_Africa_2022.pdf) | RE market analysis |
-| 189 | **World Bank — DRC Mining Governance** | :globe_with_meridians: Free | [World Bank](https://documents1.worldbank.org/curated/en/099052023131521028/pdf/P17226705c4da30920a4d60c0f2e0b5b0e8.pdf) | DRC mining governance review |
-| 190 | DRC Mining Code 2018 | :globe_with_meridians: Free | [DRC](https://www.mines-rdc.cd/) | DRC mining law |
-| 191 | South Africa National Energy Act | :globe_with_meridians: Free | [Gov.za](https://www.gov.za/) | SA energy framework |
-| 192 | Morocco Green Energy Strategy | :globe_with_meridians: Free | [MEM](https://www.mem.gov.ma/) | Moroccan energy transition |
-| 193 | AMDC Strategic Plan | :globe_with_meridians: Free | [AU](https://au.int/) | African minerals development |
-| 194 | SADC Mining Protocol | :globe_with_meridians: Free | [SADC](https://www.sadc.int/) | Southern Africa mining framework |
-| 195 | Kenya Energy Act 2019 | :globe_with_meridians: Free | [Kenya Gazette](http://www.kenyalaw.org/) | Kenyan energy legislation |
-| 196 | Nigeria Minerals and Mining Act 2007 | :globe_with_meridians: Free | [Nigeria](https://www.minesandsteel.gov.ng/) | Nigerian mining framework |
-| 197 | Tanzania Mining Act 2010 (amended 2017) | :globe_with_meridians: Free | [Tanzania](https://www.madini.go.tz/) | Tanzanian mining legislation |
-| 198 | Ghana Minerals Commission Act | :globe_with_meridians: Free | [Mincom](https://www.mincom.gov.gh/) | Ghanaian mining regulation |
-| 199 | Zimbabwe Mines and Minerals Act | :globe_with_meridians: Free | [Zimbabwe](https://www.mines.gov.zw/) | Zimbabwean mining regulation |
-| 200 | Zambia Mines and Minerals Development Act | :globe_with_meridians: Free | [Zambia](https://www.mmmd.gov.zm/) | Zambian mining legislation |
+| 185 | **AU — Africa Mining Vision** | :white_check_mark: Downloaded | [AU (PDF)](https://au.int/sites/default/files/documents/30995-doc-africa_mining_vision_english_1.pdf) | Continental mining strategy |
+| 186 | **AfCFTA Agreement** | :white_check_mark: Downloaded | [AU (PDF)](https://au.int/sites/default/files/treaties/36437-treaty-consolidated_text_on_cfta_-_en.pdf) | African free trade area |
+| 187 | **IEA — Africa Energy Outlook 2022** | :white_check_mark: Downloaded | [IEA (PDF)](https://iea.blob.core.windows.net/assets/6fa5a6c0-ca73-4a7f-a243-fb5e83ecfb94/AfricaEnergyOutlook2022.pdf) | Energy landscape analysis |
+| 188 | **IRENA — Renewable Energy Market Africa** | :white_check_mark: Downloaded | [IRENA (PDF)](https://www.irena.org/-/media/Files/IRENA/Agency/Publication/2022/Jan/IRENA_Market_Africa_2022.pdf) | RE market analysis. Saved as `IRENA_Renewable_Energy_Market_Africa_2022.pdf` |
+| 189 | **World Bank — DRC Cobalt Market Analysis** | :white_check_mark: Downloaded | [World Bank (PDF)](https://documents1.worldbank.org/curated/en/099500001312236438/pdf/P1723770a0f570093092050c1bddd6a29df.pdf) | Saved as `World_Bank_DRC_Cobalt_Market_Analysis.pdf`. Also: [DRC Mining Value Chains (PDF)](https://documents1.worldbank.org/curated/en/099101723140622516/pdf/P17516105e95da0de0a34c0dd670e6f75cf.pdf) |
+| 190 | DRC Mining Code 2018 | :white_check_mark: Downloaded | [EITI (PDF)](https://eiti.org/documents/mining-code-democratic-republic-congo) | Saved as `DRC_Mining_Code_2018_French.pdf` (French original) and `DRC_Mining_Code_English_Analysis_Mayer_Brown.pdf` (English analysis). Law No. 18/001 (9 March 2018) |
+| 191 | South Africa National Energy Act 34/2008 | :white_check_mark: Downloaded | [Gov.za (PDF)](https://www.gov.za/sites/default/files/gcis_document/201409/316381263.pdf) | Saved as `South_Africa_National_Energy_Act_2008.pdf` |
+| 192 | Morocco National Energy Efficiency Strategy 2030 | :white_check_mark: Downloaded | [MEM (PDF, French)](https://www.mem.gov.ma/Lists/Lst_rapports/Attachments/33/Strat%C3%A9gue%20Nationale%20de%20l'Efficacit%C3%A9%20%C3%A9nerg%C3%A9tique%20%C3%A0%20l'horizon%202030.pdf) | Saved as `Morocco_Energy_Efficiency_Strategy_2030.pdf` (French). English alternatives: [World Bank Energy Policy MRV (PDF)](https://documents1.worldbank.org/curated/en/964331541085444404/pdf/Morocco-Energy-Policy-MRV.pdf), [OCP Policy Center analysis (PDF)](https://www.policycenter.ma/sites/default/files/2021-01/OCPPC-PP1614v1.pdf) |
+| 193 | AMDC Business Plan | :white_check_mark: Downloaded | [AU (PDF)](https://au.int/sites/default/files/newsevents/workingdocuments/14528-wd-amdc_business_plan_edited_final_19_nov.pdf) | Saved as `AMDC_Business_Plan.pdf`. Nov 2012. Also: [AMV Action Plan (PDF)](https://au.int/sites/default/files/documents/29812-doc-action_plan_final_version_jan_2012.pdf) |
+| 194 | SADC Mining Protocol | :white_check_mark: Downloaded | [SADC (PDF)](https://www.sadc.int/sites/default/files/2021-08/Protocol_on_Mining..pdf) | Saved as `SADC_Mining_Protocol_1997.pdf`. 1997 protocol |
+| 195 | Kenya Energy Act 2019 | :white_check_mark: Downloaded | [EPRA (PDF)](https://www.epra.go.ke/sites/default/files/2025-02/EnergyAct__No.1of2019.pdf) | Saved as `Kenya_Energy_Act_2019.pdf`. Act No. 1 of 2019 |
+| 196 | Nigeria Minerals and Mining Act 2007 | :white_check_mark: Downloaded | [MSMD (PDF)](https://www.minesandsteel.gov.ng/wp-content/uploads/2016/04/Nigerian_Minerals_and_Mining_Act_2007.pdf) | Saved as `Nigeria_Minerals_Mining_Act_2007.pdf` |
+| 197 | Tanzania Mining Act 2010 (amended 2017) | :white_check_mark: Downloaded | [Madini (PDF)](https://www.madini.go.tz/media/The-Mining-Act-2010.pdf) | Saved as `Tanzania_Mining_Act_2010.pdf`. Consolidated with 2017 amendments |
+| 198 | Ghana Minerals Commission Act 1993 (Act 450) | :white_check_mark: Downloaded | [Mincom (PDF)](https://www.mincom.gov.gh/wp-content/uploads/2022/03/Minerals-Commission-Act-1993-Act-450-1.pdf) | Saved as `Ghana_Minerals_Commission_Act_1993.pdf` |
+| 199 | Zimbabwe Mines and Minerals Act | :white_check_mark: Downloaded | [FAO (PDF)](https://faolex.fao.org/docs/pdf/zim060737.pdf) | Saved as `Zimbabwe_Mines_Minerals_Act.pdf` |
+| 200 | Zambia Mines and Minerals Development Act 2015 | :white_check_mark: Downloaded | [Parliament of Zambia (PDF)](https://www.parliament.gov.zm/sites/default/files/documents/acts/The%20Mines%20and%20Minerals%20Act,%202015.pdf) | Saved as `Zambia_Mines_Minerals_Act_2015.pdf`. Act No. 11 of 2015 |
 
 ---
 
@@ -426,22 +427,22 @@
 | Category | Downloaded | Free (Not Downloaded) | Auth Required | Paid | Total |
 |----------|-----------|----------------------|---------------|------|-------|
 | EU Battery Regulation & Legislation | 27 | 8 | 0 | 0 | 35 |
-| UNECE Homologation | 17 | 3 | 0 | 0 | 20 |
+| UNECE Homologation | 20 | 0 | 0 | 0 | 20 |
 | IEC/ISO Standards | 1 | 0 | 0 | 29 | 30 |
 | Battery Passport | 12 | 2 | 0 | 0 | 16 |
-| Supply Chain | 6 | 1 | 0 | 0 | 7 |
-| Transport of Dangerous Goods | 0 | 7 | 0 | 2 | 9 |
-| Safety/Recycling/Environmental | 2 | 5 | 1 | 5 | 13 |
-| Functional Safety & Testing | 1 | 7 | 0 | 8 | 16 |
-| China | 0 | 6 | 0 | 5 | 11 |
-| ASEAN | 0 | 9 | 0 | 0 | 9 |
-| EAEU | 0 | 4 | 0 | 1 | 5 |
-| Middle East | 0 | 7 | 0 | 2 | 9 |
-| Africa | 3 | 13 | 0 | 0 | 16 |
-| Global Reports | 3 | 2 | 2 | 0 | 7 |
-| **TOTAL** | **72** | **74** | **3** | **52** | **203** |
+| Supply Chain | 5 | 1 | 0 | 0 | 7 |
+| Transport of Dangerous Goods | 6 | 1 | 0 | 3 | 10 |
+| Safety/Recycling/Environmental | 3 | 4 | 1 | 5 | 13 |
+| Functional Safety & Testing | 10 | 0 | 0 | 8 | 18 |
+| China | 4 | 3 | 0 | 5 | 12 |
+| ASEAN | 5 | 1 | 0 | 3 | 9 |
+| EAEU | 1 | 4 | 0 | 1 | 6 |
+| Middle East | 5 | 0 | 0 | 5 | 10 |
+| Africa | 16 | 0 | 0 | 0 | 16 |
+| Global Reports | 4 | 2 | 2 | 0 | 8 |
+| **TOTAL** | **120** | **25** | **3** | **59** | **210** |
 
-> **Note**: 68 unique PDF files (~165 MB) are currently downloaded in `server/knowledge-base/pdfs/`. The "Downloaded" count above includes some documents counted in multiple categories. Remaining UNECE items (R10, R12, GTR 18) require manual identification on the UNECE website. The full research identified ~605 resources; this summary covers the ~200 most relevant with direct links.
+> **Note**: 120 unique PDF files are currently downloaded in `server/knowledge-base/pdfs/` (incl. 32 NHTSA ERG guides). Many listed "free" documents are web pages rather than downloadable PDFs. Several regional standards (Indonesia SNI, Philippines PNS, Malaysia MS, GSO/ESMA/Qatar) were reclassified from Free to Paid. Some documents only exist in local languages (Chinese, French, Bahasa Indonesia, Vietnamese). The full research identified ~605 resources; this summary covers the ~210 most relevant with direct links.
 
 ---
 
@@ -479,14 +480,21 @@ server/knowledge-base/
 ├── BATTERY_REGULATIONS_KNOWLEDGE_BASE.md   ← This file (tracked in git)
 └── pdfs/                                    ← Git-ignored (large binaries)
     ├── eu-battery-regulation/       # 27 PDFs — EUR-Lex EU legislation
-    ├── unece-homologation/          # 18 PDFs — UNECE regulations + agreements
+    ├── unece-homologation/          # 27 PDFs — UNECE regulations + agreements + amendments + Russian versions
     ├── iec-iso-standards/           # IEC/ISO standards (mostly paid)
-    ├── battery-passport/            # 16 PDFs — Battery Pass, GBA, JRC, EC FAQ + bonus materials
-    ├── supply-chain/                # 4 PDFs — OECD, UN Guiding Principles, IRMA, World Bank
-    ├── transport-safety-recycling/  # UNECE-hosted (manual download)
-    ├── functional-safety/           # 1 PDF — JRC Li-Ion Safety
-    ├── china-asean-eaeu/            # 1 PDF — IEA Global EV Outlook
-    └── middle-east-africa/          # 3 PDFs — AU, AfCFTA, IEA Africa
+    ├── battery-passport/            # 16 PDFs — Battery Pass, GBA, JRC, EC FAQ + bonus
+    ├── supply-chain/                # 5 PDFs — OECD, UN Guiding Principles, IRMA, World Bank, IEA Global EV Outlook
+    ├── transport-safety/            # 6 PDFs — UN Manual of Tests Rev.8 + Amend.1, UN Model Regs Rev.23, ADR 2025 Vol 1 & 2
+    ├── recycling/                   # 1 PDF — Basel Convention 2025
+    ├── functional-safety/           # 10 PDFs + 32 NHTSA ERG guides in subfolder
+    │   └── nhtsa-emergency-response-guides/  # 32 PDFs — vehicle-specific EV emergency response guides
+    ├── battery-technology/          # 1 PDF — JRC battery technology research
+    ├── battery-production/          # 1 PDF — Lithium-ion battery production process
+    ├── china/                       # 4 PDFs — UNECE summaries, ICCT NEV plan, GBA passport overview
+    ├── asean/                       # 5 PDFs — ASEAN MRA, OECD fuel economy, Thailand BOI, Vietnam ICCT, ASEAN framework
+    ├── eaeu/                        # 1 PDF — TR CU 004/2011 LV equipment safety (English)
+    ├── middle-east/                 # 5 PDFs — UAE strategy, Saudi Vision 2030, Oman PAEW, Bahrain EWA, Kuwait MEW
+    └── africa/                      # 17 PDFs — AU Mining Vision, AfCFTA, IEA/IRENA Africa, DRC/Nigeria/Tanzania/Ghana/Zimbabwe/Zambia mining acts, SADC, AMDC, Morocco, SA Energy, Kenya Energy
 ```
 
 ### Download Script
@@ -505,6 +513,9 @@ node server/scripts/downloadKnowledgeBase.mjs --unece
 
 # Other sources (JRC, IEA, OECD, etc.):
 node server/scripts/downloadKnowledgeBase.mjs --other
+
+# NHTSA EV Emergency Response Guides (all manufacturer guides):
+node server/scripts/downloadNhtsaERG.mjs
 ```
 
 ---
@@ -528,65 +539,16 @@ node server/scripts/downloadKnowledgeBase.mjs --other
 >
 > Tip: right-click the link and choose "Save link as..." or open the link and save the PDF from the browser.
 
-### `unece-homologation/`
-
-> 17 of 20 UNECE documents downloaded. 3 remaining below. Also contains `R000a2e.pdf` (unknown administrative document, 124KB).
-
-- [ ] **UNECE R10** — EMC — [Download](https://unece.org/fileadmin/DAM/trans/main/wp29/wp29regs/R010r4e.pdf) — Not found during download session
-- [ ] **UNECE R12** — Steering Protection — [Find on page](https://unece.org/transport/vehicle-regulations-wp29/standards/addenda-1958-agreement-regulations-0-20) — Requires manual search
-- [ ] **UNECE GTR 18** — OBD for L-Category — [Find on page](https://unece.org/transport/standards/transport/vehicle-regulations-wp29/global-technical-regulations-gtrs) — Requires manual search
-
 ### `battery-passport/`
 
-> All downloadable PDFs obtained. Only web-only sources remain below.
+> All downloadable PDFs obtained. Only web-only sources remain below (scraping candidates for RAG ingestion).
 
-- [ ] **Catena-X CX-0143** — Battery Passport Standard — [View online](https://catenax-ev.github.io/docs/next/standards/CX-0143-UseCaseCircularEconomyDigitalProductPassportStandard/CX-0143-SEM) — Web-only (no PDF). Needs web scraping for RAG ingestion
-- [ ] **GBA — Battery Passport page** — [View online](https://www.globalbattery.org/battery-passport/) — Additional context beyond the downloaded PDFs. Web scraping candidate
+- [ ] **Catena-X CX-0143** — Battery Passport Standard — [View online](https://catenax-ev.github.io/docs/next/standards/CX-0143-UseCaseCircularEconomyDigitalProductPassportStandard/CX-0143-SEM) — Web-only (no PDF)
+- [ ] **GBA — Battery Passport page** — [View online](https://www.globalbattery.org/battery-passport/) — Additional context beyond the downloaded PDFs
 
-### `supply-chain/`
-
-> All supply-chain PDFs downloaded.
-
-### `transport-safety-recycling/`
-
-> UN Manual Rev.8 is now current (supersedes Rev.7). ADR 2025 links go to document pages — click the English PDF.
-
-- [ ] **UN Manual of Tests and Criteria** Rev.8 (Section 38.3) — [Find on page](https://unece.org/transport/dangerous-goods/rev8-files)
-- [ ] **UN Model Regulations** Rev.23 — Transport of Dangerous Goods — [Find on page](https://unece.org/transport/dangerous-goods/un-model-regulations-rev23)
-- [ ] **ADR 2025** — Volume 1 — [Find on page](https://unece.org/transport/documents/2025/01/standards/adr-2025-volume-1)
-- [ ] **ADR 2025** — Volume 2 — [Find on page](https://unece.org/transport/documents/2025/01/standards/adr-2025-volume-2)
-- [ ] **IMDG Code** (Amendment 41-22) — [Download](https://wwwcdn.imo.org/localresources/en/OurWork/Safety/Documents/IMDG%20Code%20Amendment%2041-22.pdf)
-- [ ] **Basel Convention** — Text — [Download](http://www.basel.int/Portals/4/download.aspx?d=UNEP-CHW-IMPL-CONVTEXT.English.pdf)
-
-### `functional-safety/`
-
-- [ ] **NHTSA — Lithium-Ion Battery EV Testing Research** — [Download](https://www.nhtsa.gov/sites/nhtsa.gov/files/documents/12848-lithiumionbatteryelectricvehicles_092717-v3-tag.pdf)
-- [ ] **Sandia — EV Battery Safety Report** — [Download](https://energy.sandia.gov/wp-content/gallery/uploads/EV-battery-testing-report-SAND2017-6925.pdf)
-- [ ] **NREL — Battery Thermal Runaway** — [Download](https://www.nrel.gov/docs/fy22osti/82330.pdf)
-- [ ] **NFPA — EV Emergency Field Guide** — [Download](https://www.nfpa.org/~/media/files/training/AFV/Emergency_Field_Guide_Electronic.pdf)
-- [ ] **Batteries Europe — Strategic Research Agenda** — [Download](https://batterieseurope.eu/wp-content/uploads/2022/09/Batteries-Europe_Strategic-Research-Agenda_September-2022.pdf)
-- [ ] **IEC — Energy Storage White Paper** — [Download](https://www.iec.ch/whitepaper/pdf/iecWP-energystorage-LR-en.pdf)
-- [ ] **EUCAR — Battery Requirements** — [Download](https://www.eucar.be/wp-content/uploads/2022/05/TR_2022_BatteryRequirements_v1.0.pdf)
-- [ ] **USABC — EV Battery Test Procedures Manual** — [Download](https://www.uscar.org/commands/files_download.php?files_id=364)
-- [ ] **INL — Battery Testing Protocols** — [Download](https://inldigitallibrary.inl.gov/sites/sti/sti/5720574.pdf)
-
-### `china-asean-eaeu/`
-
-- [ ] **GB 38031-2020** — EV Battery Safety (UNECE summary) — [Download](https://unece.org/sites/default/files/2021-01/EVS-05-04e.pdf)
-- [ ] **China NEV Development Plan 2021-2035** — [Download](https://www.gov.cn/zhengce/content/2020-11/02/5556716/files/cdfa6be2173145d4b4cf5a8e17e54a7e.pdf)
-- [ ] **ASEAN MRA** — EE Equipment — [Download](https://asean.org/wp-content/uploads/2012/05/ASEAN-MRA-for-Electrical-and-Electronic-Equipment.pdf)
-- [ ] **ASEAN Fuel Economy Roadmap** — [Download](https://asean.org/wp-content/uploads/2021/09/ASEAN-Fuel-Economy-Roadmap.pdf)
-
-### `middle-east-africa/`
-
-- [ ] **IRENA — Renewable Energy Market Africa** — [Download](https://www.irena.org/-/media/Files/IRENA/Agency/Publication/2022/Jan/IRENA_Market_Africa_2022.pdf)
-- [ ] **World Bank — DRC Mining Governance** — [Download](https://documents1.worldbank.org/curated/en/099052023131521028/pdf/P17226705c4da30920a4d60c0f2e0b5b0e8.pdf)
-
-> **Total remaining**: 32 PDFs with direct download links across 4 folders, plus 2 web-only sources for scraping.
-> Some UNECE links may require CAPTCHA — open in browser and solve manually.
-> EUR-Lex links may show a WAF challenge page first — wait a moment and the PDF should load.
+> **Total remaining**: 2 web-only sources for scraping. All downloadable PDFs have been obtained.
 
 ---
 
 *Generated for Ichnos Protocol Battery Passport Knowledge Base*
-*Last updated: 2026-02-17*
+*Last updated: 2026-02-18 — 120 PDFs downloaded across all categories. All free downloadable PDFs obtained. Only 2 web-only sources (Catena-X, GBA) remain for scraping. Paid standards (IEC/ISO, regional) not included.*
