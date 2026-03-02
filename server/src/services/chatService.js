@@ -8,27 +8,125 @@ import * as questionRepository from "../repositories/questionRepository.js";
 import * as knowledgeRepository from "../repositories/knowledgeRepository.js";
 import * as userRepository from "../repositories/userRepository.js";
 
-const DAILY_LIMIT = 50;
+const DAILY_LIMIT = 3;
 const XAI_TIMEOUT_MS = 8000;
 const TOPIC_TIMEOUT_MS = 2000;
 const MAX_CONTEXT_WORDS = 1000;
 
 const STOP_WORDS = new Set([
-  "the", "a", "an", "is", "are", "was", "were", "be", "been",
-  "being", "have", "has", "had", "do", "does", "did", "will",
-  "would", "could", "should", "may", "might", "shall", "can",
-  "to", "of", "in", "for", "on", "with", "at", "by", "from",
-  "as", "into", "through", "during", "before", "after", "and",
-  "but", "or", "nor", "not", "so", "yet", "both", "either",
-  "neither", "each", "every", "all", "any", "few", "more",
-  "most", "other", "some", "such", "no", "only", "own", "same",
-  "than", "too", "very", "just", "about", "above", "below",
-  "between", "up", "down", "out", "off", "over", "under",
-  "again", "further", "then", "once", "here", "there", "when",
-  "where", "why", "how", "what", "which", "who", "whom", "this",
-  "that", "these", "those", "i", "me", "my", "myself", "we",
-  "our", "you", "your", "he", "him", "his", "she", "her", "it",
-  "its", "they", "them", "their",
+  "the",
+  "a",
+  "an",
+  "is",
+  "are",
+  "was",
+  "were",
+  "be",
+  "been",
+  "being",
+  "have",
+  "has",
+  "had",
+  "do",
+  "does",
+  "did",
+  "will",
+  "would",
+  "could",
+  "should",
+  "may",
+  "might",
+  "shall",
+  "can",
+  "to",
+  "of",
+  "in",
+  "for",
+  "on",
+  "with",
+  "at",
+  "by",
+  "from",
+  "as",
+  "into",
+  "through",
+  "during",
+  "before",
+  "after",
+  "and",
+  "but",
+  "or",
+  "nor",
+  "not",
+  "so",
+  "yet",
+  "both",
+  "either",
+  "neither",
+  "each",
+  "every",
+  "all",
+  "any",
+  "few",
+  "more",
+  "most",
+  "other",
+  "some",
+  "such",
+  "no",
+  "only",
+  "own",
+  "same",
+  "than",
+  "too",
+  "very",
+  "just",
+  "about",
+  "above",
+  "below",
+  "between",
+  "up",
+  "down",
+  "out",
+  "off",
+  "over",
+  "under",
+  "again",
+  "further",
+  "then",
+  "once",
+  "here",
+  "there",
+  "when",
+  "where",
+  "why",
+  "how",
+  "what",
+  "which",
+  "who",
+  "whom",
+  "this",
+  "that",
+  "these",
+  "those",
+  "i",
+  "me",
+  "my",
+  "myself",
+  "we",
+  "our",
+  "you",
+  "your",
+  "he",
+  "him",
+  "his",
+  "she",
+  "her",
+  "it",
+  "its",
+  "they",
+  "them",
+  "their",
 ]);
 
 const SYSTEM_PROMPT = `You are Ichnos Protocol's AI assistant. You help visitors learn about the Ichnos Battery Passport platform, EU battery regulations, compliance requirements, and our services. Be concise, professional, and helpful. If you don't know something, say so honestly. When relevant, suggest contacting the team for detailed pricing or custom requirements.`;
@@ -72,8 +170,7 @@ function buildContextString(documents) {
 
 export async function callXaiApi(messages, timeoutMs) {
   const endpoint =
-    process.env.XAI_API_ENDPOINT ||
-    "https://api.x.ai/v1/chat/completions";
+    process.env.XAI_API_ENDPOINT || "https://api.x.ai/v1/chat/completions";
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -117,8 +214,7 @@ async function classifyTopics(questionId, message) {
 
   try {
     const endpoint =
-      process.env.XAI_API_ENDPOINT ||
-      "https://api.x.ai/v1/chat/completions";
+      process.env.XAI_API_ENDPOINT || "https://api.x.ai/v1/chat/completions";
 
     const response = await fetch(endpoint, {
       method: "POST",
@@ -167,7 +263,7 @@ export async function sendMessage(userId, message) {
   const dailyCount = await questionRepository.getDailyChatCount(userId, today);
 
   if (dailyCount >= DAILY_LIMIT) {
-    throw buildError("Daily message limit reached (50/day)", 429);
+    throw buildError("Daily message limit reached (3/day)", 429);
   }
 
   const keywords = extractKeywords(message);

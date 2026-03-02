@@ -78,7 +78,7 @@ describe("chatService", () => {
 
   describe("sendMessage", () => {
     it("returns answer and messageId on success", async () => {
-      mockGetDailyChatCount.mockResolvedValue(5);
+      mockGetDailyChatCount.mockResolvedValue(2);
       mockQueryKnowledgeBase.mockResolvedValue([
         { content: "Battery passport info" },
       ]);
@@ -90,7 +90,7 @@ describe("chatService", () => {
 
       expect(result.answer).toBe("Here is the answer");
       expect(result.messageId).toBe("q-1");
-      expect(result.dailyCount).toBe(6);
+      expect(result.dailyCount).toBe(3);
       expect(mockCreateQuestion).toHaveBeenCalledWith("uid-1", {
         question: "Tell me about passports",
         answer: "Here is the answer",
@@ -101,11 +101,11 @@ describe("chatService", () => {
     });
 
     it("throws 429 when daily limit is reached", async () => {
-      mockGetDailyChatCount.mockResolvedValue(50);
+      mockGetDailyChatCount.mockResolvedValue(3);
 
       const error = await sendMessage("uid-1", "Hello").catch((e) => e);
 
-      expect(error.message).toBe("Daily message limit reached (50/day)");
+      expect(error.message).toBe("Daily message limit reached (3/day)");
       expect(error.statusCode).toBe(429);
     });
 
