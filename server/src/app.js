@@ -11,6 +11,7 @@ import cors from "cors";
 import rateLimit from "express-rate-limit";
 import authRoutes from "./routes/authRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js";
+import buildStatusPage from "./helpers/buildStatusPage.js";
 
 const app = express();
 
@@ -36,9 +37,27 @@ const limiter = rateLimit({
 });
 app.use("/api/", limiter);
 
-// Health check endpoint
+// Root status page
+app.get("/", (_req, res) => {
+  const clientOrigin =
+    process.env.CORS_ORIGIN || "https://ichnos-protocol.com";
+  const html = buildStatusPage({
+    clientOrigin,
+    env: process.env.NODE_ENV || "development",
+    nodeVersion: process.version,
+  });
+  res.status(200).send(html);
+});
+
+// Health check endpoint (JSON, for monitoring tools)
 app.get("/api/health", (_req, res) => {
-  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+  res.status(200).json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || "development",
+    node: process.version,
+  });
 });
 
 // API routes
