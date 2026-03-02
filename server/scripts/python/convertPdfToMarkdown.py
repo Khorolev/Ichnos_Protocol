@@ -12,19 +12,33 @@ Usage:
 import argparse
 import json
 import logging
+import os
 import shutil
 import signal
 import sys
+import threading
 import time
 from pathlib import Path
 
-from marker.converters.pdf import PdfConverter
-from marker.models import create_model_dict
+try:
+    from marker.converters.pdf import PdfConverter
+    from marker.models import create_model_dict
+
+    HAS_MARKER = True
+except ImportError:
+    HAS_MARKER = False
+
+try:
+    import fitz  # PyMuPDF
+
+    HAS_PYMUPDF = True
+except ImportError:
+    HAS_PYMUPDF = False
 
 MAX_FILE_SIZE_MB = 500
 WARN_FILE_SIZE_MB = 100
 DEFAULT_DPI = 200
-DEFAULT_TIMEOUT = 600
+DEFAULT_TIMEOUT = 7200
 
 shutdown_requested = False
 
@@ -123,6 +137,50 @@ def generate_metadata(pdf_path, output_path, stats):
     return metadata
 
 
+def convert_with_pymupdf(input_path, output_path, output_dir):
+    """Fallback converter using PyMuPDF plain-text extraction."""
+    if not HAS_PYMUPDF:
+        logging.error("PyMuPDF (fitz) is not installed.")
+        return 2
+
+    start_time = time.time()
+    doc = fitz.open(str(input_path))
+    page_count = len(doc)
+    logging.info("PyMuPDF fallback: %d pages", page_count)
+
+    lines = [f"# {input_path.stem.replace('_', ' ')}\n"]
+    for i, page in enumerate(doc):
+        if shutdown_requested:
+            doc.close()
+            logging.warning("Shutdown during PyMuPDF extraction")
+            return 6
+        text = page.get_text("text").strip()
+        if text:
+            lines.append(f"\n## Page {i + 1}\n")
+            lines.append(text)
+
+    doc.close()
+    markdown_text = "\n".join(lines)
+
+    if not markdown_text.strip():
+        logging.error("PyMuPDF produced empty output")
+        return 2
+
+    with open(str(output_path), "w", encoding="utf-8") as f:
+        f.write(markdown_text)
+
+    elapsed = time.time() - start_time
+    logging.info("PyMuPDF fallback complete in %.1fs (%d pages)", elapsed, page_count)
+
+    generate_metadata(input_path, output_path, {
+        "page_count": page_count,
+        "elapsed": elapsed,
+        "dpi": 0,
+        "languages": None,
+    })
+    return 0
+
+
 def convert_pdf_to_markdown(args):
     """Run the PDF to Markdown conversion pipeline."""
     input_path = Path(args.input).resolve()
@@ -150,6 +208,15 @@ def convert_pdf_to_markdown(args):
             output_path,
         )
         return 1
+
+    # PyMuPDF fallback mode — bypass Marker entirely
+    if args.fallback == "pymupdf":
+        logger.info("Using PyMuPDF fallback converter")
+        return convert_with_pymupdf(input_path, output_path, output_dir)
+
+    if not HAS_MARKER:
+        logger.error("Marker is not installed and no fallback requested.")
+        return 2
 
     languages = args.languages.split(",") if args.languages else None
     dpi = args.dpi
@@ -182,8 +249,22 @@ def convert_pdf_to_markdown(args):
             logger.warning("Shutdown requested before conversion")
             return 6
 
-        logger.info("Converting PDF (this may take a while)...")
-        rendered = converter(str(input_path))
+        def _timeout_kill():
+            logger.error(
+                "TIMEOUT: conversion exceeded %d seconds. Terminating.",
+                args.timeout,
+            )
+            os._exit(7)
+
+        timer = threading.Timer(args.timeout, _timeout_kill)
+        timer.daemon = True
+        timer.start()
+
+        logger.info("Converting PDF (timeout: %ds)...", args.timeout)
+        try:
+            rendered = converter(str(input_path))
+        finally:
+            timer.cancel()
 
         if shutdown_requested:
             logger.warning("Shutdown requested after conversion, skipping output")
@@ -276,10 +357,22 @@ Examples:
         help="Overwrite existing output files",
     )
     parser.add_argument(
+        "--timeout",
+        type=int,
+        default=DEFAULT_TIMEOUT,
+        help="Max seconds per conversion before hard kill (default: %(default)s)",
+    )
+    parser.add_argument(
         "--verbose",
         action="store_true",
         default=False,
         help="Enable detailed logging",
+    )
+    parser.add_argument(
+        "--fallback",
+        choices=["pymupdf"],
+        default=None,
+        help="Use a fallback converter instead of Marker (pymupdf)",
     )
     return parser.parse_args()
 

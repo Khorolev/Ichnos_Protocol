@@ -44,7 +44,8 @@
 | 1 | **EU Battery Regulation 2023/1542** | :white_check_mark: Downloaded | [EUR-Lex](https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32023R1542) | Core regulation — mandatory for Battery Passport |
 | 2 | **Directive 2006/66/EC** (Old Batteries Directive) | :white_check_mark: Downloaded | [EUR-Lex](https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32006L0066) | Repealed by 2023/1542, historical reference |
 | 3 | **Delegated Reg. 2024/1781** — Carbon Footprint Rules | :white_check_mark: Downloaded | [EUR-Lex](https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32024R1781) | Carbon footprint calculation & declaration |
-| 4 | **Delegated Reg. 2025/11** — Battery Passport | :white_check_mark: Downloaded | [EUR-Lex](https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32025R0011) | Data requirements for battery passport |
+| 4 | **Delegated Reg. 2025/598** — Battery Passport Data Requirements | :globe_with_meridians: Free | [EUR-Lex](https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32025R0598) | Primary Battery Passport data requirements regulation (CELEX 32025R0598) |
+| 4b | **Delegated Reg. 2025/11** — Battery Passport | :globe_with_meridians: Free | [EUR-Lex](https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32025R0011) | CELEX 32025R0011 — originally listed as Battery Passport regulation; verify actual content against 2025/598 |
 | 5 | **Delegated Reg. 2024/3218** — Due Diligence | :warning: Not available | [EUR-Lex](https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32024R3218) | PDF not available — possibly not yet published, postponed, or retracted. Recheck later |
 | 6 | Implementing Reg. — QR Code & Battery Passport IT System | :globe_with_meridians: Free | [EUR-Lex](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32024R1542) | Expected 2025/2026 |
 | 7 | Implementing Reg. — State of Health Determination | :globe_with_meridians: Free | EUR-Lex (pending) | Expected 2025 |
@@ -451,7 +452,7 @@
 For building the Ichnos Protocol Battery Passport knowledge base, these are the **top 20 must-read documents**:
 
 1. EU Battery Regulation 2023/1542 (#1)
-2. Delegated Reg. 2025/11 — Battery Passport (#4)
+2. Delegated Reg. 2025/598 — Battery Passport Data Requirements (#4) and Delegated Reg. 2025/11 — Battery Passport (#4b)
 3. Delegated Reg. 2024/1781 — Carbon Footprint (#3)
 4. Battery Pass — Content Guidance (#85)
 5. Battery Pass — Technical Guidance (#86)

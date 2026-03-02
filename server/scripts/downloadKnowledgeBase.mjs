@@ -33,6 +33,7 @@ const EURLEX = [
   { dir: "eu-battery-regulation", name: "EU_Batteries_Directive_2006_66_EC.pdf", url: "https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32006L0066" },
   { dir: "eu-battery-regulation", name: "EU_Delegated_Reg_Carbon_Footprint_2024_1781.pdf", url: "https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32024R1781" },
   { dir: "eu-battery-regulation", name: "EU_Delegated_Reg_Battery_Passport_2025_11.pdf", url: "https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32025R0011" },
+  { dir: "eu-battery-regulation", name: "EU_Delegated_Reg_Battery_Passport_2025_598.pdf", url: "https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32025R0598" },
   { dir: "eu-battery-regulation", name: "EU_REACH_Regulation_1907_2006.pdf", url: "https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32006R1907" },
   { dir: "eu-battery-regulation", name: "EU_RoHS_Directive_2011_65.pdf", url: "https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32011L0065" },
   { dir: "eu-battery-regulation", name: "EU_Waste_Framework_Directive_2008_98.pdf", url: "https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=CELEX:32008L0098" },

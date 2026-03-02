@@ -2,12 +2,15 @@
  * Shared metadata generation helper using xAI Grok API.
  *
  * Generates title, category, and tags from a text snippet.
- * Used by extractPdfKnowledgeLegacy.js, extractMarkdownKnowledge.js, and extractWebKnowledge.js.
+ * Includes retry with exponential backoff for transient failures.
  *
  * @module metadataGenerator
  */
 
-const XAI_TIMEOUT_MS = 15000;
+const XAI_TIMEOUT_MS = 30000;
+const MAX_RETRIES = 5;
+const BASE_DELAY_MS = 2000;
+const MAX_DELAY_MS = 60000;
 
 const VALID_CATEGORIES = [
   "battery_passport",
@@ -20,13 +23,31 @@ const VALID_CATEGORIES = [
   "general",
 ];
 
-/**
- * Generate metadata (title, category, tags) for a content chunk.
- *
- * @param {string} content - Text content to analyze (first 1500 chars sent)
- * @returns {Promise<{title: string, category: string, tags: string[]}>}
- */
-async function generateMetadata(content) {
+const RETRYABLE_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504]);
+
+function isRetryable(error) {
+  if (error.name === "AbortError") return true;
+  if (error.cause?.code === "ECONNRESET") return true;
+  if (error.cause?.code === "ETIMEDOUT") return true;
+  if (error.cause?.code === "UND_ERR_CONNECT_TIMEOUT") return true;
+  if (error.message?.includes("fetch failed")) return true;
+  if (error.statusCode && RETRYABLE_STATUS_CODES.has(error.statusCode)) {
+    return true;
+  }
+  return false;
+}
+
+function computeDelay(attempt) {
+  const jitter = Math.random() * 1000;
+  const delay = Math.min(BASE_DELAY_MS * 2 ** attempt + jitter, MAX_DELAY_MS);
+  return Math.round(delay);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function callXaiApi(content) {
   const endpoint =
     process.env.XAI_API_ENDPOINT ||
     "https://api.x.ai/v1/chat/completions";
@@ -62,7 +83,9 @@ Text: ${content.slice(0, 1500)}`,
     });
 
     if (!response.ok) {
-      throw new Error(`xAI API returned ${response.status}`);
+      const err = new Error(`xAI API returned ${response.status}`);
+      err.statusCode = response.status;
+      throw err;
     }
 
     const data = await response.json();
@@ -82,6 +105,38 @@ Text: ${content.slice(0, 1500)}`,
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Generate metadata (title, category, tags) for a content chunk.
+ * Retries up to MAX_RETRIES times with exponential backoff on transient errors.
+ *
+ * @param {string} content - Text content to analyze (first 1500 chars sent)
+ * @returns {Promise<{title: string, category: string, tags: string[]}>}
+ */
+async function generateMetadata(content) {
+  let lastError;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await callXaiApi(content);
+    } catch (error) {
+      lastError = error;
+
+      if (attempt < MAX_RETRIES && isRetryable(error)) {
+        const delay = computeDelay(attempt);
+        console.warn(
+          `    [retry ${attempt + 1}/${MAX_RETRIES}] ${error.message} — waiting ${delay}ms`,
+        );
+        await sleep(delay);
+        continue;
+      }
+
+      throw error;
+    }
+  }
+
+  throw lastError;
 }
 
 export { generateMetadata, VALID_CATEGORIES, XAI_TIMEOUT_MS };

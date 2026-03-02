@@ -84,6 +84,14 @@ lerna-debug.log*
 server/knowledge-base/pdfs/
 
 # ============================================
+# Knowledge base pipeline artifacts
+# ============================================
+server/knowledge-base/markdown_output/
+.state/
+.pipeline.lock
+.logs/
+
+# ============================================
 # Misc
 # ============================================
 *.tsbuildinfo

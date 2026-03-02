@@ -1,3 +1,5 @@
 marker-pdf>=0.3.2
 python-dotenv>=1.0.0
 Pillow>=10.0.0
+weasyprint
+pymupdf>=1.24.0
