@@ -7,135 +7,14 @@
 import * as questionRepository from "../repositories/questionRepository.js";
 import * as knowledgeRepository from "../repositories/knowledgeRepository.js";
 import * as userRepository from "../repositories/userRepository.js";
+import { STOP_WORDS } from "../helpers/stopWords.js";
+import { buildError, buildContextString } from "../helpers/chatHelpers.js";
 
 const DAILY_LIMIT = 3;
 const XAI_TIMEOUT_MS = 8000;
 const TOPIC_TIMEOUT_MS = 2000;
-const MAX_CONTEXT_WORDS = 1000;
-
-const STOP_WORDS = new Set([
-  "the",
-  "a",
-  "an",
-  "is",
-  "are",
-  "was",
-  "were",
-  "be",
-  "been",
-  "being",
-  "have",
-  "has",
-  "had",
-  "do",
-  "does",
-  "did",
-  "will",
-  "would",
-  "could",
-  "should",
-  "may",
-  "might",
-  "shall",
-  "can",
-  "to",
-  "of",
-  "in",
-  "for",
-  "on",
-  "with",
-  "at",
-  "by",
-  "from",
-  "as",
-  "into",
-  "through",
-  "during",
-  "before",
-  "after",
-  "and",
-  "but",
-  "or",
-  "nor",
-  "not",
-  "so",
-  "yet",
-  "both",
-  "either",
-  "neither",
-  "each",
-  "every",
-  "all",
-  "any",
-  "few",
-  "more",
-  "most",
-  "other",
-  "some",
-  "such",
-  "no",
-  "only",
-  "own",
-  "same",
-  "than",
-  "too",
-  "very",
-  "just",
-  "about",
-  "above",
-  "below",
-  "between",
-  "up",
-  "down",
-  "out",
-  "off",
-  "over",
-  "under",
-  "again",
-  "further",
-  "then",
-  "once",
-  "here",
-  "there",
-  "when",
-  "where",
-  "why",
-  "how",
-  "what",
-  "which",
-  "who",
-  "whom",
-  "this",
-  "that",
-  "these",
-  "those",
-  "i",
-  "me",
-  "my",
-  "myself",
-  "we",
-  "our",
-  "you",
-  "your",
-  "he",
-  "him",
-  "his",
-  "she",
-  "her",
-  "it",
-  "its",
-  "they",
-  "them",
-  "their",
-]);
 
 const SYSTEM_PROMPT = `You are Ichnos Protocol's AI assistant. You help visitors learn about the Ichnos Battery Passport platform, EU battery regulations, compliance requirements, and our services. Be concise, professional, and helpful. If you don't know something, say so honestly. When relevant, suggest contacting the team for detailed pricing or custom requirements.`;
-
-function buildError(message, statusCode) {
-  const error = new Error(message);
-  error.statusCode = statusCode;
-  return error;
-}
 
 export function extractKeywords(text) {
   const tokens = text
@@ -146,26 +25,6 @@ export function extractKeywords(text) {
 
   const unique = [...new Set(tokens)];
   return unique.slice(0, 10);
-}
-
-function buildContextString(documents) {
-  if (!documents || documents.length === 0) return "";
-
-  let wordCount = 0;
-  const parts = [];
-
-  for (const doc of documents) {
-    if (!doc.content || typeof doc.content !== "string" || !doc.content.trim())
-      continue;
-    const words = doc.content.split(/\s+/);
-    if (wordCount + words.length > MAX_CONTEXT_WORDS) break;
-    parts.push(doc.content);
-    wordCount += words.length;
-  }
-
-  if (parts.length === 0) return "";
-
-  return `Relevant information:\n\n${parts.join("\n\n")}`;
 }
 
 export async function callXaiApi(messages, timeoutMs) {

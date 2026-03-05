@@ -68,6 +68,7 @@ export async function queryKnowledgeBase(keywords, category) {
       ref = ref.where("tags", "array-contains-any", keywords.slice(0, 10));
     }
 
+    // NOTE: compound query (tags array-contains-any + category ==) requires a composite index in Firestore.
     if (category) {
       ref = ref.where("category", "==", category);
     }

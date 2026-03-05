@@ -63,7 +63,7 @@ describe("chat routes", () => {
     it("returns 200 with answer on success", async () => {
       mockVerifyIdToken.mockResolvedValue(decodedToken);
       mockQuery
-        .mockResolvedValueOnce({ rows: [{ count: 3 }] })
+        .mockResolvedValueOnce({ rows: [{ count: 2 }] })
         .mockResolvedValueOnce({
           rows: [{ id: "q-1", question: "Hello", answer: "Hi there" }],
         })
