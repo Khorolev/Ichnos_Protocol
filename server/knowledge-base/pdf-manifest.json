@@ -1,0 +1,31 @@
+{
+  "version": "2026-03-05",
+  "source": "BATTERY_REGULATIONS_KNOWLEDGE_BASE.md",
+  "expectedPdfCounts": {
+    "eu-battery-regulation": 27,
+    "unece-homologation": 27,
+    "battery-passport": 16,
+    "iec-iso-standards": 0,
+    "functional-safety": 11,
+    "functional-safety/emergency-guides": 32,
+    "supply-chain": 5,
+    "transport-safety": 6,
+    "recycling": 1,
+    "africa": 17,
+    "asean": 5,
+    "battery-production": 1,
+    "battery-technology": 1,
+    "china": 4,
+    "eaeu": 1,
+    "middle-east": 5,
+    "global-market": 4
+  },
+  "strictExclusions": {
+    "china": [
+      {
+        "file": "UNECE_GB38031_Revision_Status_SIGTP-01-11.pdf",
+        "reason": "Scanned presentation slide; non-extractable below markdown quality threshold"
+      }
+    ]
+  }
+}

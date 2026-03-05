@@ -3,7 +3,7 @@
  *
  * NHTSA blocks automated HTTP requests (403), so this script uses
  * headed Chromium to load the ERG page, scrape all PDF links, and
- * download each guide into functional-safety/nhtsa-emergency-response-guides/.
+ * download each guide into functional-safety/emergency-guides/.
  *
  * Usage: node server/scripts/downloadNhtsaERG.mjs
  *
@@ -14,7 +14,7 @@ import { existsSync, mkdirSync, statSync } from "fs";
 import { join, resolve } from "path";
 
 const DEST_DIR = resolve(
-  "server/knowledge-base/pdfs/functional-safety/nhtsa-emergency-response-guides",
+  "server/knowledge-base/pdfs/functional-safety/emergency-guides",
 );
 const ERG_URL = "https://www.nhtsa.gov/emergency-response-guides";
 const PAGE_LOAD_WAIT = 15_000;

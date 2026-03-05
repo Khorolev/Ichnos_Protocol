@@ -20,7 +20,8 @@
 import "dotenv/config";
 import { createHash } from "crypto";
 import { readFileSync, readdirSync, statSync } from "fs";
-import { basename, join, extname } from "path";
+import { basename, join, extname, relative, resolve } from "path";
+import { fileURLToPath } from "url";
 import firebaseAdmin from "../src/config/firebase.js";
 import { generateMetadata } from "./utils/generateMetadata.js";
 import { chunkMarkdownByHeadings } from "./utils/chunkByHeadings.js";
@@ -28,6 +29,7 @@ import { chunkMarkdownByHeadings } from "./utils/chunkByHeadings.js";
 const COLLECTION = "knowledge_base";
 const MAX_WORDS = 300;
 const BATCH_LIMIT = 500;
+const SERVER_ROOT = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
 function parseArgs(argv) {
   const args = argv.slice(2);
@@ -53,8 +55,18 @@ function parseArgs(argv) {
   return result;
 }
 
-function buildChunkId(fileName, chunkIndex) {
-  return `${fileName}::chunk_${chunkIndex}`;
+function normalizePath(pathValue) {
+  return pathValue.replace(/\\/g, "/");
+}
+
+function buildSourceIdentifier(filePath) {
+  const absolutePath = resolve(filePath);
+  const relativePath = normalizePath(relative(SERVER_ROOT, absolutePath));
+  return `md:${relativePath}`;
+}
+
+function buildChunkId(sourceId, chunkIndex) {
+  return `${sourceId}::chunk_${chunkIndex}`;
 }
 
 function hashContent(content) {
@@ -65,8 +77,8 @@ function hashContent(content) {
  * Query Firestore for all chunk_ids already ingested for this file.
  * Returns a Set of chunk_id strings for fast lookup.
  */
-async function fetchIngestedChunkIds(db, collection, fileName) {
-  const createdBy = `markdown-extract:${fileName}`;
+async function fetchIngestedChunkIds(db, collection, sourceId) {
+  const createdBy = `markdown-extract:${sourceId}`;
   const snapshot = await db
     .collection(collection)
     .where("created_by", "==", createdBy)
@@ -88,6 +100,8 @@ async function processMarkdownFile(
   skipExisting = false,
 ) {
   const fileName = basename(filePath);
+  const sourceId = buildSourceIdentifier(filePath);
+  const createdBy = `markdown-extract:${sourceId}`;
   console.log(`\nProcessing: ${fileName}`);
 
   const content = readFileSync(filePath, "utf-8");
@@ -97,7 +111,7 @@ async function processMarkdownFile(
   const db = firebaseAdmin.firestore();
 
   // Fetch already-ingested chunk IDs for chunk-level resume
-  const ingestedIds = await fetchIngestedChunkIds(db, collection, fileName);
+  const ingestedIds = await fetchIngestedChunkIds(db, collection, sourceId);
   if (ingestedIds.size > 0) {
     console.log(`  Found ${ingestedIds.size} already-ingested chunks`);
   }
@@ -116,7 +130,7 @@ async function processMarkdownFile(
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
-    const chunkId = buildChunkId(fileName, i);
+    const chunkId = buildChunkId(sourceId, i);
     const contentHash = hashContent(chunk.content);
 
     // Skip already-ingested chunks
@@ -132,9 +146,7 @@ async function processMarkdownFile(
       metadata = await generateMetadata(chunk.content);
     } catch (error) {
       failed++;
-      console.error(
-        `    FAILED chunk ${i + 1}: ${error.message} — skipping`,
-      );
+      console.error(`    FAILED chunk ${i + 1}: ${error.message} — skipping`);
       continue;
     }
 
@@ -151,7 +163,7 @@ async function processMarkdownFile(
       content_hash: contentHash,
       created_at: new Date(),
       updated_at: new Date(),
-      created_by: `markdown-extract:${fileName}`,
+      created_by: createdBy,
     });
 
     written++;
@@ -211,9 +223,7 @@ async function processDirectory(
     );
   }
 
-  console.log(
-    `\nBatch complete: ${files.length} files, ${totalChunks} chunks`,
-  );
+  console.log(`\nBatch complete: ${files.length} files, ${totalChunks} chunks`);
 }
 
 function showUsage() {
@@ -228,8 +238,12 @@ Options:
 }
 
 async function main() {
-  const { path: targetPath, category, batch, skipExisting } =
-    parseArgs(process.argv);
+  const {
+    path: targetPath,
+    category,
+    batch,
+    skipExisting,
+  } = parseArgs(process.argv);
 
   if (!targetPath) {
     showUsage();

@@ -12,6 +12,7 @@
  *   node scripts/extractWebKnowledge.js <url> --ignore-robots
  */
 import "dotenv/config";
+import { createHash } from "crypto";
 import TurndownService from "turndown";
 import { createDocument } from "../src/repositories/knowledgeRepository.js";
 import { extractBySelector } from "./helpers/domSelector.js";
@@ -22,6 +23,11 @@ import { chunkMarkdownByHeadings } from "./utils/chunkByHeadings.js";
 const MAX_WORDS = 300;
 const FETCH_TIMEOUT_MS = 30_000;
 const USER_AGENT = "IchnosProtocol-KnowledgeBot/1.0";
+
+function buildWebChunkId(url, chunkIndex) {
+  const urlHash = createHash("sha256").update(url).digest("hex").slice(0, 16);
+  return `web:${urlHash}::chunk_${chunkIndex}`;
+}
 
 function parseArgs(argv) {
   const args = argv.slice(2);
@@ -129,6 +135,7 @@ async function processUrl(url, categoryOverride, selector) {
       tags: metadata.tags,
       source_type: "web",
       source_url: url,
+      chunk_id: buildWebChunkId(url, i),
       heading_level: chunk.headingLevel,
       parent_section: chunk.parentSection,
       created_by: `web-extract:${hostname}`,

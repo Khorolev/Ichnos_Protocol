@@ -52,19 +52,19 @@ This auto-discovers all subdirectories under `knowledge-base/pdfs/`, resolves ca
 
 ## Firestore Document Schema
 
-| Field            | Type      | Description                              |
-|------------------|-----------|------------------------------------------|
-| `title`          | string    | Concise title (auto-generated via xAI)   |
-| `content`        | string    | Chunked text content                     |
-| `category`       | string    | One of the valid categories (see below)  |
-| `tags`           | string[]  | 3-5 keyword tags (auto-generated)        |
-| `source_type`    | string    | `markdown`, `pdf`, `web`, or `seed`      |
-| `heading_level`  | number    | Markdown heading depth (if applicable)   |
-| `parent_section` | string    | Parent heading text (if applicable)      |
-| `source_url`     | string    | Original URL (web extraction only)       |
-| `created_at`     | timestamp | Document creation time                   |
-| `updated_at`     | timestamp | Last update time                         |
-| `created_by`     | string    | Script identifier (e.g. `seed-script`)   |
+| Field            | Type      | Description                             |
+| ---------------- | --------- | --------------------------------------- |
+| `title`          | string    | Concise title (auto-generated via xAI)  |
+| `content`        | string    | Chunked text content                    |
+| `category`       | string    | One of the valid categories (see below) |
+| `tags`           | string[]  | 3-5 keyword tags (auto-generated)       |
+| `source_type`    | string    | `markdown`, `pdf`, `web`, or `seed`     |
+| `heading_level`  | number    | Markdown heading depth (if applicable)  |
+| `parent_section` | string    | Parent heading text (if applicable)     |
+| `source_url`     | string    | Original URL (web extraction only)      |
+| `created_at`     | timestamp | Document creation time                  |
+| `updated_at`     | timestamp | Last update time                        |
+| `created_by`     | string    | Script identifier (e.g. `seed-script`)  |
 
 ---
 
@@ -78,11 +78,11 @@ Hand-curated company knowledge (services, pricing, architecture, team info).
 node server/scripts/seedKnowledgeBase.js
 ```
 
-| Aspect | Detail |
-|--------|--------|
-| When to use | Initial setup, company info updates, curated content |
-| Idempotency | Skips documents that already exist (matched by `title`) |
-| Editing | Modify the `SEED_DOCUMENTS` array in `seedKnowledgeBase.js` |
+| Aspect      | Detail                                                      |
+| ----------- | ----------------------------------------------------------- |
+| When to use | Initial setup, company info updates, curated content        |
+| Idempotency | Skips documents that already exist (matched by `title`)     |
+| Editing     | Modify the `SEED_DOCUMENTS` array in `seedKnowledgeBase.js` |
 
 ---
 
@@ -94,10 +94,10 @@ Text-only PDFs without complex formatting.
 node server/scripts/extractPdfKnowledgeLegacy.js <file1.pdf> [file2.pdf ...]
 ```
 
-| Aspect | Detail |
-|--------|--------|
-| Technology | pdfjs-dist, paragraph-based chunking (200 words max) |
-| Limitations | No tables, equations, multi-column, or image support |
+| Aspect      | Detail                                                    |
+| ----------- | --------------------------------------------------------- |
+| Technology  | pdfjs-dist, paragraph-based chunking (200 words max)      |
+| Limitations | No tables, equations, multi-column, or image support      |
 | When to use | Simple text-heavy PDFs. For anything else, use Pipeline 3 |
 
 ---
@@ -136,35 +136,52 @@ bash server/scripts/runKnowledgePipeline.sh --pdf-subdir battery-passport --over
 # Re-ingest into Firestore (dedup still prevents duplicates)
 bash server/scripts/runKnowledgePipeline.sh --pdf-subdir functional-safety --force-reingest
 
+# Migration prerequisite for legacy datasets (run once before force-reingest flows)
+node server/scripts/utils/deduplicateFirestore.js --all --migrate-created-by
+
 # Reset all state and start from scratch
 bash server/scripts/runKnowledgePipeline.sh --pdf-subdir unece-homologation --reset-state
 ```
+
+Before relying on `--force-reingest`, run the one-time `created_by` migration above to normalize legacy markdown records into the `markdown-extract:md:<relative-path>` format. This ensures resume/dedup checks match existing records and prevents duplicate ingestion of previously migrated content.
 
 #### Thin wrapper scripts (convenience)
 
 Each wraps `runKnowledgePipeline.sh` with a hardcoded `--pdf-subdir`:
 
-| Script | Subdirectory | Category |
-|--------|-------------|----------|
-| `runBatteryPassportPipeline.sh` | `battery-passport` | `battery_passport` |
-| `runEuRegulationPipeline.sh` | `eu-battery-regulation` | `regulations` |
-| `runFunctionalSafetyPipeline.sh` | `functional-safety` | `functional_safety` |
-| `runIecIsoStandardsPipeline.sh` | `iec-iso-standards` | `standards` |
-| `runUnecePipeline.sh` | `unece-homologation` | `homologation` |
+| Script                                    | Subdirectory                 | Category                  |
+| ----------------------------------------- | ---------------------------- | ------------------------- |
+| `runBatteryPassportPipeline.sh`            | `battery-passport`           | `battery_passport`        |
+| `runEuRegulationPipeline.sh`               | `eu-battery-regulation`      | `regulations`             |
+| `runFunctionalSafetyPipeline.sh`           | `functional-safety`          | `functional_safety`       |
+| `runIecIsoStandardsPipeline.sh`            | `iec-iso-standards`          | `standards`               |
+| `runUnecePipeline.sh`                      | `unece-homologation`         | `homologation`            |
+| `runTransportDangerousGoodsPipeline.sh`    | `transport-dangerous-goods`  | `transport_dangerous_goods` |
+| `runSafetyRecyclingPipeline.sh`            | `recycling-environment`      | `recycling_environmental` |
+| `runSupplyChainPipeline.sh`                | `supply-chain-due-diligence` | `supply_chain`            |
+| `runChinaRegulationsPipeline.sh`           | `china`                      | `regulations`             |
+| `runAseanRegulationsPipeline.sh`           | `asean`                      | `regulations`             |
+| `runEaeuRegulationsPipeline.sh`            | `eaeu`                       | `regulations`             |
+| `runMiddleEastPipeline.sh`                 | `middle-east`                | `regulations`             |
+| `runTransportSafetyPipeline.sh` (alias)    | `transport-dangerous-goods`  | `transport_dangerous_goods` |
+| `runRecyclingPipeline.sh` (alias)          | `recycling-environment`      | `recycling_environmental` |
+| `runChinaPipeline.sh` (alias)              | `china`                      | `regulations`             |
+| `runAseanPipeline.sh` (alias)              | `asean`                      | `regulations`             |
+| `runEaeuPipeline.sh` (alias)               | `eaeu`                       | `regulations`             |
 
 Usage: `bash server/scripts/runEuRegulationPipeline.sh [--overwrite|--force-reingest|...]`
 
 #### Pipeline options (runKnowledgePipeline.sh)
 
-| Flag | Description |
-|------|-------------|
-| `--pdf-subdir <name>` | **Required.** Subdirectory under `knowledge-base/pdfs/` |
-| `--category <str>` | Firestore category (auto-detected from subdir if omitted) |
+| Flag                   | Description                                                    |
+| ---------------------- | -------------------------------------------------------------- |
+| `--pdf-subdir <name>`  | **Required.** Subdirectory under `knowledge-base/pdfs/`        |
+| `--category <str>`     | Firestore category (auto-detected from subdir if omitted)      |
 | `--dpi-fallback <int>` | Initial DPI for retry pass (default: 150; degrades to 100, 72) |
-| `--overwrite` | Re-convert even if markdown already exists |
-| `--force-reingest` | Bypass shell-level ingestion markers |
-| `--reset-state` | Delete all state markers and start fresh |
-| `--no-log` | Disable log file (output to terminal only) |
+| `--overwrite`          | Re-convert even if markdown already exists                     |
+| `--force-reingest`     | Bypass shell-level ingestion markers                           |
+| `--reset-state`        | Delete all state markers and start fresh                       |
+| `--no-log`             | Disable log file (output to terminal only)                     |
 
 #### Robustness features
 
@@ -176,6 +193,11 @@ Usage: `bash server/scripts/runEuRegulationPipeline.sh [--overwrite|--force-rein
 - **Progressive DPI degradation**: On memory/timeout failures, retries at 150 → 100 → 72 DPI
 - **Defense-in-depth dedup**: Shell markers (primary) + Firestore query dedup (fallback)
 - **Persistent logging**: All output tee'd to `.logs/pipeline_YYYYMMDD_HHMMSS.log`
+
+Legacy migration note:
+
+- Run `node server/scripts/utils/deduplicateFirestore.js --all --migrate-created-by` once on older datasets.
+- Use `--dry-run` first if you want a preview: `node server/scripts/utils/deduplicateFirestore.js --all --migrate-created-by --dry-run`.
 
 #### Pipeline stages
 
@@ -226,10 +248,10 @@ Technical documentation from websites (Catena-X, GBA, standards bodies).
 node server/scripts/extractWebKnowledge.js <url> [--category <name>] [--selector <css>]
 ```
 
-| Flag | Description |
-|------|-------------|
-| `--category <name>` | Override the auto-detected category |
-| `--selector <css>` | CSS selector to extract specific content (e.g. `main`, `article`) |
+| Flag                | Description                                                       |
+| ------------------- | ----------------------------------------------------------------- |
+| `--category <name>` | Override the auto-detected category                               |
+| `--selector <css>`  | CSS selector to extract specific content (e.g. `main`, `article`) |
 
 Examples:
 
@@ -265,12 +287,12 @@ node server/scripts/downloadKnowledgeBase.mjs --unece
 node server/scripts/downloadKnowledgeBase.mjs --other
 ```
 
-| Aspect | Detail |
-|--------|--------|
+| Aspect       | Detail                                                   |
+| ------------ | -------------------------------------------------------- |
 | Prerequisite | `npx playwright install chromium` (run once from `e2e/`) |
-| Mode | Headed browser (visible) — required for CAPTCHA solving |
-| Idempotency | Skips valid PDFs already on disk |
-| UNECE note | First UNECE download pauses 30s for human CAPTCHA solve |
+| Mode         | Headed browser (visible) — required for CAPTCHA solving  |
+| Idempotency  | Skips valid PDFs already on disk                         |
+| UNECE note   | First UNECE download pauses 30s for human CAPTCHA solve  |
 
 ### downloadNhtsaERG.mjs
 
@@ -280,11 +302,11 @@ Downloads NHTSA EV Emergency Response Guides (100+ vehicle-specific PDFs).
 node server/scripts/downloadNhtsaERG.mjs
 ```
 
-| Aspect | Detail |
-|--------|--------|
-| Destination | `knowledge-base/pdfs/functional-safety/nhtsa-emergency-response-guides/` |
+| Aspect        | Detail                                                                      |
+| ------------- | --------------------------------------------------------------------------- |
+| Destination   | `knowledge-base/pdfs/functional-safety/nhtsa-emergency-response-guides/`    |
 | Pipeline note | These guides are **excluded** from the main pipeline (`-maxdepth 1` filter) |
-| Mode | Headed Chromium (NHTSA blocks automated HTTP requests) |
+| Mode          | Headed Chromium (NHTSA blocks automated HTTP requests)                      |
 
 ---
 
@@ -292,31 +314,34 @@ node server/scripts/downloadNhtsaERG.mjs
 
 Categories are auto-detected from the PDF subdirectory name. All 15 subdirectories are mapped:
 
-| Subdirectory | Category | Content |
-|-------------|----------|---------|
-| `battery-passport` | `battery_passport` | Battery Passport product and platform |
-| `eu-battery-regulation` | `regulations` | EU Battery Regulation and related directives |
-| `unece-homologation` | `homologation` | UNECE vehicle type approval and safety |
-| `iec-iso-standards` | `standards` | IEC/ISO international standards |
-| `functional-safety` | `functional_safety` | Battery safety, testing, thermal runaway |
-| `africa` | `africa` | African mining codes, energy policy, trade agreements |
-| `asean` | `asean` | ASEAN frameworks, EV regulations |
-| `battery-production` | `battery_production` | Li-ion battery manufacturing processes |
-| `battery-technology` | `battery_technology` | Battery technology research (JRC) |
-| `china` | `china` | China NEV development, battery standards |
-| `eaeu` | `eaeu` | Eurasian Economic Union regulations |
-| `middle-east` | `middle_east` | Middle East electrical installation codes |
-| `recycling` | `recycling` | Basel Convention, recycling regulations |
-| `supply-chain` | `supply_chain` | OECD due diligence, IRMA, IEA outlook |
-| `transport-safety` | `transport_safety` | ADR dangerous goods, UN transport testing |
+| Subdirectory            | Category             | Content                                               |
+| ----------------------- | -------------------- | ----------------------------------------------------- |
+| `battery-passport`      | `battery_passport`   | Battery Passport product and platform                 |
+| `eu-battery-regulation` | `regulations`        | EU Battery Regulation and related directives          |
+| `unece-homologation`    | `homologation`       | UNECE vehicle type approval and safety                |
+| `iec-iso-standards`     | `standards`          | IEC/ISO international standards                       |
+| `functional-safety`     | `functional_safety`  | Battery safety, testing, thermal runaway              |
+| `africa`                | `africa`             | African mining codes, energy policy, trade agreements |
+| `asean`                 | `regulations`        | ASEAN frameworks, EV regulations                      |
+| `battery-production`    | `battery_production` | Li-ion battery manufacturing processes                |
+| `battery-technology`    | `battery_technology` | Battery technology research (JRC)                     |
+| `china`                 | `regulations`        | China NEV development, battery standards              |
+| `eaeu`                  | `regulations`        | Eurasian Economic Union regulations                   |
+| `middle-east`           | `regulations`        | Middle East electrical installation codes             |
+| `recycling`             | `recycling_environmental` | Basel Convention, recycling regulations           |
+| `recycling-environment` | `recycling_environmental` | Alias for `recycling`                             |
+| `supply-chain`          | `supply_chain`            | OECD due diligence, IRMA, IEA outlook             |
+| `supply-chain-due-diligence` | `supply_chain`       | Alias for `supply-chain`                          |
+| `transport-safety`      | `transport_dangerous_goods` | ADR dangerous goods, UN transport testing       |
+| `transport-dangerous-goods` | `transport_dangerous_goods` | Alias for `transport-safety`               |
 
 Additional categories set by the xAI metadata generator:
 
-| Category | Description |
-|----------|-------------|
+| Category    | Description                               |
+| ----------- | ----------------------------------------- |
 | `batteries` | Battery technology, regulation, lifecycle |
-| `services` | Ichnos Protocol consulting and services |
-| `general` | Fallback for uncategorized content |
+| `services`  | Ichnos Protocol consulting and services   |
+| `general`   | Fallback for uncategorized content        |
 
 Override auto-detection with `--category <name>` on any extraction script.
 
@@ -397,6 +422,18 @@ server/scripts/
 ├── runFunctionalSafetyPipeline.sh     # Thin wrapper → functional-safety
 ├── runIecIsoStandardsPipeline.sh      # Thin wrapper → iec-iso-standards
 ├── runUnecePipeline.sh                # Thin wrapper → unece-homologation
+├── runTransportDangerousGoodsPipeline.sh  # Thin wrapper → transport-dangerous-goods
+├── runSafetyRecyclingPipeline.sh      # Thin wrapper → recycling-environment
+├── runSupplyChainPipeline.sh          # Thin wrapper → supply-chain-due-diligence
+├── runChinaRegulationsPipeline.sh     # Thin wrapper → china (regulations)
+├── runAseanRegulationsPipeline.sh    # Thin wrapper → asean (regulations)
+├── runEaeuRegulationsPipeline.sh     # Thin wrapper → eaeu (regulations)
+├── runMiddleEastPipeline.sh          # Thin wrapper → middle-east (regulations)
+├── runTransportSafetyPipeline.sh      # Alias → transport-dangerous-goods
+├── runRecyclingPipeline.sh            # Alias → recycling-environment
+├── runChinaPipeline.sh                # Alias → runChinaRegulationsPipeline.sh
+├── runAseanPipeline.sh                # Alias → runAseanRegulationsPipeline.sh
+├── runEaeuPipeline.sh                 # Alias → runEaeuRegulationsPipeline.sh
 │
 ├── # ── Download Scripts ──
 ├── downloadKnowledgeBase.mjs          # Download PDFs (EUR-Lex, UNECE, other)
@@ -425,19 +462,19 @@ server/scripts/
 
 ## Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-| `ERROR: Unknown subdir` | Add mapping to `resolve_category()` in `runKnowledgePipeline.sh`, or use `--category` |
-| xAI API timeout | Increase `XAI_TIMEOUT_MS` in `helpers/metadataGenerator.js` (default 15s) |
-| Marker memory errors | Pipeline auto-retries at degraded DPI (150 → 100 → 72). If still failing, reduce PDF size |
-| Lock file blocks run | Check if another pipeline is running. If stale, delete `.pipeline.lock` manually |
-| Web extraction fails | Check `--selector` CSS selector; verify the site allows scraping |
-| Firestore batch limit | Handled automatically (500 docs per batch in `extractMarkdownKnowledge`) |
-| Missing Node.js deps | Run `npm install` in `server/` |
-| Missing Python deps | Run `pip install -r requirements.txt` in `server/scripts/python/` |
-| Empty chunks generated | Minimum 20-word threshold filters noise; check source content quality |
-| CAPTCHA during download | `downloadKnowledgeBase.mjs` opens a headed browser — solve the CAPTCHA manually |
-| Pipeline re-processes files | State markers in `.state/` may be missing. Run `--reset-state` to rebuild |
+| Issue                       | Solution                                                                                  |
+| --------------------------- | ----------------------------------------------------------------------------------------- |
+| `ERROR: Unknown subdir`     | Add mapping to `resolve_category()` in `runKnowledgePipeline.sh`, or use `--category`     |
+| xAI API timeout             | Increase `XAI_TIMEOUT_MS` in `helpers/metadataGenerator.js` (default 15s)                 |
+| Marker memory errors        | Pipeline auto-retries at degraded DPI (150 → 100 → 72). If still failing, reduce PDF size |
+| Lock file blocks run        | Check if another pipeline is running. If stale, delete `.pipeline.lock` manually          |
+| Web extraction fails        | Check `--selector` CSS selector; verify the site allows scraping                          |
+| Firestore batch limit       | Handled automatically (500 docs per batch in `extractMarkdownKnowledge`)                  |
+| Missing Node.js deps        | Run `npm install` in `server/`                                                            |
+| Missing Python deps         | Run `pip install -r requirements.txt` in `server/scripts/python/`                         |
+| Empty chunks generated      | Minimum 20-word threshold filters noise; check source content quality                     |
+| CAPTCHA during download     | `downloadKnowledgeBase.mjs` opens a headed browser — solve the CAPTCHA manually           |
+| Pipeline re-processes files | State markers in `.state/` may be missing. Run `--reset-state` to rebuild                 |
 
 ---
 

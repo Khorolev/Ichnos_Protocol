@@ -3,9 +3,9 @@
 # Functional Safety & Testing Knowledge Base Pipeline
 # Thin wrapper — delegates to the robust generic pipeline.
 #
-# NOTE: Only processes root-level PDFs in functional-safety/.
-# The nhtsa-emergency-response-guides/ subfolder is excluded
-# by the generic pipeline's -maxdepth 1 discovery.
+# Processes PDFs in functional-safety/ (top-level only).
+# Subdirectories (e.g. emergency-guides/) are handled by their own wrappers.
+# All output goes to server/knowledge-base/markdown_output/functional-safety/.
 #
 # Usage (from repo root):
 #   bash server/scripts/runFunctionalSafetyPipeline.sh

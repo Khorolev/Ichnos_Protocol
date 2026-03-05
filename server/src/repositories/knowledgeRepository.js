@@ -98,7 +98,7 @@ export async function createDocument(documentData) {
     const db = getDb();
     const docRef = await db.collection(COLLECTION).add({
       ...documentData,
-      createdAt: new Date(),
+      created_at: new Date(),
     });
     return { id: docRef.id, ...documentData };
   } catch (error) {
@@ -113,7 +113,7 @@ export async function updateDocument(docId, updates) {
     await db
       .collection(COLLECTION)
       .doc(docId)
-      .update({ ...updates, updatedAt: new Date() });
+      .update({ ...updates, updated_at: new Date() });
     const updated = await getDocumentById(docId);
     return updated;
   } catch (error) {

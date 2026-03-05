@@ -31,6 +31,7 @@
 #   --force-reingest       Bypass shell-level ingestion markers (Firestore-level
 #                          dedup still prevents duplicates; use to recover markers)
 #   --reset-state          Delete all state markers and start fresh
+#   --recursive            Discover PDFs recursively in subdirectories
 #   --no-log               Disable log file (output to terminal only)
 # =============================================================================
 
@@ -42,6 +43,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 PYTHON_DIR="$REPO_ROOT/server/scripts/python"
 SERVER_DIR="$REPO_ROOT/server"
 CONVERT_SCRIPT="$PYTHON_DIR/convertPdfToMarkdown.py"
+PDF_MANIFEST="$REPO_ROOT/server/knowledge-base/pdf-manifest.json"
 
 # --- Defaults ---
 PDF_SUBDIR=""
@@ -51,6 +53,7 @@ DPI_FALLBACK=150
 OVERWRITE_FLAG=false
 FORCE_REINGEST=false
 RESET_STATE=false
+RECURSIVE=false
 NO_LOG=false
 MIN_MD_SIZE=1024
 CONVERT_TIMEOUT=7200
@@ -72,16 +75,18 @@ resolve_category() {
     unece-homologation)     echo "homologation" ;;
     iec-iso-standards)      echo "standards" ;;
     functional-safety)      echo "functional_safety" ;;
-    africa)                 echo "africa" ;;
-    asean)                  echo "asean" ;;
+    functional-safety/emergency-guides|functional-safety/nhtsa-emergency-response-guides) echo "functional_safety" ;;
+    africa|africa-regulations)                 echo "africa_regulations" ;;
+    asean|asean-regulations)                   echo "asean_regulations" ;;
     battery-production)     echo "battery_production" ;;
     battery-technology)     echo "battery_technology" ;;
-    china)                  echo "china" ;;
-    eaeu)                   echo "eaeu" ;;
-    middle-east)            echo "middle_east" ;;
-    recycling)              echo "recycling" ;;
-    supply-chain)           echo "supply_chain" ;;
-    transport-safety)       echo "transport_safety" ;;
+    china|china-regulations)                   echo "china_regulations" ;;
+    eaeu|eaeu-regulations)                     echo "eaeu_regulations" ;;
+    global-market)          echo "global_market" ;;
+    middle-east|middle-east-regulations)       echo "middle_east_regulations" ;;
+    recycling|recycling-environment)              echo "recycling_environmental" ;;
+    supply-chain|supply-chain-due-diligence)     echo "supply_chain" ;;
+    transport-safety|transport-dangerous-goods)  echo "transport_dangerous_goods" ;;
     *)                      echo "" ;;
   esac
 }
@@ -100,6 +105,7 @@ Optional:
   --overwrite            Re-convert even if .md already exists
   --force-reingest       Re-ingest into Firestore even if already done
   --reset-state          Delete all state markers and start fresh
+  --recursive            Discover PDFs recursively in subdirectories
   --no-log               Disable log file (output to terminal only)
 
 Known subdirs -> categories:
@@ -108,16 +114,22 @@ Known subdirs -> categories:
   unece-homologation    -> homologation
   iec-iso-standards     -> standards
   functional-safety     -> functional_safety
-  africa                -> africa
-  asean                 -> asean
+  functional-safety/emergency-guides -> functional_safety (canonical emergency guides path)
+  functional-safety/nhtsa-emergency-response-guides -> functional_safety (legacy alias)
+  africa-regulations    -> africa_regulations
+  asean-regulations     -> asean_regulations
   battery-production    -> battery_production
   battery-technology    -> battery_technology
-  china                 -> china
-  eaeu                  -> eaeu
-  middle-east           -> middle_east
-  recycling             -> recycling
+  china-regulations     -> china_regulations
+  eaeu-regulations      -> eaeu_regulations
+  global-market         -> global_market
+  middle-east-regulations -> middle_east_regulations
+  recycling             -> recycling_environmental
+  recycling-environment -> recycling_environmental
   supply-chain          -> supply_chain
-  transport-safety      -> transport_safety
+  supply-chain-due-diligence -> supply_chain
+  transport-safety      -> transport_dangerous_goods
+  transport-dangerous-goods -> transport_dangerous_goods
 USAGE
 }
 
@@ -244,6 +256,23 @@ check_prerequisites() {
   return 0
 }
 
+manifest_expected_count() {
+  local subdir="$1"
+
+  if [ ! -f "$PDF_MANIFEST" ]; then
+    echo ""
+    return 0
+  fi
+
+  node -e '
+const fs = require("fs");
+const [manifestPath, key] = process.argv.slice(1);
+const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+const count = manifest?.expectedPdfCounts?.[key];
+if (Number.isFinite(count)) process.stdout.write(String(count));
+' "$PDF_MANIFEST" "$subdir" 2>/dev/null || true
+}
+
 # --- Run Python conversion with timeout ---
 # Extracted to eliminate duplication. Runs the conversion command once
 # with the given DPI (0 = default/no --dpi flag).
@@ -364,6 +393,10 @@ convert_one_pdf() {
     if [ $exit_code -eq 0 ] && [ -f "$md_path" ] && [ -s "$md_path" ]; then
       local size
       size=$(wc -c < "$md_path")
+      if [ "$size" -le "$MIN_MD_SIZE" ]; then
+        echo "    UNDERSIZED OUTPUT (${size} bytes <= ${MIN_MD_SIZE})"
+        continue
+      fi
       if [ $attempt -eq 1 ]; then
         echo "    OK: ${stem}.md (${size} bytes)"
       else
@@ -434,9 +467,14 @@ convert_one_pdf() {
   if [ $fallback_exit -eq 0 ] && [ -f "$md_path" ] && [ -s "$md_path" ]; then
     local size
     size=$(wc -c < "$md_path")
-    echo "    OK (PyMuPDF fallback): ${stem}.md (${size} bytes)"
-    touch "$marker"
-    return 0
+    if [ "$size" -le "$MIN_MD_SIZE" ]; then
+      echo "    UNDERSIZED OUTPUT with PyMuPDF (${size} bytes <= ${MIN_MD_SIZE})"
+      fallback_exit=2
+    else
+      echo "    OK (PyMuPDF fallback): ${stem}.md (${size} bytes)"
+      touch "$marker"
+      return 0
+    fi
   fi
 
   echo "    PyMuPDF fallback also failed (exit $fallback_exit)"
@@ -483,8 +521,8 @@ ingest_one_file() {
   local md_size
   md_size=$(wc -c < "$md_path" 2>/dev/null || echo "0")
   if [ "$md_size" -le "$MIN_MD_SIZE" ]; then
-    echo "    SKIP (file too small: ${md_size} bytes — likely incomplete conversion)"
-    return 2
+    echo "    FAILED (file too small: ${md_size} bytes <= ${MIN_MD_SIZE})"
+    return 1
   fi
 
   # Ingest with timeout + defense-in-depth deduplication via --skip-existing
@@ -528,6 +566,7 @@ while [[ $# -gt 0 ]]; do
     --overwrite)      OVERWRITE_FLAG=true; shift ;;
     --force-reingest) FORCE_REINGEST=true; shift ;;
     --reset-state)    RESET_STATE=true; shift ;;
+    --recursive)      RECURSIVE=true; shift ;;
     --no-log)         NO_LOG=true; shift ;;
     --help|-h)        show_usage; exit 0 ;;
     *)
@@ -567,6 +606,7 @@ MD_OUTPUT_DIR="$REPO_ROOT/server/knowledge-base/markdown_output/$PDF_SUBDIR"
 STATE_DIR="$MD_OUTPUT_DIR/.state"
 LOCK_FILE="$MD_OUTPUT_DIR/.pipeline.lock"
 LOG_DIR="$MD_OUTPUT_DIR/.logs"
+UNRESOLVED_FAILURES_FILE="$STATE_DIR/unresolved_failures.txt"
 
 echo "============================================="
 echo "Knowledge Base Pipeline (Robust)"
@@ -600,6 +640,8 @@ echo "[Step 2] Setting up workspace..."
 mkdir -p "$MD_OUTPUT_DIR"
 mkdir -p "$STATE_DIR"
 mkdir -p "$LOG_DIR"
+
+: > "$UNRESOLVED_FAILURES_FILE"
 
 if [ "$RESET_STATE" = true ]; then
   echo "  Resetting all state markers..."
@@ -639,7 +681,16 @@ if [ ! -d "$PDF_DIR" ]; then
   exit 1
 fi
 
-mapfile -t PDF_FILES < <(find "$PDF_DIR" -maxdepth 1 -name "*.pdf" | sort)
+if [ "$RECURSIVE" = true ]; then
+  mapfile -t PDF_FILES < <(find "$PDF_DIR" -name "*.pdf" | sort)
+else
+  mapfile -t PDF_FILES < <(find "$PDF_DIR" -maxdepth 1 -name "*.pdf" | sort)
+fi
+
+EXPECTED_PDF_COUNT="$(manifest_expected_count "$PDF_SUBDIR")"
+if [ -n "$EXPECTED_PDF_COUNT" ]; then
+  echo "  Manifest expected PDF count: $EXPECTED_PDF_COUNT"
+fi
 
 if [ ${#PDF_FILES[@]} -eq 0 ]; then
   echo "  No PDF files found in $PDF_DIR"
@@ -648,6 +699,9 @@ if [ ${#PDF_FILES[@]} -eq 0 ]; then
 fi
 
 echo "  Found ${#PDF_FILES[@]} PDF file(s)"
+if [ -n "$EXPECTED_PDF_COUNT" ] && [ ${#PDF_FILES[@]} -lt "$EXPECTED_PDF_COUNT" ]; then
+  echo "  WARNING: PDFs on disk are below manifest expectation (${#PDF_FILES[@]}/$EXPECTED_PDF_COUNT)"
+fi
 echo ""
 
 # =============================================================================
@@ -867,12 +921,44 @@ DELTA=$((POST_COUNT - PRE_COUNT))
 echo "  Post-ingest count: $POST_COUNT (+$DELTA new documents)"
 echo ""
 
+CONVERTED_NOT_INGESTED=()
+if [ -d "$STATE_DIR" ]; then
+  while IFS= read -r marker_path; do
+    stem="$(basename "${marker_path%.converted}")"
+    if [ ! -f "$STATE_DIR/${stem}.ingested" ]; then
+      md_path="$MD_OUTPUT_DIR/${stem}.md"
+      if [ ! -f "$md_path" ]; then
+        CONVERTED_NOT_INGESTED+=("${stem}.md (missing)")
+      else
+        md_size=$(wc -c < "$md_path" 2>/dev/null || echo "0")
+        if [ "$md_size" -le "$MIN_MD_SIZE" ]; then
+          CONVERTED_NOT_INGESTED+=("${stem}.md (${md_size} bytes)")
+        else
+          CONVERTED_NOT_INGESTED+=("${stem}.md")
+        fi
+      fi
+    fi
+  done < <(find "$STATE_DIR" -maxdepth 1 -type f -name "*.converted" | sort)
+fi
+
+{
+  for f in "${STILL_FAILED_LIST[@]}"; do
+    echo "conversion:$f"
+  done
+  for f in "${INGEST_STILL_FAILED[@]}"; do
+    echo "ingestion:$f"
+  done
+  for f in "${CONVERTED_NOT_INGESTED[@]}"; do
+    echo "state:converted_without_ingested:$f"
+  done
+} > "$UNRESOLVED_FAILURES_FILE"
+
 # =============================================================================
 # Final Summary
 # =============================================================================
 
 PIPELINE_OK=true
-if [ $CONVERT_FAILED -gt 0 ] || [ $INGEST_FAILED -gt 0 ]; then
+if [ $CONVERT_FAILED -gt 0 ] || [ $INGEST_FAILED -gt 0 ] || [ ${#CONVERTED_NOT_INGESTED[@]} -gt 0 ]; then
   PIPELINE_OK=false
 fi
 
@@ -889,6 +975,7 @@ echo "  Category:        $CATEGORY"
 echo "  ---"
 echo "  Conversion:      $CONVERT_SUCCESS OK, $CONVERT_FAILED failed, $CONVERT_SKIPPED skipped"
 echo "  Ingestion:       $INGEST_SUCCESS OK, $INGEST_FAILED failed, $INGEST_SKIPPED skipped"
+echo "  Converted w/o ingested: ${#CONVERTED_NOT_INGESTED[@]}"
 echo "  Firestore:       $PRE_COUNT -> $POST_COUNT (+$DELTA)"
 
 if [ $CONVERT_FAILED -gt 0 ]; then
@@ -907,8 +994,17 @@ if [ $INGEST_FAILED -gt 0 ]; then
   done
 fi
 
+if [ ${#CONVERTED_NOT_INGESTED[@]} -gt 0 ]; then
+  echo "  ---"
+  echo "  Converted but not ingestible/ingested:"
+  for f in "${CONVERTED_NOT_INGESTED[@]}"; do
+    echo "    - $f"
+  done
+fi
+
 echo ""
 echo "  State directory:  $STATE_DIR"
+echo "  Active failures:  $UNRESOLVED_FAILURES_FILE"
 if [ "$NO_LOG" = false ] && [ -n "${LOG_FILE:-}" ]; then
   echo "  Log file:         $LOG_FILE"
 fi
