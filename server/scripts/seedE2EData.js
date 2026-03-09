@@ -21,10 +21,12 @@ try {
   const userRes = await pool.query(
     `INSERT INTO users (firebase_uid)
      VALUES ($1)
-     ON CONFLICT (firebase_uid) DO UPDATE SET deleted_at = NULL`,
+     ON CONFLICT (firebase_uid) DO UPDATE SET deleted_at = NULL
+     RETURNING (deleted_at IS NOT NULL) AS was_deleted`,
     [E2E_ADMIN_UID],
   );
-  const reactivated = userRes.rowCount && !userRes.rows?.length;
+  const wasDeleted = userRes.rows?.[0]?.was_deleted;
+  const reactivated = Boolean(userRes.rowCount && wasDeleted);
   console.log("users:", userRes.rowCount ? "upserted" : "already active",
     reactivated ? "(reactivated)" : "");
 
