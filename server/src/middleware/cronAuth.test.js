@@ -64,6 +64,7 @@ describe("cronOrAdmin middleware", () => {
 
     expect(mockAuth).toHaveBeenCalledOnce();
     expect(mockAdmin).toHaveBeenCalledOnce();
+    expect(next).toHaveBeenCalledOnce();
   });
 
   it("falls through to auth chain when Authorization header is missing", () => {
