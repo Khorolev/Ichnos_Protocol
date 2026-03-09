@@ -5,6 +5,11 @@
  */
 import { z } from "zod/v4";
 
+export const adminManageAdminsSchema = z.object({
+  action: z.enum(["add", "remove"]),
+  email: z.string().email().max(255),
+});
+
 export const adminUpdateRequestSchema = z
   .object({
     status: z.enum(["new", "contacted", "in_progress", "resolved"]).optional(),

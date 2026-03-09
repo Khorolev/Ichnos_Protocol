@@ -11,6 +11,9 @@ const {
   getRequestsWithQuestionsByUserId,
   getChatOnlyUsers,
   getChatMessagesByUserId,
+  getInactiveUsers,
+  getRecentInquiries,
+  getRecentChatOnlyLeads,
 } = await import("./adminRepository.js");
 
 describe("adminRepository", () => {
@@ -144,6 +147,84 @@ describe("adminRepository", () => {
       expect(spy).toHaveBeenCalledWith(
         "adminRepository.getChatMessagesByUserId failed:",
         "syntax error",
+      );
+      spy.mockRestore();
+    });
+  });
+
+  describe("getInactiveUsers", () => {
+    it("returns users inactive for 24 months", async () => {
+      const rows = [{ firebase_uid: "uid-old" }];
+      mockQuery.mockResolvedValue({ rows });
+
+      const result = await getInactiveUsers();
+
+      expect(result).toEqual(rows);
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining("INTERVAL '24 months'"),
+      );
+    });
+
+    it("logs and rethrows on DB error", async () => {
+      mockQuery.mockRejectedValue(new Error("db down"));
+      const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      await expect(getInactiveUsers()).rejects.toThrow("db down");
+      expect(spy).toHaveBeenCalledWith(
+        "adminRepository.getInactiveUsers failed:",
+        "db down",
+      );
+      spy.mockRestore();
+    });
+  });
+
+  describe("getRecentInquiries", () => {
+    it("returns inquiries from last 24 hours", async () => {
+      const rows = [{ id: 1, name: "Alice", email: "a@b.com", status: "new" }];
+      mockQuery.mockResolvedValue({ rows });
+
+      const result = await getRecentInquiries();
+
+      expect(result).toEqual(rows);
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining("INTERVAL '24 hours'"),
+      );
+    });
+
+    it("logs and rethrows on DB error", async () => {
+      mockQuery.mockRejectedValue(new Error("timeout"));
+      const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      await expect(getRecentInquiries()).rejects.toThrow("timeout");
+      expect(spy).toHaveBeenCalledWith(
+        "adminRepository.getRecentInquiries failed:",
+        "timeout",
+      );
+      spy.mockRestore();
+    });
+  });
+
+  describe("getRecentChatOnlyLeads", () => {
+    it("returns chat-only leads from last 24 hours", async () => {
+      const rows = [{ userId: "uid-new", name: "Bob", totalMessages: 3 }];
+      mockQuery.mockResolvedValue({ rows });
+
+      const result = await getRecentChatOnlyLeads();
+
+      expect(result).toEqual(rows);
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining("INTERVAL '24 hours'"),
+      );
+    });
+
+    it("logs and rethrows on DB error", async () => {
+      mockQuery.mockRejectedValue(new Error("access denied"));
+      const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      await expect(getRecentChatOnlyLeads()).rejects.toThrow("access denied");
+      expect(spy).toHaveBeenCalledWith(
+        "adminRepository.getRecentChatOnlyLeads failed:",
+        "access denied",
       );
       spy.mockRestore();
     });

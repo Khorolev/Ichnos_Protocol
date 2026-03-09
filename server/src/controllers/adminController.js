@@ -101,3 +101,70 @@ export async function deleteRequest(req, res, next) {
     next(error);
   }
 }
+
+export async function analyzeTopics(_req, res, next) {
+  try {
+    const result = await adminService.analyzeTopics();
+    res.status(200).json(formatResponse(result, "Topics analyzed"));
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getTopics(_req, res, next) {
+  try {
+    const topics = await adminService.getTopics();
+    res.status(200).json(formatResponse(topics, "Topics retrieved"));
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function exportCSV(_req, res, next) {
+  try {
+    const csv = await adminService.exportToCSV();
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", 'attachment; filename="contacts.csv"');
+    res.status(200).send(csv);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function manageAdmins(req, res, next) {
+  try {
+    if (req.user?.superAdmin !== true) {
+      return res.status(403).json({
+        data: null,
+        error: "Forbidden: Super-admin access required",
+        message: null,
+      });
+    }
+
+    const result = await adminService.manageAdmins(
+      req.body.action,
+      req.body.email,
+    );
+    res.status(200).json(formatResponse(result, "Admin updated"));
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function runRetentionSweep(_req, res, next) {
+  try {
+    const result = await adminService.runRetentionSweep();
+    res.status(200).json(formatResponse(result, "Retention sweep complete"));
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function sendDailyDigest(_req, res, next) {
+  try {
+    const result = await adminService.sendDailyDigest();
+    res.status(200).json(formatResponse(result, "Digest sent"));
+  } catch (error) {
+    next(error);
+  }
+}

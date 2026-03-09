@@ -70,7 +70,10 @@ export const adminApi = createApi({
       providesTags: ['Topics'],
     }),
     exportCSV: builder.query({
-      query: () => '/api/admin/export',
+      query: () => ({
+        url: '/api/admin/export',
+        responseHandler: (response) => response.text(),
+      }),
     }),
     manageAdmins: builder.mutation({
       query: (body) => ({

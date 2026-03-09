@@ -26,6 +26,7 @@ export const gdprApi = createApi({
       query: () => ({
         url: '/api/gdpr/delete',
         method: 'POST',
+        body: { confirm: true },
       }),
       invalidatesTags: ['UserData'],
     }),

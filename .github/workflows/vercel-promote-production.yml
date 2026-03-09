@@ -1,0 +1,44 @@
+name: Promote Vercel Preview to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      client_deployment_url:
+        description: "Vercel client preview deployment URL or ID"
+        required: true
+        type: string
+      server_deployment_url:
+        description: "Vercel server preview deployment URL or ID"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    name: Promote Preview Deployments
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Promote client deployment
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CLIENT }}
+        run: |
+          vercel promote "${{ inputs.client_deployment_url }}" --yes --token=${{ secrets.VERCEL_TOKEN }}
+          echo "### Client Production Promotion" >> "$GITHUB_STEP_SUMMARY"
+          echo "Promoted: ${{ inputs.client_deployment_url }}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Promote server deployment
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_SERVER }}
+        run: |
+          vercel promote "${{ inputs.server_deployment_url }}" --yes --token=${{ secrets.VERCEL_TOKEN }}
+          echo "### Server Production Promotion" >> "$GITHUB_STEP_SUMMARY"
+          echo "Promoted: ${{ inputs.server_deployment_url }}" >> "$GITHUB_STEP_SUMMARY"

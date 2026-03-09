@@ -134,6 +134,58 @@ test.describe('Admin Kanban - Chat-only Leads', () => {
   });
 });
 
+test.describe('Admin - Topic Analytics', () => {
+  test.beforeEach(async ({ page }) => {
+    test.skip(!ADMIN_EMAIL || !ADMIN_PASSWORD, 'Admin E2E credentials not configured');
+    await loginAsAdmin(page);
+    await page.goto('/admin');
+  });
+
+  test('switch to Analytics tab and see topic table', async ({ page }) => {
+    await page.getByRole('tab', { name: 'Analytics' }).click();
+
+    await expect(page.getByText('Topic Analytics')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Recompute Topics' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('columnheader', { name: 'Topic' }),
+    ).toBeVisible();
+  });
+
+  test('recompute topics triggers analysis', async ({ page }) => {
+    await page.getByRole('tab', { name: 'Analytics' }).click();
+
+    const responsePromise = page.waitForResponse(
+      (resp) =>
+        resp.url().includes('/api/admin/analyze-topics') &&
+        resp.request().method() === 'POST',
+    );
+
+    await page.getByRole('button', { name: 'Recompute Topics' }).click();
+
+    const response = await responsePromise;
+    expect(response.status()).toBeLessThan(500);
+  });
+});
+
+test.describe('Admin - CSV Export', () => {
+  test.beforeEach(async ({ page }) => {
+    test.skip(!ADMIN_EMAIL || !ADMIN_PASSWORD, 'Admin E2E credentials not configured');
+    await loginAsAdmin(page);
+    await page.goto('/admin');
+  });
+
+  test('export CSV triggers download', async ({ page }) => {
+    const downloadPromise = page.waitForEvent('download');
+
+    await page.getByRole('button', { name: 'Export CSV' }).click();
+
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toContain('contacts');
+  });
+});
+
 test.describe('Admin Kanban - Request Delete Flow', () => {
   test.beforeEach(async ({ page }) => {
     test.skip(!ADMIN_EMAIL || !ADMIN_PASSWORD, 'Admin E2E credentials not configured');

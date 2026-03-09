@@ -108,6 +108,26 @@ function redactPII(text) {
   return redacted;
 }
 
+export async function scrubQuestionTexts(
+  questionId,
+  scrubbedQuestion,
+  scrubbedAnswer,
+) {
+  try {
+    const { rows } = await pool.query(
+      `UPDATE questions SET question = $2, answer = $3 WHERE id = $1 RETURNING *`,
+      [questionId, scrubbedQuestion, scrubbedAnswer],
+    );
+    return rows[0];
+  } catch (error) {
+    console.error(
+      "questionRepository.scrubQuestionTexts failed:",
+      error.message,
+    );
+    throw error;
+  }
+}
+
 export async function scrubQuestionPII(questionId) {
   try {
     const { rows: existing } = await pool.query(

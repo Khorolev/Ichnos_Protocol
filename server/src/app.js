@@ -13,6 +13,7 @@ import authRoutes from "./routes/authRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import gdprRoutes from "./routes/gdprRoutes.js";
 import buildStatusPage from "./helpers/buildStatusPage.js";
 
 const app = express();
@@ -67,6 +68,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/contact", contactRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/gdpr", gdprRoutes);
 
 // 404 handler for undefined routes
 app.use((_req, res) => {
