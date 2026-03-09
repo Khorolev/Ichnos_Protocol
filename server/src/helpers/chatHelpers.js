@@ -59,8 +59,12 @@ export function buildXaiHeaders() {
 export function buildTopicMessages(message) {
   return [
     {
+      role: "system",
+      content: `${SYSTEM_PROMPT}\n\nYour task now is: Extract 1-3 topic keywords from the user's question (respond with comma-separated keywords only).`,
+    },
+    {
       role: "user",
-      content: `Extract 1-3 topic keywords from this question (respond with comma-separated keywords only): ${message}`,
+      content: message,
     },
   ];
 }

@@ -37,6 +37,12 @@ export async function addQuestion(req, res, next) {
     const { id } = req.params;
     const { question } = req.body;
 
+    if (!question || typeof question !== "string" || !question.trim()) {
+      return res
+        .status(400)
+        .json({ data: null, error: "Invalid question: must be a non-empty string", message: null });
+    }
+
     const requestId = parseInt(id, 10);
 
     if (Number.isNaN(requestId) || requestId <= 0) {

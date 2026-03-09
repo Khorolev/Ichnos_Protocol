@@ -112,12 +112,13 @@ describe("buildXaiHeaders", () => {
 });
 
 describe("buildTopicMessages", () => {
-  it("builds a single-message array for topic extraction", () => {
+  it("builds a system+user message array for topic extraction", () => {
     const result = buildTopicMessages("What is a battery passport?");
-    expect(result).toHaveLength(1);
-    expect(result[0].role).toBe("user");
-    expect(result[0].content).toContain("battery passport");
+    expect(result).toHaveLength(2);
+    expect(result[0].role).toBe("system");
     expect(result[0].content).toContain("comma-separated keywords");
+    expect(result[1].role).toBe("user");
+    expect(result[1].content).toBe("What is a battery passport?");
   });
 });
 
