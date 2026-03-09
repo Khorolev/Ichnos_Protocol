@@ -23,7 +23,7 @@ export function buildContextString(documents) {
     if (!doc.content || typeof doc.content !== "string" || !doc.content.trim())
       continue;
     const words = doc.content.split(/\s+/);
-    if (wordCount + words.length > MAX_CONTEXT_WORDS) break;
+    if (wordCount + words.length > MAX_CONTEXT_WORDS) continue;
     parts.push(doc.content);
     wordCount += words.length;
   }
@@ -57,10 +57,12 @@ export function buildXaiHeaders() {
 }
 
 export function buildTopicMessages(message) {
+  const systemContent = `${SYSTEM_PROMPT}\n\nYour task now is: Extract 1-3 topic keywords from the user's question (respond with comma-separated keywords only).`;
+
   return [
     {
       role: "system",
-      content: `${SYSTEM_PROMPT}\n\nYour task now is: Extract 1-3 topic keywords from the user's question (respond with comma-separated keywords only).`,
+      content: systemContent,
     },
     {
       role: "user",
