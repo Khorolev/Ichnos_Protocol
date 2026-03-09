@@ -1,9 +1,32 @@
 /**
+ * Escapes HTML-special characters to prevent injection when interpolating
+ * untrusted values (e.g. environment variables) into an HTML template.
+ */
+export function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/**
+ * Returns the origin only when it uses a safe http/https scheme.
+ * Falls back to an empty string to prevent javascript:/data: URI injection.
+ */
+function sanitizeOrigin(origin) {
+  const str = String(origin ?? "");
+  return /^https?:\/\//i.test(str) ? str : "";
+}
+
+/**
  * Builds the HTML status page shown at the API root (GET /).
  * Displays the Ichnos Protocol logo, server status, and key info.
  */
 export default function buildStatusPage({ clientOrigin, env, nodeVersion }) {
-  const logoUrl = `${clientOrigin}/logo.png`;
+  const safeOrigin = escapeHtml(sanitizeOrigin(clientOrigin));
+  const logoUrl = safeOrigin ? `${safeOrigin}/logo.png` : "";
   const uptime = process.uptime();
   const hours = Math.floor(uptime / 3600);
   const minutes = Math.floor((uptime % 3600) / 60);
@@ -53,7 +76,7 @@ export default function buildStatusPage({ clientOrigin, env, nodeVersion }) {
     <div class="info">
       <div class="info-card">
         <div class="info-label">Environment</div>
-        <div class="info-value">${env}</div>
+        <div class="info-value">${escapeHtml(env)}</div>
       </div>
       <div class="info-card">
         <div class="info-label">Uptime</div>
@@ -61,7 +84,7 @@ export default function buildStatusPage({ clientOrigin, env, nodeVersion }) {
       </div>
       <div class="info-card">
         <div class="info-label">Node.js</div>
-        <div class="info-value">${nodeVersion}</div>
+        <div class="info-value">${escapeHtml(nodeVersion)}</div>
       </div>
       <div class="info-card">
         <div class="info-label">Timestamp</div>
@@ -70,7 +93,7 @@ export default function buildStatusPage({ clientOrigin, env, nodeVersion }) {
     </div>
     <div class="links">
       <a href="/api/health">Health Check</a>
-      <a href="${clientOrigin}">Website</a>
+      <a href="${safeOrigin}">Website</a>
     </div>
   </div>
 </body>
