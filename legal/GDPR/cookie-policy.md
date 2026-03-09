@@ -69,4 +69,4 @@ privacy policies.
 
 ## Contact
 
-If you have questions about our use of cookies, contact us at [YOUR EMAIL].
+If you have questions about our use of cookies, contact us at privacy@ichnosprotocol.com.
