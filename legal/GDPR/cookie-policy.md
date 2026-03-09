@@ -1,7 +1,7 @@
 # Cookie Policy
 
 **Ichnos Protocol Pte. Ltd.**
-**Last updated: [DATE]**
+**Last updated: 9 March 2026**
 
 ---
 
