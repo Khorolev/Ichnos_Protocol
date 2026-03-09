@@ -39,7 +39,7 @@ if (!globalThis.__firebaseAdmin) {
   }
 }
 
-if (!globalThis.__firebaseStorage) {
+if (!globalThis.__firebaseStorage && globalThis.__firebaseAdmin) {
   try {
     const bucketName = resolveStorageBucket();
     globalThis.__firebaseStorage = globalThis.__firebaseAdmin
