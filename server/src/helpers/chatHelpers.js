@@ -23,7 +23,7 @@ export function buildContextString(documents) {
     if (!doc.content || typeof doc.content !== "string" || !doc.content.trim())
       continue;
     const words = doc.content.split(/\s+/);
-    if (wordCount + words.length > MAX_CONTEXT_WORDS) break;
+    if (wordCount + words.length > MAX_CONTEXT_WORDS) continue;
     parts.push(doc.content);
     wordCount += words.length;
   }
