@@ -1,20 +1,21 @@
-/**
- * Chat Service
- *
- * Business logic for chat operations including xAI Grok integration,
- * RAG context retrieval, rate limiting, and topic classification.
- */
 import * as questionRepository from "../repositories/questionRepository.js";
 import * as knowledgeRepository from "../repositories/knowledgeRepository.js";
 import * as userRepository from "../repositories/userRepository.js";
 import { STOP_WORDS } from "../helpers/stopWords.js";
-import { buildError, buildContextString } from "../helpers/chatHelpers.js";
+import {
+  buildError,
+  buildContextString,
+  buildUserContent,
+  buildXaiPayload,
+  buildXaiHeaders,
+  buildTopicMessages,
+  parseTopicKeywords,
+  SYSTEM_PROMPT,
+} from "../helpers/chatHelpers.js";
 
 const DAILY_LIMIT = 3;
 const XAI_TIMEOUT_MS = 8000;
 const TOPIC_TIMEOUT_MS = 2000;
-
-const SYSTEM_PROMPT = `You are Ichnos Protocol's AI assistant. You help visitors learn about the Ichnos Battery Passport platform, EU battery regulations, compliance requirements, and our services. Be concise, professional, and helpful. If you don't know something, say so honestly. When relevant, suggest contacting the team for detailed pricing or custom requirements.`;
 
 export function extractKeywords(text) {
   const tokens = text
@@ -27,25 +28,16 @@ export function extractKeywords(text) {
   return unique.slice(0, 10);
 }
 
-export async function callXaiApi(messages, timeoutMs) {
-  const endpoint =
-    process.env.XAI_API_ENDPOINT || "https://api.x.ai/v1/chat/completions";
-
+export async function callXaiApi(messages, timeoutMs, { model = "grok-3-mini", temperature = 0.7 } = {}) {
+  const endpoint = process.env.XAI_API_ENDPOINT || "https://api.x.ai/v1/chat/completions";
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(endpoint, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.XAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "grok-3-mini",
-        messages,
-        temperature: 0.7,
-      }),
+      headers: buildXaiHeaders(),
+      body: JSON.stringify(buildXaiPayload(messages, model, temperature)),
       signal: controller.signal,
     });
 
@@ -68,42 +60,11 @@ export async function callXaiApi(messages, timeoutMs) {
 }
 
 async function classifyTopics(questionId, message) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TOPIC_TIMEOUT_MS);
-
   try {
-    const endpoint =
-      process.env.XAI_API_ENDPOINT || "https://api.x.ai/v1/chat/completions";
+    const raw = await callXaiApi(buildTopicMessages(message), TOPIC_TIMEOUT_MS, { temperature: 0.3 });
+    const topics = parseTopicKeywords(raw);
 
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.XAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "grok-3-mini",
-        messages: [
-          {
-            role: "user",
-            content: `Extract 1-3 topic keywords from this question (respond with comma-separated keywords only): ${message}`,
-          },
-        ],
-        temperature: 0.3,
-      }),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) return;
-
-    const data = await response.json();
-    const raw = data.choices[0].message.content;
-    const topics = raw
-      .split(",")
-      .map((t) => t.trim().toLowerCase())
-      .filter((t) => t.length > 0 && t.length < 50);
-
-    for (const topic of topics.slice(0, 3)) {
+    for (const topic of topics) {
       await questionRepository.createTopic(questionId, {
         topic,
         confidence: null,
@@ -112,8 +73,6 @@ async function classifyTopics(questionId, message) {
     }
   } catch (error) {
     console.warn("Topic classification failed (non-blocking):", error.message);
-  } finally {
-    clearTimeout(timer);
   }
 }
 
@@ -126,15 +85,8 @@ export async function sendMessage(userId, message) {
   }
 
   const keywords = extractKeywords(message);
-  const documents = await knowledgeRepository.queryKnowledgeBase(
-    keywords,
-    null,
-  );
-  const context = buildContextString(documents);
-
-  const userContent = context
-    ? `${context}\n\nQuestion: ${message}`
-    : `Question: ${message}`;
+  const documents = await knowledgeRepository.queryKnowledgeBase(keywords, null);
+  const userContent = buildUserContent(buildContextString(documents), message);
 
   const answer = await callXaiApi(
     [
@@ -152,7 +104,6 @@ export async function sendMessage(userId, message) {
   });
 
   await userRepository.updateUserActivity(userId);
-
   await classifyTopics(question.id, message);
 
   return { answer, messageId: question.id, dailyCount: dailyCount + 1 };
@@ -160,11 +111,7 @@ export async function sendMessage(userId, message) {
 
 export async function getChatHistory(userId) {
   const rows = await questionRepository.getChatHistoryByUserId(userId);
-
   return rows.map(({ id, question, answer, created_at }) => ({
-    id,
-    question,
-    answer,
-    created_at,
+    id, question, answer, created_at,
   }));
 }

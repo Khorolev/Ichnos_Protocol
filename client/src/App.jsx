@@ -3,16 +3,35 @@ import { Routes, Route } from "react-router-dom";
 import LandingPage from "./components/pages/LandingPage";
 import ServicesPage from "./components/pages/ServicesPage";
 import TeamPage from "./components/pages/TeamPage";
+import ContactPage from "./components/pages/ContactPage";
+import AdminPage from "./components/pages/AdminPage";
 import PublicLayout from "./components/templates/PublicLayout";
+import AdminRoute from "./routes/AdminRoute";
 
 export default function App() {
   return (
-    <PublicLayout>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/services" element={<ServicesPage />} />
-        <Route path="/team" element={<TeamPage />} />
-      </Routes>
-    </PublicLayout>
+    <Routes>
+      <Route
+        path="/admin"
+        element={
+          <AdminRoute>
+            <AdminPage />
+          </AdminRoute>
+        }
+      />
+      <Route
+        path="*"
+        element={
+          <PublicLayout>
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/services" element={<ServicesPage />} />
+              <Route path="/team" element={<TeamPage />} />
+              <Route path="/contact" element={<ContactPage />} />
+            </Routes>
+          </PublicLayout>
+        }
+      />
+    </Routes>
   );
 }

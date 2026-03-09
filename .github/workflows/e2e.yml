@@ -30,10 +30,29 @@ jobs:
         working-directory: e2e
         run: npx playwright install --with-deps chromium firefox webkit
 
+      - name: Seed E2E test data
+        working-directory: server
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_UID: ${{ secrets.E2E_ADMIN_UID }}
+        run: |
+          if [ -n "$E2E_ADMIN_EMAIL" ] && [ -n "$E2E_ADMIN_UID" ] && [ -n "$DATABASE_URL" ]; then
+            npm ci --omit=dev
+            node scripts/seedE2EData.js
+          else
+            echo "Skipping E2E seed: required env vars not set"
+          fi
+
       - name: Run Playwright tests
         working-directory: e2e
         env:
           BASE_URL: ${{ github.event.deployment_status.target_url }}
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          E2E_ADMIN_UID: ${{ secrets.E2E_ADMIN_UID }}
+          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+          E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
         run: npx playwright test
 
       - name: Upload Playwright report

@@ -23,3 +23,11 @@ export const updateRequestSchema = z.object({
   status: z.enum(["new", "contacted", "in_progress", "resolved"]),
   adminNotes: z.string().max(5000).optional(),
 });
+
+export const addQuestionSchema = z.object({
+  question: z
+    .string()
+    .trim()
+    .min(1, "Question cannot be empty")
+    .max(2000, "Question cannot exceed 2000 characters"),
+});

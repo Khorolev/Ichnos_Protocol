@@ -25,6 +25,14 @@ export const adminApi = createApi({
     getRequests: builder.query({
       query: (userId) => `/api/admin/requests/${userId}`,
       providesTags: ['AdminRequests'],
+      transformResponse: (response) => ({
+        ...response,
+        data: response.data?.map((r) => ({
+          ...r,
+          questionPreview: r.question_preview ?? r.questionPreview ?? '',
+          adminNotes: r.admin_notes ?? r.adminNotes ?? '',
+        })),
+      }),
     }),
     getChatLeads: builder.query({
       query: () => '/api/admin/chat-leads',

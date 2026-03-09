@@ -10,7 +10,9 @@ import helmet from "helmet";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import authRoutes from "./routes/authRoutes.js";
+import contactRoutes from "./routes/contactRoutes.js";
 import chatRoutes from "./routes/chatRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 import buildStatusPage from "./helpers/buildStatusPage.js";
 
 const app = express();
@@ -62,7 +64,9 @@ app.get("/api/health", (_req, res) => {
 
 // API routes
 app.use("/api/auth", authRoutes);
+app.use("/api/contact", contactRoutes);
 app.use("/api/chat", chatRoutes);
+app.use("/api/admin", adminRoutes);
 
 // 404 handler for undefined routes
 app.use((_req, res) => {

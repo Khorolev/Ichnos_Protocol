@@ -21,6 +21,12 @@ const chatSlice = createSlice({
     toggleModal(state) {
       state.isOpen = !state.isOpen;
     },
+    openModal(state) {
+      state.isOpen = true;
+    },
+    clearError(state) {
+      state.error = null;
+    },
     setLoading(state, action) {
       state.loading = action.payload;
     },
@@ -37,6 +43,8 @@ export const {
   addMessage,
   setMessages,
   toggleModal,
+  openModal,
+  clearError,
   setLoading,
   setError,
   setDailyCount,

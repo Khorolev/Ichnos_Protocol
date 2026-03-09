@@ -30,14 +30,6 @@ export const contactApi = createApi({
       query: () => '/api/contact/my-requests',
       providesTags: ['ContactRequests'],
     }),
-    updateRequest: builder.mutation({
-      query: ({ id, ...body }) => ({
-        url: `/api/contact/${id}`,
-        method: 'PUT',
-        body,
-      }),
-      invalidatesTags: ['ContactRequests'],
-    }),
     addQuestion: builder.mutation({
       query: ({ id, ...body }) => ({
         url: `/api/contact/${id}/question`,
@@ -52,6 +44,5 @@ export const contactApi = createApi({
 export const {
   useSubmitContactMutation,
   useGetMyRequestsQuery,
-  useUpdateRequestMutation,
   useAddQuestionMutation,
 } = contactApi;

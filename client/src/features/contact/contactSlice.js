@@ -1,6 +1,8 @@
 import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
+  isOpen: false,
+  requestId: null,
   formData: {},
   myRequests: [],
   submitting: false,
@@ -11,6 +13,14 @@ const contactSlice = createSlice({
   name: 'contact',
   initialState,
   reducers: {
+    openModal(state, action) {
+      state.isOpen = true;
+      state.requestId = action.payload?.requestId || null;
+    },
+    closeModal(state) {
+      state.isOpen = false;
+      state.requestId = null;
+    },
     setFormData(state, action) {
       state.formData = action.payload;
     },
@@ -26,7 +36,13 @@ const contactSlice = createSlice({
   },
 });
 
-export const { setFormData, setRequests, setSubmitting, setError } =
-  contactSlice.actions;
+export const {
+  openModal,
+  closeModal,
+  setFormData,
+  setRequests,
+  setSubmitting,
+  setError,
+} = contactSlice.actions;
 
 export default contactSlice.reducer;

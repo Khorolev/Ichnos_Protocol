@@ -5,7 +5,7 @@
  * the provided Zod schema. Returns 400 with structured errors
  * on validation failure.
  */
-export function validateRequest(schema) {
+export function validateRequest(schema, { statusCode = 400 } = {}) {
   return (req, res, next) => {
     const result = schema.safeParse(req.body);
 
@@ -15,7 +15,7 @@ export function validateRequest(schema) {
         message: issue.message,
       }));
 
-      return res.status(400).json({
+      return res.status(statusCode).json({
         data: null,
         error: errors,
         message: "Validation failed",

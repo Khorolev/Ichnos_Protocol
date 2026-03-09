@@ -6,6 +6,8 @@ import contactReducer, {
 } from './contactSlice';
 
 const initialState = {
+  isOpen: false,
+  requestId: null,
   formData: {},
   myRequests: [],
   submitting: false,
