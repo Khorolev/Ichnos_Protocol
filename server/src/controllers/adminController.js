@@ -133,14 +133,6 @@ export async function exportCSV(_req, res, next) {
 
 export async function manageAdmins(req, res, next) {
   try {
-    if (req.user?.superAdmin !== true) {
-      return res.status(403).json({
-        data: null,
-        error: "Forbidden: Super-admin access required",
-        message: null,
-      });
-    }
-
     const result = await adminService.manageAdmins(
       req.body.action,
       req.body.email,
