@@ -36,37 +36,52 @@ describe("syncProfileSchema", () => {
 
   it("rejects missing name", () => {
     const result = syncProfileSchema.safeParse({
-      firebaseUid: "uid-1", surname: "Doe", email: "a@b.com",
+      firebaseUid: "uid-1",
+      surname: "Doe",
+      email: "a@b.com",
     });
     expect(result.success).toBe(false);
   });
 
   it("rejects missing surname", () => {
     const result = syncProfileSchema.safeParse({
-      firebaseUid: "uid-1", name: "John", email: "a@b.com",
+      firebaseUid: "uid-1",
+      name: "John",
+      email: "a@b.com",
     });
     expect(result.success).toBe(false);
   });
 
   it("rejects missing email", () => {
     const result = syncProfileSchema.safeParse({
-      firebaseUid: "uid-1", name: "John", surname: "Doe",
+      firebaseUid: "uid-1",
+      name: "John",
+      surname: "Doe",
     });
     expect(result.success).toBe(false);
   });
 
   it("rejects invalid email format", () => {
-    const result = syncProfileSchema.safeParse({ ...validProfile, email: "not-an-email" });
+    const result = syncProfileSchema.safeParse({
+      ...validProfile,
+      email: "not-an-email",
+    });
     expect(result.success).toBe(false);
   });
 
   it("rejects invalid linkedin URL", () => {
-    const result = syncProfileSchema.safeParse({ ...validProfile, linkedin: "not-a-url" });
+    const result = syncProfileSchema.safeParse({
+      ...validProfile,
+      linkedin: "not-a-url",
+    });
     expect(result.success).toBe(false);
   });
 
   it("rejects name exceeding max length", () => {
-    const result = syncProfileSchema.safeParse({ ...validProfile, name: "a".repeat(256) });
+    const result = syncProfileSchema.safeParse({
+      ...validProfile,
+      name: "a".repeat(256),
+    });
     expect(result.success).toBe(false);
   });
 });

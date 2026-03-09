@@ -1,17 +1,20 @@
-import { useState } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import Modal from 'react-bootstrap/Modal';
-import Form from 'react-bootstrap/Form';
-import Alert from 'react-bootstrap/Alert';
-import Spinner from 'react-bootstrap/Spinner';
+import { useState } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import Modal from "react-bootstrap/Modal";
+import Form from "react-bootstrap/Form";
+import Alert from "react-bootstrap/Alert";
+import Spinner from "react-bootstrap/Spinner";
 
-import { useGetMeQuery } from '../../features/auth/authApi';
-import { useSubmitContactMutation, useAddQuestionMutation } from '../../features/contact/contactApi';
-import { closeModal, setFormData } from '../../features/contact/contactSlice';
-import Button from '../atoms/Button';
-import ContactFormProfile from '../molecules/ContactFormProfile';
-import AuthModal from './AuthModal';
-import CalendlyModal from './CalendlyModal';
+import { useGetMeQuery } from "../../features/auth/authApi";
+import {
+  useSubmitContactMutation,
+  useAddQuestionMutation,
+} from "../../features/contact/contactApi";
+import { closeModal, setFormData } from "../../features/contact/contactSlice";
+import Button from "../atoms/Button";
+import ContactFormProfile from "../molecules/ContactFormProfile";
+import AuthModal from "./AuthModal";
+import CalendlyModal from "./CalendlyModal";
 
 export default function ContactForm() {
   const dispatch = useDispatch();
@@ -21,15 +24,18 @@ export default function ContactForm() {
   const isAuthenticated = useSelector((s) => s.auth.isAuthenticated);
 
   const { data: meData } = useGetMeQuery(undefined, { skip: !isAuthenticated });
-  const [submitContact, { isLoading: isSubmitting }] = useSubmitContactMutation();
+  const [submitContact, { isLoading: isSubmitting }] =
+    useSubmitContactMutation();
   const [addQuestion, { isLoading: isAdding }] = useAddQuestionMutation();
   const isLoading = isSubmitting || isAdding;
 
-  const [questions, setQuestions] = useState(['']);
+  const [questions, setQuestions] = useState([""]);
   const [consent, setConsent] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [error, setError] = useState('');
-  const [authModalOpen, setAuthModalOpen] = useState(() => isOpen && !isAuthenticated);
+  const [error, setError] = useState("");
+  const [authModalOpen, setAuthModalOpen] = useState(
+    () => isOpen && !isAuthenticated,
+  );
   const [calendlyOpen, setCalendlyOpen] = useState(false);
   const [pendingSubmit, setPendingSubmit] = useState(false);
 
@@ -40,22 +46,25 @@ export default function ContactForm() {
   };
 
   const doSubmit = async (qs) => {
-    setError('');
+    setError("");
     const filtered = qs.filter((t) => t.trim()).map((text) => ({ text }));
     if (!filtered.length) return;
     try {
       if (requestId) {
-        await addQuestion({ id: requestId, question: filtered[0].text }).unwrap();
+        await addQuestion({
+          id: requestId,
+          question: filtered[0].text,
+        }).unwrap();
       } else {
         await submitContact({
           questions: filtered,
           consentTimestamp: new Date().toISOString(),
-          consentVersion: 'v1',
+          consentVersion: "v1",
         }).unwrap();
       }
       setSuccess(true);
     } catch {
-      setError('Something went wrong. Please try again.');
+      setError("Something went wrong. Please try again.");
     }
   };
 
@@ -82,10 +91,10 @@ export default function ContactForm() {
 
   const handleClose = () => {
     dispatch(closeModal());
-    setQuestions(['']);
+    setQuestions([""]);
     setConsent(false);
     setSuccess(false);
-    setError('');
+    setError("");
     setPendingSubmit(false);
   };
 
@@ -93,7 +102,9 @@ export default function ContactForm() {
     <>
       <Modal show={isOpen} onHide={handleClose} centered size="lg">
         <Modal.Header closeButton>
-          <Modal.Title>{requestId ? 'Add a Follow-up Question' : 'Submit an Inquiry'}</Modal.Title>
+          <Modal.Title>
+            {requestId ? "Add a Follow-up Question" : "Submit an Inquiry"}
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           {success ? (
@@ -103,7 +114,11 @@ export default function ContactForm() {
               <ContactFormProfile profile={profile} />
               {error && <Alert variant="danger">{error}</Alert>}
               {questions.map((q, i) => (
-                <Form.Group key={i} className="mb-3" controlId={`question-${i + 1}`}>
+                <Form.Group
+                  key={i}
+                  className="mb-3"
+                  controlId={`question-${i + 1}`}
+                >
                   <Form.Label>Question {i + 1}</Form.Label>
                   <Form.Control
                     as="textarea"
@@ -119,7 +134,7 @@ export default function ContactForm() {
                   variant="outline-secondary"
                   size="sm"
                   className="mb-3"
-                  onClick={() => setQuestions((p) => [...p, ''])}
+                  onClick={() => setQuestions((p) => [...p, ""])}
                 >
                   Add another question
                 </Button>
@@ -133,15 +148,24 @@ export default function ContactForm() {
                 required
               />
               <Button type="submit" disabled={isLoading || !consent}>
-                {isLoading && <Spinner size="sm" animation="border" className="me-2" />}
-                {requestId ? 'Add Question' : 'Submit Inquiry'}
+                {isLoading && (
+                  <Spinner size="sm" animation="border" className="me-2" />
+                )}
+                {requestId ? "Add Question" : "Submit Inquiry"}
               </Button>
             </Form>
           )}
         </Modal.Body>
       </Modal>
-      <AuthModal isOpen={authModalOpen} onClose={() => setAuthModalOpen(false)} onSuccess={handleAuthSuccess} />
-      <CalendlyModal isOpen={calendlyOpen} onClose={() => setCalendlyOpen(false)} />
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        onSuccess={handleAuthSuccess}
+      />
+      <CalendlyModal
+        isOpen={calendlyOpen}
+        onClose={() => setCalendlyOpen(false)}
+      />
     </>
   );
 }
@@ -149,7 +173,9 @@ export default function ContactForm() {
 function SuccessView({ onBook }) {
   return (
     <>
-      <Alert variant="success">Inquiry submitted! We'll respond within 24 hours.</Alert>
+      <Alert variant="success">
+        Inquiry submitted! We'll respond within 24 hours.
+      </Alert>
       <Button onClick={onBook}>Book a Meeting</Button>
     </>
   );

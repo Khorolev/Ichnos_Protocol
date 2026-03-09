@@ -1,25 +1,25 @@
-import { useState, useEffect } from 'react';
-import { useSelector } from 'react-redux';
-import Alert from 'react-bootstrap/Alert';
-import Offcanvas from 'react-bootstrap/Offcanvas';
-import ListGroup from 'react-bootstrap/ListGroup';
-import Spinner from 'react-bootstrap/Spinner';
+import { useState, useEffect } from "react";
+import { useSelector } from "react-redux";
+import Alert from "react-bootstrap/Alert";
+import Offcanvas from "react-bootstrap/Offcanvas";
+import ListGroup from "react-bootstrap/ListGroup";
+import Spinner from "react-bootstrap/Spinner";
 
 import {
   useGetRequestsQuery,
   useUpdateRequestMutation,
   useDeleteRequestMutation,
-} from '../../features/admin/adminApi';
-import InquiryStatusBadge from '../atoms/InquiryStatusBadge';
-import RequestDetail from './RequestDetail';
+} from "../../features/admin/adminApi";
+import InquiryStatusBadge from "../atoms/InquiryStatusBadge";
+import RequestDetail from "./RequestDetail";
 
 function truncate(text, max = 100) {
-  if (!text) return '';
-  return text.length > max ? text.slice(0, max) + '...' : text;
+  if (!text) return "";
+  return text.length > max ? text.slice(0, max) + "..." : text;
 }
 
 function getPreviewText(request) {
-  return request.questionPreview || request.question_preview || '';
+  return request.questionPreview || request.question_preview || "";
 }
 
 function useDetailState() {
@@ -36,18 +36,29 @@ function useDetailState() {
     setSelectedRequest(req);
   }
 
-  return { selectedRequest, mutationError, setMutationError, closeDetail, openDetail };
+  return {
+    selectedRequest,
+    mutationError,
+    setMutationError,
+    closeDetail,
+    openDetail,
+  };
 }
 
 export default function UserTimeline({ userId, onClose }) {
-  const { selectedRequest, mutationError, setMutationError, closeDetail, openDetail } =
-    useDetailState();
+  const {
+    selectedRequest,
+    mutationError,
+    setMutationError,
+    closeDetail,
+    openDetail,
+  } = useDetailState();
   const users = useSelector((state) => state.admin.users);
   const user = users.find((u) => u.userId === userId);
 
   useEffect(() => {
     closeDetail();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
   const { data, isLoading } = useGetRequestsQuery(userId, { skip: !userId });
   const [updateRequest] = useUpdateRequestMutation();
@@ -60,7 +71,7 @@ export default function UserTimeline({ userId, onClose }) {
       await updateRequest({ id: selectedRequest.id, ...updates }).unwrap();
       closeDetail();
     } catch {
-      setMutationError('Failed to save changes. Please try again.');
+      setMutationError("Failed to save changes. Please try again.");
     }
   }
 
@@ -69,17 +80,26 @@ export default function UserTimeline({ userId, onClose }) {
       await deleteRequest(selectedRequest.id).unwrap();
       closeDetail();
     } catch {
-      setMutationError('Failed to delete request. Please try again.');
+      setMutationError("Failed to delete request. Please try again.");
     }
   }
 
   return (
-    <Offcanvas show={!!userId} placement="end" onHide={() => { closeDetail(); onClose(); }}>
+    <Offcanvas
+      show={!!userId}
+      placement="end"
+      onHide={() => {
+        closeDetail();
+        onClose();
+      }}
+    >
       <Offcanvas.Header closeButton>
         <Offcanvas.Title>
-          {user?.name || 'User'}
+          {user?.name || "User"}
           <div className="small text-muted">{user?.email}</div>
-          {user?.company && <div className="small text-muted">{user.company}</div>}
+          {user?.company && (
+            <div className="small text-muted">{user.company}</div>
+          )}
         </Offcanvas.Title>
       </Offcanvas.Header>
       <Offcanvas.Body>
@@ -105,17 +125,21 @@ export default function UserTimeline({ userId, onClose }) {
 
         {selectedRequest && (
           <>
-          {mutationError && (
-            <Alert variant="danger" dismissible onClose={() => setMutationError(null)}>
-              {mutationError}
-            </Alert>
-          )}
-          <RequestDetail
-            request={selectedRequest}
-            onBack={closeDetail}
-            onSave={handleSave}
-            onDelete={handleDelete}
-          />
+            {mutationError && (
+              <Alert
+                variant="danger"
+                dismissible
+                onClose={() => setMutationError(null)}
+              >
+                {mutationError}
+              </Alert>
+            )}
+            <RequestDetail
+              request={selectedRequest}
+              onBack={closeDetail}
+              onSave={handleSave}
+              onDelete={handleDelete}
+            />
           </>
         )}
       </Offcanvas.Body>

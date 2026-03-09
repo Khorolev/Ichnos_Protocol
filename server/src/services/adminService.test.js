@@ -255,9 +255,7 @@ describe("adminService", () => {
 
   describe("exportToCSV", () => {
     it("returns CSV string from export data", async () => {
-      const rows = [
-        { firebase_uid: "u1", name: "Alice", question: "Hello?" },
-      ];
+      const rows = [{ firebase_uid: "u1", name: "Alice", question: "Hello?" }];
       mockGetAllDataForExport.mockResolvedValue(rows);
 
       const result = await exportToCSV();
@@ -389,7 +387,13 @@ describe("adminService", () => {
   describe("sendDailyDigest", () => {
     it("sends digest email with inquiry and lead counts", async () => {
       const inquiries = [
-        { id: 1, name: "Alice", email: "a@b.com", company: "Acme", status: "new" },
+        {
+          id: 1,
+          name: "Alice",
+          email: "a@b.com",
+          company: "Acme",
+          status: "new",
+        },
       ];
       const chatLeads = [
         { userId: "uid-1", name: "Bob", email: "b@c.com", totalMessages: 5 },
@@ -413,7 +417,9 @@ describe("adminService", () => {
     it("throws when Resend returns an error", async () => {
       mockGetRecentInquiries.mockResolvedValue([]);
       mockGetRecentChatOnlyLeads.mockResolvedValue([]);
-      mockResendSend.mockResolvedValue({ error: { message: "API key invalid" } });
+      mockResendSend.mockResolvedValue({
+        error: { message: "API key invalid" },
+      });
 
       await expect(sendDailyDigest()).rejects.toThrow("API key invalid");
     });

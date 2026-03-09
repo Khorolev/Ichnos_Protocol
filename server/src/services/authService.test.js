@@ -25,13 +25,8 @@ vi.mock("../config/firebase.js", () => ({
   },
 }));
 
-const {
-  syncProfile,
-  verifyToken,
-  getUser,
-  updateProfile,
-  setAdminClaim,
-} = await import("./authService.js");
+const { syncProfile, verifyToken, getUser, updateProfile, setAdminClaim } =
+  await import("./authService.js");
 
 const profileData = {
   name: "John",

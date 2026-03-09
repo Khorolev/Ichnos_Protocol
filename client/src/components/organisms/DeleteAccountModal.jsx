@@ -1,18 +1,23 @@
-import { useState } from 'react';
-import Modal from 'react-bootstrap/Modal';
-import Alert from 'react-bootstrap/Alert';
-import Form from 'react-bootstrap/Form';
-import Spinner from 'react-bootstrap/Spinner';
+import { useState } from "react";
+import Modal from "react-bootstrap/Modal";
+import Alert from "react-bootstrap/Alert";
+import Form from "react-bootstrap/Form";
+import Spinner from "react-bootstrap/Spinner";
 
-import Button from '../atoms/Button';
+import Button from "../atoms/Button";
 
-const CONFIRMATION_PHRASE = 'DELETE MY ACCOUNT';
+const CONFIRMATION_PHRASE = "DELETE MY ACCOUNT";
 
-export default function DeleteAccountModal({ show, onClose, onConfirm, isLoading }) {
-  const [confirmText, setConfirmText] = useState('');
+export default function DeleteAccountModal({
+  show,
+  onClose,
+  onConfirm,
+  isLoading,
+}) {
+  const [confirmText, setConfirmText] = useState("");
 
   const handleClose = () => {
-    setConfirmText('');
+    setConfirmText("");
     onClose();
   };
 
@@ -46,13 +51,19 @@ export default function DeleteAccountModal({ show, onClose, onConfirm, isLoading
       </Modal.Body>
 
       <Modal.Footer>
-        <Button variant="secondary" onClick={handleClose}>Cancel</Button>
+        <Button variant="secondary" onClick={handleClose}>
+          Cancel
+        </Button>
         <Button
           variant="danger"
           disabled={!isConfirmed || isLoading}
           onClick={onConfirm}
         >
-          {isLoading ? <Spinner animation="border" size="sm" /> : 'Delete Account'}
+          {isLoading ? (
+            <Spinner animation="border" size="sm" />
+          ) : (
+            "Delete Account"
+          )}
         </Button>
       </Modal.Footer>
     </Modal>

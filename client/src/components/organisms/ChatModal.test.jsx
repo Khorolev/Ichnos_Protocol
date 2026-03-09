@@ -1,37 +1,37 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { Provider } from 'react-redux';
-import { MemoryRouter } from 'react-router-dom';
-import { configureStore } from '@reduxjs/toolkit';
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { Provider } from "react-redux";
+import { MemoryRouter } from "react-router-dom";
+import { configureStore } from "@reduxjs/toolkit";
 
-import chatReducer from '../../features/chat/chatSlice';
-import authReducer from '../../features/auth/authSlice';
+import chatReducer from "../../features/chat/chatSlice";
+import authReducer from "../../features/auth/authSlice";
 
 const mockUnwrap = vi.fn();
 
-vi.mock('../../features/chat/chatApi', () => ({
+vi.mock("../../features/chat/chatApi", () => ({
   useSendMessageMutation: () => [
     () => ({ unwrap: mockUnwrap }),
     { isLoading: false },
   ],
   useGetHistoryQuery: () => ({ data: null }),
   chatApi: {
-    reducerPath: 'chatApi',
+    reducerPath: "chatApi",
     reducer: (state = {}) => state,
     middleware: () => (next) => (action) => next(action),
   },
 }));
 
-vi.mock('../../helpers/chatMessageMapper', () => ({
+vi.mock("../../helpers/chatMessageMapper", () => ({
   mapHistoryToMessages: vi.fn(() => []),
 }));
 
-vi.mock('../../config/firebase', () => ({
+vi.mock("../../config/firebase", () => ({
   auth: { currentUser: null },
 }));
 
-vi.mock('./AuthModal', () => ({
+vi.mock("./AuthModal", () => ({
   default: function MockAuthModal({ isOpen, onSuccess, onClose }) {
     if (!isOpen) return null;
     return (
@@ -43,8 +43,8 @@ vi.mock('./AuthModal', () => ({
   },
 }));
 
-vi.mock('../../features/contact/contactSlice', () => ({
-  openModal: vi.fn(() => ({ type: 'contact/openModal' })),
+vi.mock("../../features/contact/contactSlice", () => ({
+  openModal: vi.fn(() => ({ type: "contact/openModal" })),
 }));
 
 function createStore(overrides = {}) {
@@ -52,7 +52,7 @@ function createStore(overrides = {}) {
     reducer: { auth: authReducer, chat: chatReducer },
     preloadedState: {
       auth: {
-        user: { uid: 'u1' },
+        user: { uid: "u1" },
         isAuthenticated: true,
         isAdmin: false,
         loading: false,
@@ -71,18 +71,22 @@ function createStore(overrides = {}) {
   });
 }
 
-describe('ChatModal', () => {
+describe("ChatModal", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('renders existing messages', async () => {
-    const { default: ChatModal } = await import('./ChatModal');
+  it("renders existing messages", async () => {
+    const { default: ChatModal } = await import("./ChatModal");
     const store = createStore({
       chat: {
         messages: [
-          { role: 'user', content: 'Hello', timestamp: '2025-01-01T00:00:00Z' },
-          { role: 'ai', content: 'Hi there', timestamp: '2025-01-01T00:00:01Z' },
+          { role: "user", content: "Hello", timestamp: "2025-01-01T00:00:00Z" },
+          {
+            role: "ai",
+            content: "Hi there",
+            timestamp: "2025-01-01T00:00:01Z",
+          },
         ],
       },
     });
@@ -95,12 +99,12 @@ describe('ChatModal', () => {
       </Provider>,
     );
 
-    expect(screen.getByText('Hello')).toBeInTheDocument();
-    expect(screen.getByText('Hi there')).toBeInTheDocument();
+    expect(screen.getByText("Hello")).toBeInTheDocument();
+    expect(screen.getByText("Hi there")).toBeInTheDocument();
   });
 
-  it('displays daily count with correct limit', async () => {
-    const { default: ChatModal } = await import('./ChatModal');
+  it("displays daily count with correct limit", async () => {
+    const { default: ChatModal } = await import("./ChatModal");
     const store = createStore({ chat: { dailyCount: 2 } });
 
     render(
@@ -111,11 +115,11 @@ describe('ChatModal', () => {
       </Provider>,
     );
 
-    expect(screen.getByText('Messages today: 2 / 3')).toBeInTheDocument();
+    expect(screen.getByText("Messages today: 2 / 3")).toBeInTheDocument();
   });
 
-  it('opens auth modal for unauthenticated users when modal opens', async () => {
-    const { default: ChatModal } = await import('./ChatModal');
+  it("opens auth modal for unauthenticated users when modal opens", async () => {
+    const { default: ChatModal } = await import("./ChatModal");
     const store = createStore({ auth: { isAuthenticated: false, user: null } });
 
     render(
@@ -126,18 +130,18 @@ describe('ChatModal', () => {
       </Provider>,
     );
 
-    expect(screen.getByTestId('auth-modal')).toBeInTheDocument();
+    expect(screen.getByTestId("auth-modal")).toBeInTheDocument();
   });
 
-  it('dispatches user message and AI reply from result.data on send success', async () => {
+  it("dispatches user message and AI reply from result.data on send success", async () => {
     const user = userEvent.setup();
     mockUnwrap.mockResolvedValue({
-      data: { answer: 'AI response', dailyCount: 1 },
-      message: 'Message sent',
+      data: { answer: "AI response", dailyCount: 1 },
+      message: "Message sent",
       error: null,
     });
 
-    const { default: ChatModal } = await import('./ChatModal');
+    const { default: ChatModal } = await import("./ChatModal");
     const store = createStore();
 
     render(
@@ -148,28 +152,28 @@ describe('ChatModal', () => {
       </Provider>,
     );
 
-    const textarea = screen.getByPlaceholderText('Type your message...');
-    await user.type(textarea, 'Test question');
-    await user.click(screen.getByRole('button', { name: 'Send' }));
+    const textarea = screen.getByPlaceholderText("Type your message...");
+    await user.type(textarea, "Test question");
+    await user.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(() => {
       const state = store.getState().chat;
       expect(state.messages).toHaveLength(2);
-      expect(state.messages[0].content).toBe('Test question');
-      expect(state.messages[1].content).toBe('AI response');
+      expect(state.messages[0].content).toBe("Test question");
+      expect(state.messages[1].content).toBe("AI response");
       expect(state.dailyCount).toBe(1);
     });
   });
 
-  it('does not add AI message when answer is missing', async () => {
+  it("does not add AI message when answer is missing", async () => {
     const user = userEvent.setup();
     mockUnwrap.mockResolvedValue({
       data: { answer: null, dailyCount: 1 },
-      message: 'Message sent',
+      message: "Message sent",
       error: null,
     });
 
-    const { default: ChatModal } = await import('./ChatModal');
+    const { default: ChatModal } = await import("./ChatModal");
     const store = createStore();
 
     render(
@@ -180,22 +184,22 @@ describe('ChatModal', () => {
       </Provider>,
     );
 
-    const textarea = screen.getByPlaceholderText('Type your message...');
-    await user.type(textarea, 'Test');
-    await user.click(screen.getByRole('button', { name: 'Send' }));
+    const textarea = screen.getByPlaceholderText("Type your message...");
+    await user.type(textarea, "Test");
+    await user.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(() => {
       const msgs = store.getState().chat.messages;
       expect(msgs).toHaveLength(1);
-      expect(msgs[0].role).toBe('user');
+      expect(msgs[0].role).toBe("user");
     });
   });
 
-  it('shows rate limit alert on 429 error', async () => {
+  it("shows rate limit alert on 429 error", async () => {
     const user = userEvent.setup();
     mockUnwrap.mockRejectedValue({ status: 429 });
 
-    const { default: ChatModal } = await import('./ChatModal');
+    const { default: ChatModal } = await import("./ChatModal");
     const store = createStore();
 
     render(
@@ -206,9 +210,9 @@ describe('ChatModal', () => {
       </Provider>,
     );
 
-    const textarea = screen.getByPlaceholderText('Type your message...');
-    await user.type(textarea, 'Test');
-    await user.click(screen.getByRole('button', { name: 'Send' }));
+    const textarea = screen.getByPlaceholderText("Type your message...");
+    await user.type(textarea, "Test");
+    await user.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(() => {
       expect(
@@ -217,11 +221,11 @@ describe('ChatModal', () => {
     });
   });
 
-  it('shows AI unavailable alert with contact CTA on 503 error', async () => {
+  it("shows AI unavailable alert with contact CTA on 503 error", async () => {
     const user = userEvent.setup();
     mockUnwrap.mockRejectedValue({ status: 503 });
 
-    const { default: ChatModal } = await import('./ChatModal');
+    const { default: ChatModal } = await import("./ChatModal");
     const store = createStore();
 
     render(
@@ -232,23 +236,23 @@ describe('ChatModal', () => {
       </Provider>,
     );
 
-    const textarea = screen.getByPlaceholderText('Type your message...');
-    await user.type(textarea, 'Test');
-    await user.click(screen.getByRole('button', { name: 'Send' }));
+    const textarea = screen.getByPlaceholderText("Type your message...");
+    await user.type(textarea, "Test");
+    await user.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(() => {
       expect(screen.getByText(/temporarily unavailable/i)).toBeInTheDocument();
       expect(
-        screen.getByRole('button', { name: /leave your question/i }),
+        screen.getByRole("button", { name: /leave your question/i }),
       ).toBeInTheDocument();
     });
   });
 
-  it('shows generic error on unknown error status', async () => {
+  it("shows generic error on unknown error status", async () => {
     const user = userEvent.setup();
     mockUnwrap.mockRejectedValue({ status: 500 });
 
-    const { default: ChatModal } = await import('./ChatModal');
+    const { default: ChatModal } = await import("./ChatModal");
     const store = createStore();
 
     render(
@@ -259,18 +263,18 @@ describe('ChatModal', () => {
       </Provider>,
     );
 
-    const textarea = screen.getByPlaceholderText('Type your message...');
-    await user.type(textarea, 'Test');
-    await user.click(screen.getByRole('button', { name: 'Send' }));
+    const textarea = screen.getByPlaceholderText("Type your message...");
+    await user.type(textarea, "Test");
+    await user.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(() => {
       expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
     });
   });
 
-  it('hides input area when rate limited', async () => {
-    const { default: ChatModal } = await import('./ChatModal');
-    const store = createStore({ chat: { error: 'rate_limit' } });
+  it("hides input area when rate limited", async () => {
+    const { default: ChatModal } = await import("./ChatModal");
+    const store = createStore({ chat: { error: "rate_limit" } });
 
     render(
       <Provider store={store}>
@@ -281,7 +285,7 @@ describe('ChatModal', () => {
     );
 
     expect(
-      screen.queryByPlaceholderText('Type your message...'),
+      screen.queryByPlaceholderText("Type your message..."),
     ).not.toBeInTheDocument();
   });
 });

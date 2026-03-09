@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import Modal from 'react-bootstrap/Modal';
-import Alert from 'react-bootstrap/Alert';
-import Badge from 'react-bootstrap/Badge';
-import Spinner from 'react-bootstrap/Spinner';
+import { useState, useEffect, useRef } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import Modal from "react-bootstrap/Modal";
+import Alert from "react-bootstrap/Alert";
+import Badge from "react-bootstrap/Badge";
+import Spinner from "react-bootstrap/Spinner";
 
 import {
   addMessage,
@@ -13,18 +13,18 @@ import {
   setError,
   setDailyCount,
   clearError,
-} from '../../features/chat/chatSlice';
-import { openModal as openContactModal } from '../../features/contact/contactSlice';
+} from "../../features/chat/chatSlice";
+import { openModal as openContactModal } from "../../features/contact/contactSlice";
 import {
   useSendMessageMutation,
   useGetHistoryQuery,
-} from '../../features/chat/chatApi';
-import { mapHistoryToMessages } from '../../helpers/chatMessageMapper';
-import { DAILY_MESSAGE_LIMIT } from '../../constants/chat';
-import AuthModal from './AuthModal';
-import ChatMessage from '../molecules/ChatMessage';
-import ChatInputArea from '../molecules/ChatInputArea';
-import Button from '../atoms/Button';
+} from "../../features/chat/chatApi";
+import { mapHistoryToMessages } from "../../helpers/chatMessageMapper";
+import { DAILY_MESSAGE_LIMIT } from "../../constants/chat";
+import AuthModal from "./AuthModal";
+import ChatMessage from "../molecules/ChatMessage";
+import ChatInputArea from "../molecules/ChatInputArea";
+import Button from "../atoms/Button";
 
 export default function ChatModal() {
   const dispatch = useDispatch();
@@ -33,9 +33,9 @@ export default function ChatModal() {
   );
   const { isAuthenticated } = useSelector((state) => state.auth);
 
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [pendingMessage, setPendingMessage] = useState('');
+  const [pendingMessage, setPendingMessage] = useState("");
   const [authJustSucceeded, setAuthJustSucceeded] = useState(false);
   const listRef = useRef(null);
 
@@ -63,16 +63,22 @@ export default function ChatModal() {
   useEffect(() => {
     if (authJustSucceeded && isAuthenticated && pendingMessage) {
       const msg = pendingMessage;
-      setPendingMessage('');
+      setPendingMessage("");
       setAuthJustSucceeded(false);
       doSend(msg);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authJustSucceeded, isAuthenticated]);
 
   const doSend = async (content) => {
-    dispatch(addMessage({ role: 'user', content, timestamp: new Date().toISOString() }));
-    setInput('');
+    dispatch(
+      addMessage({
+        role: "user",
+        content,
+        timestamp: new Date().toISOString(),
+      }),
+    );
+    setInput("");
     dispatch(setLoading(true));
     dispatch(clearError());
 
@@ -81,14 +87,20 @@ export default function ChatModal() {
       const answer = result?.data?.answer;
       const count = result?.data?.dailyCount;
       if (answer) {
-        dispatch(addMessage({ role: 'ai', content: answer, timestamp: new Date().toISOString() }));
+        dispatch(
+          addMessage({
+            role: "ai",
+            content: answer,
+            timestamp: new Date().toISOString(),
+          }),
+        );
       }
       if (count != null) dispatch(setDailyCount(count));
     } catch (err) {
       const status = err?.status;
-      if (status === 429) dispatch(setError('rate_limit'));
-      else if (status === 503) dispatch(setError('ai_unavailable'));
-      else dispatch(setError('generic'));
+      if (status === 429) dispatch(setError("rate_limit"));
+      else if (status === 503) dispatch(setError("ai_unavailable"));
+      else dispatch(setError("generic"));
     } finally {
       dispatch(setLoading(false));
     }
@@ -116,47 +128,63 @@ export default function ChatModal() {
     dispatch(openContactModal());
   };
 
-  const isRateLimited = error === 'rate_limit';
+  const isRateLimited = error === "rate_limit";
 
   return (
     <>
-      <Modal show={isOpen} onHide={() => dispatch(toggleModal())} size="lg" scrollable>
+      <Modal
+        show={isOpen}
+        onHide={() => dispatch(toggleModal())}
+        size="lg"
+        scrollable
+      >
         <Modal.Header closeButton>
           <Modal.Title>Chat with Ichnos AI</Modal.Title>
         </Modal.Header>
-        <Modal.Body className="d-flex flex-column" style={{ height: '60vh' }}>
+        <Modal.Body className="d-flex flex-column" style={{ height: "60vh" }}>
           <p className="small text-muted mb-2">
-            Conversations are stored to improve our service.{' '}
-            <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
+            Conversations are stored to improve our service.{" "}
+            <a href="/privacy" target="_blank" rel="noopener noreferrer">
+              Privacy Policy
+            </a>
           </p>
 
-          <div ref={listRef} className="flex-grow-1 overflow-auto d-flex flex-column mb-2">
+          <div
+            ref={listRef}
+            className="flex-grow-1 overflow-auto d-flex flex-column mb-2"
+          >
             {messages.map((msg, i) => (
               <ChatMessage key={i} {...msg} />
             ))}
-            {messages.length > 0 && renderInquiryButton(messages, handleContactRedirect)}
+            {messages.length > 0 &&
+              renderInquiryButton(messages, handleContactRedirect)}
             {loading && (
               <div className="align-self-start mb-2">
                 <Spinner animation="border" size="sm" />
               </div>
             )}
-            {error === 'rate_limit' && (
+            {error === "rate_limit" && (
               <Alert variant="warning" className="mt-2">
-                You have reached your daily message limit. Please try again tomorrow.
+                You have reached your daily message limit. Please try again
+                tomorrow.
               </Alert>
             )}
-            {error === 'ai_unavailable' && (
+            {error === "ai_unavailable" && (
               <Alert variant="warning" className="mt-2">
                 Our AI assistant is temporarily unavailable. You can still leave
                 your question and we will respond within 24 hours.
                 <div className="mt-2">
-                  <Button variant="primary" size="sm" onClick={handleContactRedirect}>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={handleContactRedirect}
+                  >
                     Leave your question
                   </Button>
                 </div>
               </Alert>
             )}
-            {error === 'generic' && (
+            {error === "generic" && (
               <Alert variant="danger" className="mt-2">
                 Something went wrong. Please try again.
               </Alert>
@@ -187,7 +215,7 @@ export default function ChatModal() {
 }
 
 function renderInquiryButton(messages, onRedirect) {
-  const lastAi = [...messages].reverse().find((m) => m.role === 'ai');
+  const lastAi = [...messages].reverse().find((m) => m.role === "ai");
   if (!lastAi) return null;
   if (!/submit a formal inquiry/i.test(lastAi.content)) return null;
 

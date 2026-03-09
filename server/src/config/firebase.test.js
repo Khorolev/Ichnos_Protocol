@@ -7,7 +7,10 @@ describe("Firebase Admin SDK Singleton", () => {
     delete globalThis.__firebaseStorage;
 
     vi.stubEnv("FIREBASE_PROJECT_ID", "test-project");
-    vi.stubEnv("FIREBASE_PRIVATE_KEY", "-----BEGIN PRIVATE KEY-----\ntest\n-----END PRIVATE KEY-----\n");
+    vi.stubEnv(
+      "FIREBASE_PRIVATE_KEY",
+      "-----BEGIN PRIVATE KEY-----\ntest\n-----END PRIVATE KEY-----\n",
+    );
     vi.stubEnv("FIREBASE_CLIENT_EMAIL", "test@test.iam.gserviceaccount.com");
     vi.stubEnv("FIREBASE_STORAGE_BUCKET", "test-project.appspot.com");
   });
@@ -31,7 +34,8 @@ describe("Firebase Admin SDK Singleton", () => {
 
     expect(mockCert).toHaveBeenCalledWith({
       projectId: "test-project",
-      privateKey: "-----BEGIN PRIVATE KEY-----\ntest\n-----END PRIVATE KEY-----\n",
+      privateKey:
+        "-----BEGIN PRIVATE KEY-----\ntest\n-----END PRIVATE KEY-----\n",
       clientEmail: "test@test.iam.gserviceaccount.com",
     });
     expect(mockInitializeApp).toHaveBeenCalledExactlyOnceWith(
