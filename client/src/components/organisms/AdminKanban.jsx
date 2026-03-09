@@ -7,6 +7,7 @@ import Spinner from 'react-bootstrap/Spinner';
 
 import { setUsers, toggleLane, selectUser } from '../../features/admin/adminSlice';
 import { useGetUsersQuery, useGetRequestsQuery, adminApi } from '../../features/admin/adminApi';
+// Note: useGetRequestsQuery is used inside the LaneLoader sub-component defined below.
 import KanbanLane from '../molecules/KanbanLane';
 
 function LaneLoader({ user, isExpanded, onToggle, onSelectUser }) {
