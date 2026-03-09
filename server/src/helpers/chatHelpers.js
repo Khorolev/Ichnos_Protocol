@@ -42,8 +42,16 @@ export function buildXaiPayload(messages, model, temperature) {
 }
 
 export function buildXaiHeaders() {
+  const apiKey = process.env.XAI_API_KEY;
+  if (!apiKey) {
+    throw buildError(
+      "XAI_API_KEY environment variable is not set. Please configure your xAI API key.",
+      500
+    );
+  }
+
   return {
-    Authorization: `Bearer ${process.env.XAI_API_KEY}`,
+    Authorization: `Bearer ${apiKey}`,
     "Content-Type": "application/json",
   };
 }
