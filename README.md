@@ -588,3 +588,4 @@ This project uses **Traycer AI** for planning and **Claude CLI** for execution.
 **Ichnos Protocol Pte. Ltd.**
 UEN: 202606521W
 160 Robinson Road, #14-04 Singapore Business Federation Center, Singapore 068914
+
