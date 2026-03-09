@@ -53,6 +53,8 @@ jobs:
           E2E_ADMIN_UID: ${{ secrets.E2E_ADMIN_UID }}
           E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
           E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+          E2E_SUPER_ADMIN_EMAIL: ${{ secrets.E2E_SUPER_ADMIN_EMAIL }}
+          E2E_SUPER_ADMIN_PASSWORD: ${{ secrets.E2E_SUPER_ADMIN_PASSWORD }}
         run: npx playwright test
 
       - name: Upload Playwright report
