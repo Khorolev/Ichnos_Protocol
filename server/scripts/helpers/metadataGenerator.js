@@ -7,6 +7,7 @@
  * @module metadataGenerator
  */
 
+const XAI_MODEL_NAME = "grok-3-mini";
 const XAI_TIMEOUT_MS = 30000;
 const MAX_RETRIES = 5;
 const BASE_DELAY_MS = 2000;
@@ -63,7 +64,7 @@ async function callXaiApi(content) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "grok-3-mini",
+        model: XAI_MODEL_NAME,
         messages: [
           {
             role: "user",
