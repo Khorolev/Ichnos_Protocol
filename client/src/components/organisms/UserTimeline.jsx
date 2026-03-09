@@ -47,6 +47,7 @@ export default function UserTimeline({ userId, onClose }) {
 
   useEffect(() => {
     closeDetail();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
   const { data, isLoading } = useGetRequestsQuery(userId, { skip: !userId });
   const [updateRequest] = useUpdateRequestMutation();

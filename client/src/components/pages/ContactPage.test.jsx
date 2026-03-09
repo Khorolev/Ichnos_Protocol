@@ -3,14 +3,17 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 import { configureStore } from '@reduxjs/toolkit';
 
 import authReducer from '../../features/auth/authSlice';
 import contactReducer from '../../features/contact/contactSlice';
 import chatReducer from '../../features/chat/chatSlice';
 
-const mockOpenChatModal = vi.fn(() => ({ type: 'chat/openModal' }));
-const mockOpenContactModal = vi.fn(() => ({ type: 'contact/openModal' }));
+const { mockOpenChatModal, mockOpenContactModal } = vi.hoisted(() => ({
+  mockOpenChatModal: vi.fn(() => ({ type: 'chat/openModal' })),
+  mockOpenContactModal: vi.fn(() => ({ type: 'contact/openModal' })),
+}));
 
 vi.mock('../../features/contact/contactApi', () => ({
   useGetMyRequestsQuery: vi.fn(() => ({ data: null, isLoading: false })),
@@ -98,9 +101,11 @@ describe('ContactPage', () => {
     const store = createStore();
     render(
       <Provider store={store}>
-        <MemoryRouter>
-          <ContactPage />
-        </MemoryRouter>
+        <HelmetProvider>
+          <MemoryRouter>
+            <ContactPage />
+          </MemoryRouter>
+        </HelmetProvider>
       </Provider>,
     );
 
@@ -113,9 +118,11 @@ describe('ContactPage', () => {
     const store = createStore();
     render(
       <Provider store={store}>
-        <MemoryRouter>
-          <ContactPage />
-        </MemoryRouter>
+        <HelmetProvider>
+          <MemoryRouter>
+            <ContactPage />
+          </MemoryRouter>
+        </HelmetProvider>
       </Provider>,
     );
 
@@ -129,9 +136,11 @@ describe('ContactPage', () => {
     const store = createStore();
     render(
       <Provider store={store}>
-        <MemoryRouter>
-          <ContactPage />
-        </MemoryRouter>
+        <HelmetProvider>
+          <MemoryRouter>
+            <ContactPage />
+          </MemoryRouter>
+        </HelmetProvider>
       </Provider>,
     );
 
@@ -150,9 +159,11 @@ describe('ContactPage', () => {
     const store = createStore({ auth: { isAuthenticated: true, user: { uid: 'u1' } } });
     render(
       <Provider store={store}>
-        <MemoryRouter>
-          <ContactPage />
-        </MemoryRouter>
+        <HelmetProvider>
+          <MemoryRouter>
+            <ContactPage />
+          </MemoryRouter>
+        </HelmetProvider>
       </Provider>,
     );
 
@@ -170,9 +181,11 @@ describe('ContactPage', () => {
     const store = createStore({ auth: { isAuthenticated: true, user: { uid: 'u1' } } });
     render(
       <Provider store={store}>
-        <MemoryRouter>
-          <ContactPage />
-        </MemoryRouter>
+        <HelmetProvider>
+          <MemoryRouter>
+            <ContactPage />
+          </MemoryRouter>
+        </HelmetProvider>
       </Provider>,
     );
 
@@ -185,9 +198,11 @@ describe('ContactPage', () => {
     const store = createStore();
     render(
       <Provider store={store}>
-        <MemoryRouter>
-          <ContactPage />
-        </MemoryRouter>
+        <HelmetProvider>
+          <MemoryRouter>
+            <ContactPage />
+          </MemoryRouter>
+        </HelmetProvider>
       </Provider>,
     );
 

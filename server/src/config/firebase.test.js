@@ -34,12 +34,11 @@ describe("Firebase Admin SDK Singleton", () => {
       privateKey: "-----BEGIN PRIVATE KEY-----\ntest\n-----END PRIVATE KEY-----\n",
       clientEmail: "test@test.iam.gserviceaccount.com",
     });
-    expect(mockInitializeApp).toHaveBeenCalledWith(
+    expect(mockInitializeApp).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({
         storageBucket: "test-project.appspot.com",
       }),
     );
-    expect(mockInitializeApp).toHaveBeenCalledOnce();
     expect(globalThis.__firebaseAdmin).toBeDefined();
     expect(globalThis.__firebaseStorage).toBeDefined();
     expect(mockBucket).toHaveBeenCalledWith("test-project.appspot.com");

@@ -29,7 +29,7 @@ describe("syncProfileSchema", () => {
   });
 
   it("rejects missing firebaseUid", () => {
-    const { firebaseUid, ...noUid } = validProfile;
+    const { firebaseUid: _firebaseUid, ...noUid } = validProfile;
     const result = syncProfileSchema.safeParse(noUid);
     expect(result.success).toBe(false);
   });

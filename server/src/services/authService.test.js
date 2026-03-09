@@ -146,12 +146,13 @@ describe("authService", () => {
       mockGetUserById.mockResolvedValue(null);
 
       await expect(getUser("nonexistent")).rejects.toThrow("User not found");
+    });
 
-      try {
-        await getUser("nonexistent");
-      } catch (error) {
-        expect(error.statusCode).toBe(404);
-      }
+    it("throws with statusCode 404 when user not found", async () => {
+      mockGetUserById.mockResolvedValue(null);
+
+      const error = await getUser("nonexistent").catch((e) => e);
+      expect(error.statusCode).toBe(404);
     });
 
     it("does not call Firebase when user not found", async () => {

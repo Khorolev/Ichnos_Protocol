@@ -91,19 +91,6 @@ function createStore(overrides = {}) {
   });
 }
 
-function renderForm(overrides = {}) {
-  const store = createStore(overrides);
-  const ContactForm = require('./ContactForm').default;
-  render(
-    <Provider store={store}>
-      <MemoryRouter>
-        <ContactForm />
-      </MemoryRouter>
-    </Provider>,
-  );
-  return store;
-}
-
 describe('ContactForm', () => {
   beforeEach(() => {
     vi.clearAllMocks();

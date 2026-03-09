@@ -71,19 +71,6 @@ function createStore(overrides = {}) {
   });
 }
 
-function renderModal(overrides = {}) {
-  const store = createStore(overrides);
-  const ChatModal = require('./ChatModal').default;
-  render(
-    <Provider store={store}>
-      <MemoryRouter>
-        <ChatModal />
-      </MemoryRouter>
-    </Provider>,
-  );
-  return store;
-}
-
 describe('ChatModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();

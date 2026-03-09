@@ -46,8 +46,7 @@ describe("cronOrAdmin middleware", () => {
 
     cronOrAdmin(req, res, next);
 
-    expect(next).toHaveBeenCalledOnce();
-    expect(next).toHaveBeenCalledWith();
+    expect(next).toHaveBeenCalledExactlyOnceWith();
     expect(mockAuth).not.toHaveBeenCalled();
     expect(mockAdmin).not.toHaveBeenCalled();
   });

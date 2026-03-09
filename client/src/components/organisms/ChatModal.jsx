@@ -67,6 +67,7 @@ export default function ChatModal() {
       setAuthJustSucceeded(false);
       doSend(msg);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authJustSucceeded, isAuthenticated]);
 
   const doSend = async (content) => {

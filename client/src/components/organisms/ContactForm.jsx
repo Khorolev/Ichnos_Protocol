@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import Modal from 'react-bootstrap/Modal';
 import Form from 'react-bootstrap/Form';
@@ -29,13 +29,9 @@ export default function ContactForm() {
   const [consent, setConsent] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
-  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(() => isOpen && !isAuthenticated);
   const [calendlyOpen, setCalendlyOpen] = useState(false);
   const [pendingSubmit, setPendingSubmit] = useState(false);
-
-  useEffect(() => {
-    if (isOpen && !isAuthenticated) setAuthModalOpen(true);
-  }, [isOpen, isAuthenticated]);
 
   const profile = meData?.data?.profile;
 

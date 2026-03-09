@@ -3,6 +3,7 @@ import globals from 'globals'
 import vitest from '@vitest/eslint-plugin'
 
 export default [
+  { ignores: ['scripts/python/**'] },
   {
     files: ['**/*.js'],
     ...js.configs.recommended,

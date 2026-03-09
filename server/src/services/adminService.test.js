@@ -67,7 +67,7 @@ vi.mock("resend", () => ({
 }));
 
 vi.mock("csv-stringify/sync", () => ({
-  stringify: (rows, opts) => {
+  stringify: (rows) => {
     if (!rows.length) return "";
     const keys = Object.keys(rows[0]);
     const header = keys.join(",");

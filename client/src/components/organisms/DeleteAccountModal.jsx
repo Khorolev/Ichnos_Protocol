@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Modal from 'react-bootstrap/Modal';
 import Alert from 'react-bootstrap/Alert';
 import Form from 'react-bootstrap/Form';
@@ -11,14 +11,15 @@ const CONFIRMATION_PHRASE = 'DELETE MY ACCOUNT';
 export default function DeleteAccountModal({ show, onClose, onConfirm, isLoading }) {
   const [confirmText, setConfirmText] = useState('');
 
-  useEffect(() => {
-    if (!show) setConfirmText('');
-  }, [show]);
+  const handleClose = () => {
+    setConfirmText('');
+    onClose();
+  };
 
   const isConfirmed = confirmText === CONFIRMATION_PHRASE;
 
   return (
-    <Modal show={show} onHide={onClose} centered>
+    <Modal show={show} onHide={handleClose} centered>
       <Modal.Header closeButton>
         <Modal.Title>Are you sure?</Modal.Title>
       </Modal.Header>
@@ -45,7 +46,7 @@ export default function DeleteAccountModal({ show, onClose, onConfirm, isLoading
       </Modal.Body>
 
       <Modal.Footer>
-        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button variant="secondary" onClick={handleClose}>Cancel</Button>
         <Button
           variant="danger"
           disabled={!isConfirmed || isLoading}
