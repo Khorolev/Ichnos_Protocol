@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { configureStore } from "@reduxjs/toolkit";
 
 vi.mock("../../config/firebase", () => ({
@@ -11,6 +11,7 @@ describe("gdprApi - deleteAccount endpoint", () => {
 
   beforeEach(async () => {
     vi.resetModules();
+    vi.stubEnv("VITE_API_BASE_URL", "http://localhost:3000");
 
     const module = await import("./gdprApi.js");
     gdprApi = module.gdprApi;
@@ -19,6 +20,10 @@ describe("gdprApi - deleteAccount endpoint", () => {
       reducer: { [gdprApi.reducerPath]: gdprApi.reducer },
       middleware: (getDefault) => getDefault().concat(gdprApi.middleware),
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("sends POST to /api/gdpr/delete with { confirm: true } body", async () => {
