@@ -184,5 +184,17 @@ describe("contact routes", () => {
       expect(res.status).toBe(400);
       expect(res.body.message).toBe("Validation failed");
     });
+
+    it("returns 400 when question field is missing", async () => {
+      mockVerifyIdToken.mockResolvedValue(decodedToken);
+
+      const res = await request(app)
+        .post("/api/contact/1/question")
+        .set(authHeader())
+        .send({});
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe("Validation failed");
+    });
   });
 });
