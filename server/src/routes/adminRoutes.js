@@ -7,6 +7,7 @@
 import { Router } from "express";
 import auth from "../middleware/auth.js";
 import admin from "../middleware/admin.js";
+import superAdmin from "../middleware/superAdmin.js";
 import cronOrAdmin from "../middleware/cronAuth.js";
 import { validateRequest } from "../middleware/validation.js";
 import {
@@ -39,6 +40,7 @@ router.post(
   "/manage-admins",
   auth,
   admin,
+  superAdmin,
   validateRequest(adminManageAdminsSchema, { statusCode: 422 }),
   adminController.manageAdmins,
 );
