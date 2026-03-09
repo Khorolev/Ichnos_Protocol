@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { contactSubmitSchema, updateRequestSchema } from "./contactSchemas.js";
+import {
+  contactSubmitSchema,
+  updateRequestSchema,
+  addQuestionSchema,
+} from "./contactSchemas.js";
 
 describe("contactSubmitSchema", () => {
   const validPayload = {
@@ -103,5 +107,42 @@ describe("updateRequestSchema", () => {
       adminNotes: "a".repeat(5001),
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("addQuestionSchema", () => {
+  it("accepts a valid question string", () => {
+    const result = addQuestionSchema.safeParse({ question: "What is your pricing?" });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects an empty question string", () => {
+    const result = addQuestionSchema.safeParse({ question: "" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a whitespace-only question string", () => {
+    const result = addQuestionSchema.safeParse({ question: "   " });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a missing question field", () => {
+    const result = addQuestionSchema.safeParse({});
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a non-string question value", () => {
+    const result = addQuestionSchema.safeParse({ question: 42 });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a question exceeding 2000 characters", () => {
+    const result = addQuestionSchema.safeParse({ question: "a".repeat(2001) });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts a question at the 2000 character limit", () => {
+    const result = addQuestionSchema.safeParse({ question: "a".repeat(2000) });
+    expect(result.success).toBe(true);
   });
 });
