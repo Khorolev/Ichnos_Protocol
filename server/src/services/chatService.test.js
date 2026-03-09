@@ -40,7 +40,10 @@ function xaiResponse(content) {
 }
 
 describe("chatService", () => {
+  const originalEnv = { ...process.env };
+
   beforeEach(() => {
+    process.env.XAI_API_KEY = "test-api-key";
     mockGetDailyChatCount.mockReset();
     mockCreateQuestion.mockReset();
     mockGetChatHistoryByUserId.mockReset();
@@ -51,6 +54,7 @@ describe("chatService", () => {
   });
 
   afterEach(() => {
+    process.env = { ...originalEnv };
     vi.restoreAllMocks();
   });
 
