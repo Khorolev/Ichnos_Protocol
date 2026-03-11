@@ -9,8 +9,8 @@ sequenceDiagram
     participant Dev as Developer
     participant GH as GitHub Actions
     participant CI as CI Workflow
-    participant VP as Vercel Preview
-    participant E2E as E2E Tests (Playwright)
+    participant VP as Vercel Preview (deploy jobs)
+    participant E2E as E2E job (same workflow)
     participant Rel as release branch
     participant Prod as Vercel Production
 
@@ -18,8 +18,7 @@ sequenceDiagram
     GH->>CI: Trigger CI (lint + test + build)
     CI-->>GH: ✅ CI passes
     CI-->>VP: workflow_run (success, any branch)
-    VP-->>GH: Preview URL ready (artifact: client-preview-url)
-    VP-->>E2E: workflow_run (success) — E2E retrieves URL from artifact
+    VP-->>E2E: deploy jobs complete → E2E job starts (needs dependency, same workflow)
     E2E-->>GH: ✅ E2E passes — required status check for merge
     Dev->>GH: Merge PR into main (blocked until E2E passes)
     Dev->>Rel: Push commit to release branch 🔴
@@ -34,8 +33,8 @@ sequenceDiagram
 | Workflow file | Name | Trigger | Purpose | Gate / Condition |
 |---|---|---|---|---|
 | `ci.yml` | CI | `push` to `main`; `pull_request` targeting `main` | Lint, test, build for `client/` and `server/` | None — always runs |
-| `vercel-preview-on-main.yml` | Vercel Preview | `workflow_run` on CI completed (any branch) | Deploy both apps to Vercel preview | Only runs if CI concluded `success` **and** the triggering run originated from the same repository (fork PRs are excluded to prevent secret exfiltration) |
-| `e2e.yml` | E2E Tests (Playwright) | `workflow_run` on `Vercel Preview` completed | Run Playwright against the client preview URL | Only runs if `Vercel Preview` concluded `success`; retrieves client URL from artifact |
+| `vercel-preview-on-main.yml` | Vercel Preview | `workflow_run` on CI completed (any branch) | Deploy both apps to Vercel preview, then run E2E tests as a dependent job | Only runs if CI concluded `success` **and** the triggering run originated from the same repository (fork PRs are excluded to prevent secret exfiltration). E2E job starts after both deploy jobs succeed, using client preview URL from job outputs. |
+| `e2e.yml` | E2E Tests (Playwright) | `workflow_dispatch` (manual) | Run Playwright against a provided base URL for ad-hoc/manual diagnostics | Requires `base_url` input; optional `ref` input for checkout |
 | `promote-to-production.yml` | Promote to Production | `push` to `release` branch | Auto-fetch latest READY preview for `main` via Vercel API and promote to production | Requires human approval via GitHub `production` environment |
 | `vercel-promote-production.yml` | Promote Vercel Preview to Production | `workflow_dispatch` (manual) | Emergency/manual promotion using explicit deployment URL or ID as input | Requires human approval via GitHub `production` environment |
 
@@ -80,7 +79,7 @@ In **Settings → Branches → Add rule** for `main`:
 - Add the following as required status checks:
   - `Client — Lint & Test`
   - `Server — Lint & Test`
-  - `E2E Tests (Playwright) / e2e`
+  - `Vercel Preview / E2E Tests (Playwright)`
 - This prevents merging PRs with failing CI or E2E tests.
 
 ## 4. One-Time Setup — Vercel
@@ -101,8 +100,8 @@ For **both** `ichnos-client` and `ichnos-server` Vercel projects:
 |---|---|---|
 | 1 | Create a feature branch from `main` and open a PR | 🔴 Manual |
 | 2 | CI runs automatically on the PR: lint + test + build for client and server | ✅ Automated |
-| 3 | `Vercel Preview` deploys both apps to Vercel preview and uploads client URL as artifact | ✅ Automated (triggers on CI success) |
-| 4 | `E2E Tests (Playwright)` triggers via `workflow_run` on preview success, retrieves client URL from artifact, runs Playwright | ✅ Automated |
+| 3 | `Vercel Preview` deploys both apps to Vercel preview | ✅ Automated (triggers on CI success) |
+| 4 | E2E job runs within the same `Vercel Preview` workflow after both deploy jobs succeed, using client preview URL from job outputs | ✅ Automated |
 | 5 | All required checks pass (CI + E2E) — PR is now mergeable | ✅ Automated gate |
 | 6 | Merge PR into `main` | 🔴 Manual |
 | 7 | CI + Preview + E2E rerun on `main` (same pipeline) | ✅ Automated |

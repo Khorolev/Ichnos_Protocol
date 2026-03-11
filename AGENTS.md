@@ -138,9 +138,10 @@ cd server && vercel --prod   # deploy backend
 
 - E2E tests live in `e2e/tests/` at the repository root (separate from client/server).
 - **Local**: Start client + server locally, run `cd e2e && npx playwright test`.
-- **CI**: E2E runs automatically after `Vercel Preview` succeeds (via `workflow_run` trigger). The client preview URL is retrieved from an artifact uploaded by the preview workflow.
+- **CI**: E2E runs as a dependent job (`needs: [deploy-client-preview, deploy-server-preview]`) inside the `Vercel Preview` workflow. The client preview URL is passed directly via job outputs — no cross-workflow artifact transfer.
+- A standalone `e2e.yml` workflow exists for **manual/ad-hoc** runs via `workflow_dispatch` (requires a `base_url` input).
 - Browsers: Chromium, Firefox, WebKit in CI; Chromium-only locally.
-- E2E tests run on every PR and after merges to `main`. Merge to `main` is blocked until E2E passes (required status check).
+- E2E tests run on every PR and after merges to `main`. Merge to `main` is blocked until E2E passes (required status check: `Vercel Preview / E2E Tests (Playwright)`).
 
 ## Git conventions
 
@@ -228,8 +229,9 @@ cd server && vercel --prod   # deploy backend
 - See `DEPLOYMENT_GITHUB_ACTIONS.md` for setup instructions.
 
 ### E2E URL targeting in GitHub Actions
-- E2E tests are triggered by `workflow_run` on `Vercel Preview` (not `deployment_status`).
-- The client preview URL is passed from the preview workflow to E2E via a `client-preview-url` artifact.
+- E2E tests run as a dependent job inside the `Vercel Preview` workflow (not as a separate `workflow_run` workflow).
+- The client preview URL is passed via job outputs from `deploy-client-preview` — no cross-workflow artifact transfer.
+- A standalone `e2e.yml` workflow exists for manual/ad-hoc runs via `workflow_dispatch`.
 - E2E tests must target the **client** deployment URL only, never the server.
 
 ### Secret-conditional steps
