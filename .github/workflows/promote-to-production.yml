@@ -1,0 +1,70 @@
+name: Promote to Production
+
+on:
+  push:
+    branches: [release]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promote-to-production
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Promote to Production
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Promote client
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CLIENT }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          DEPLOYMENT_ID=$(curl -s "https://api.vercel.com/v6/deployments?projectId=${VERCEL_PROJECT_ID}&teamId=${VERCEL_ORG_ID}&state=READY&limit=100&target=preview" \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          deployments = [d for d in data.get('deployments', []) if d.get('meta', {}).get('githubCommitRef') == 'main']
+          if not deployments:
+              print('ERROR: No READY preview deployment found for main branch', file=sys.stderr)
+              sys.exit(1)
+          print(deployments[0]['uid'])
+          ")
+
+          echo "Promoting client deployment: $DEPLOYMENT_ID"
+          vercel promote "$DEPLOYMENT_ID" --yes --token="$VERCEL_TOKEN"
+
+          echo "### Client Production Promotion" >> "$GITHUB_STEP_SUMMARY"
+          echo "Promoted deployment ID: $DEPLOYMENT_ID" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Promote server
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_SERVER }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          DEPLOYMENT_ID=$(curl -s "https://api.vercel.com/v6/deployments?projectId=${VERCEL_PROJECT_ID}&teamId=${VERCEL_ORG_ID}&state=READY&limit=100&target=preview" \
+            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+            | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          deployments = [d for d in data.get('deployments', []) if d.get('meta', {}).get('githubCommitRef') == 'main']
+          if not deployments:
+              print('ERROR: No READY preview deployment found for main branch', file=sys.stderr)
+              sys.exit(1)
+          print(deployments[0]['uid'])
+          ")
+
+          echo "Promoting server deployment: $DEPLOYMENT_ID"
+          vercel promote "$DEPLOYMENT_ID" --yes --token="$VERCEL_TOKEN"
+
+          echo "### Server Production Promotion" >> "$GITHUB_STEP_SUMMARY"
+          echo "Promoted deployment ID: $DEPLOYMENT_ID" >> "$GITHUB_STEP_SUMMARY"
