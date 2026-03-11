@@ -130,6 +130,9 @@ cd server && vercel --prod   # deploy backend
 - Mocking: `vi.fn()`, `vi.spyOn()`, `vi.mock()`.
 - Always test schema validators directly with edge cases (empty string, whitespace-only, boundary lengths) in addition to route-level tests.
 - Integration tests that require external services must use `describeIf = process.env.TEST_DATABASE_URL ? describe : describe.skip` pattern and must pass (skip) in CI without secrets.
+- **No conditional expects** (`vitest/no-conditional-expect`): Never place `expect()` inside `try/catch`, `if/else`, or any conditional branch. Use `.toThrowError()` with a matcher instead.
+  - Anti-pattern: `try { fn(); } catch (e) { expect(e.message).toBe("fail"); }`
+  - Correct: `expect(() => fn()).toThrowError(expect.objectContaining({ message: "fail" }))`
 
 ### End-to-End Tests (Playwright)
 
