@@ -66,7 +66,7 @@ export default function ChatOnlyLeads() {
           {!detailLoading && (
             <ListGroup>
               {conversations.map((item, i) => (
-                <ListGroup.Item key={i}>
+                <ListGroup.Item key={`${item.question}-${i}`}>
                   <div className="fw-bold">Q: {item.question}</div>
                   <div className="text-muted">A: {item.answer}</div>
                 </ListGroup.Item>
