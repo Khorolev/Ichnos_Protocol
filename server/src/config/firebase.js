@@ -19,9 +19,8 @@ function resolveStorageBucket() {
   );
 }
 
-const storageBucket = resolveStorageBucket();
-
 if (!globalThis.__firebaseAdmin) {
+  const storageBucket = resolveStorageBucket();
   try {
     admin.initializeApp({
       credential: admin.credential.cert({
@@ -40,6 +39,7 @@ if (!globalThis.__firebaseAdmin) {
 }
 
 if (!globalThis.__firebaseStorage && globalThis.__firebaseAdmin) {
+  const storageBucket = resolveStorageBucket();
   try {
     globalThis.__firebaseStorage = globalThis.__firebaseAdmin
       .storage()
