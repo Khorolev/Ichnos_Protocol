@@ -37,6 +37,10 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
           E2E_ADMIN_UID: ${{ secrets.E2E_ADMIN_UID }}
+          E2E_USER_UID: ${{ secrets.E2E_USER_UID }}
+          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+          E2E_SUPER_ADMIN_UID: ${{ secrets.E2E_SUPER_ADMIN_UID }}
+          E2E_SUPER_ADMIN_EMAIL: ${{ secrets.E2E_SUPER_ADMIN_EMAIL }}
         run: |
           if [ -n "$E2E_ADMIN_EMAIL" ] && [ -n "$E2E_ADMIN_UID" ] && [ -n "$DATABASE_URL" ]; then
             npm ci --omit=dev

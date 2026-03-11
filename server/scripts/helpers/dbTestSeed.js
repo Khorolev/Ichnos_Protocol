@@ -1,29 +1,7 @@
 /**
- * Seed E2E test data into the database.
- *
- * Required env vars: DATABASE_URL, E2E_ADMIN_EMAIL, E2E_ADMIN_UID.
- * Optional env vars: E2E_USER_EMAIL, E2E_USER_UID,
- *                    E2E_SUPER_ADMIN_EMAIL, E2E_SUPER_ADMIN_UID.
- * If required vars are missing the script exits silently (exit 0).
+ * Seed PostgreSQL with E2E test data (users, profiles, contact requests).
  */
 import pg from "pg";
-
-const { Pool } = pg;
-
-const {
-  DATABASE_URL,
-  E2E_USER_EMAIL,
-  E2E_USER_UID,
-  E2E_ADMIN_EMAIL,
-  E2E_ADMIN_UID,
-  E2E_SUPER_ADMIN_EMAIL,
-  E2E_SUPER_ADMIN_UID,
-} = process.env;
-
-if (!DATABASE_URL || !E2E_ADMIN_EMAIL || !E2E_ADMIN_UID) {
-  console.log("Skipping E2E seed: required env vars not set");
-  process.exit(0);
-}
 
 async function upsertUser(pool, uid, firstName, lastName, email) {
   await pool.query(
@@ -37,7 +15,7 @@ async function upsertUser(pool, uid, firstName, lastName, email) {
      VALUES ($1, $2, $3, $4, $5) ON CONFLICT (user_id) DO NOTHING`,
     [uid, firstName, lastName, email, "E2E Corp"],
   );
-  console.log(`users + profile: upserted (${email})`);
+  console.log(`[db] upserted user: ${email}`);
 }
 
 async function upsertContactRequest(pool, uid) {
@@ -49,7 +27,6 @@ async function upsertContactRequest(pool, uid) {
   let requestId;
   if (existing.rows.length > 0) {
     requestId = existing.rows[0].id;
-    console.log("contact_requests: already exists (id:", requestId, ")");
   } else {
     const res = await pool.query(
       `INSERT INTO contact_requests
@@ -58,7 +35,6 @@ async function upsertContactRequest(pool, uid) {
       [uid],
     );
     requestId = res.rows[0].id;
-    console.log("contact_requests: inserted (id:", requestId, ")");
   }
 
   await pool.query(
@@ -71,26 +47,29 @@ async function upsertContactRequest(pool, uid) {
      )`,
     [uid, requestId],
   );
+  console.log(`[db] contact request ready for uid: ${uid}`);
 }
 
-const pool = new Pool({ connectionString: DATABASE_URL });
+export async function seedTestDatabase({
+  connectionString,
+  userUid,
+  adminUid,
+  superAdminUid,
+}) {
+  const pool = new pg.Pool({ connectionString });
 
-try {
-  if (E2E_USER_UID && E2E_USER_EMAIL) {
-    await upsertUser(pool, E2E_USER_UID, "E2E", "User", E2E_USER_EMAIL);
-  }
-
-  await upsertUser(pool, E2E_ADMIN_UID, "E2E", "Admin", E2E_ADMIN_EMAIL);
-  await upsertContactRequest(pool, E2E_ADMIN_UID);
-
-  if (E2E_SUPER_ADMIN_UID && E2E_SUPER_ADMIN_EMAIL) {
+  try {
+    await upsertUser(pool, userUid, "E2E", "User", process.env.E2E_USER_EMAIL);
+    await upsertUser(pool, adminUid, "E2E", "Admin", process.env.E2E_ADMIN_EMAIL);
     await upsertUser(
-      pool, E2E_SUPER_ADMIN_UID, "E2E", "SuperAdmin", E2E_SUPER_ADMIN_EMAIL,
+      pool, superAdminUid, "E2E", "SuperAdmin", process.env.E2E_SUPER_ADMIN_EMAIL,
     );
-    await upsertContactRequest(pool, E2E_SUPER_ADMIN_UID);
-  }
 
-  console.log("E2E seed complete");
-} finally {
-  await pool.end();
+    await upsertContactRequest(pool, adminUid);
+    await upsertContactRequest(pool, superAdminUid);
+
+    console.log("[db] test seed complete");
+  } finally {
+    await pool.end();
+  }
 }
