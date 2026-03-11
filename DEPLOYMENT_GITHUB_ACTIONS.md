@@ -57,6 +57,7 @@ Navigate to **Settings → Secrets and variables → Actions → New repository 
 | Secret | Description |
 |---|---|
 | `VERCEL_TOKEN` | Personal or team token from Vercel |
+| `VERCEL_ORG_ID` | Your Vercel org/owner ID (personal account "Your ID" from Vercel → Settings → General) |
 | `VERCEL_PROJECT_ID_CLIENT` | Project ID for `ichnos-client` (Project → Settings → General) |
 | `VERCEL_PROJECT_ID_SERVER` | Project ID for `ichnos-server` (Project → Settings → General) |
 | `DATABASE_URL` | PostgreSQL connection string (used by E2E seed step) |
@@ -70,7 +71,7 @@ Navigate to **Settings → Secrets and variables → Actions → New repository 
 | `E2E_SUPER_ADMIN_PASSWORD` | Super-admin test account password |
 | `E2E_SUPER_ADMIN_UID` | Super-admin test account Firebase UID |
 
-> **Note:** The current workflows do not use `VERCEL_ORG_ID`. The Vercel CLI resolves the org/owner automatically from the project ID and token. If you previously configured `VERCEL_ORG_ID` as a repository secret, it can safely be removed.
+> **Note:** This pipeline expects all four Vercel secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID_CLIENT`, and `VERCEL_PROJECT_ID_SERVER`. The `VERCEL_ORG_ID` is passed as an environment variable to every Vercel CLI step to ensure deterministic org resolution.
 
 ### 3.3 Required: branch protection on `main`
 
