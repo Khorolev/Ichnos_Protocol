@@ -29,7 +29,7 @@ Use these repository-wide instructions for Ichnos Protocol. `AGENTS.md` is the s
 
 - Use existing project scripts only:
   - `cd client && npm run lint && npm test -- --run && npm run build`
-  - `cd server && npm test -- --run`
+  - `cd server && npm run lint && npm test -- --run`
 - Co-locate Vitest tests with the modules they cover.
 - Prefer focused tests for changed behavior and avoid unrelated test churn.
 
