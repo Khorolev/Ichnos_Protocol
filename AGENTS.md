@@ -138,9 +138,9 @@ cd server && vercel --prod   # deploy backend
 
 - E2E tests live in `e2e/tests/` at the repository root (separate from client/server).
 - **Local**: Start client + server locally, run `cd e2e && npx playwright test`.
-- **CI**: E2E runs automatically after `Vercel Preview on Main` succeeds (via `workflow_run` trigger). The client preview URL is retrieved from an artifact uploaded by the preview workflow.
+- **CI**: E2E runs automatically after `Vercel Preview` succeeds (via `workflow_run` trigger). The client preview URL is retrieved from an artifact uploaded by the preview workflow.
 - Browsers: Chromium, Firefox, WebKit in CI; Chromium-only locally.
-- E2E tests run after merges to `main` only — not blocking for commits.
+- E2E tests run on every PR and after merges to `main`. Merge to `main` is blocked until E2E passes (required status check).
 
 ## Git conventions
 
@@ -193,8 +193,8 @@ cd server && vercel --prod   # deploy backend
 - **Frontend** (`client/`): Vite static build → `dist/`. SPA rewrites to `index.html`.
 - **Backend** (`server/`): Express app wrapped as a Vercel serverless function via `server/api/index.js` using `@vercel/node`.
 - **Vercel Git auto-deploy is disabled** via `git.deploymentEnabled: false` in both `client/vercel.json` and `server/vercel.json`. All deployments are workflow-driven.
-- **Enforced pipeline order**: CI → Vercel Preview on Main → E2E (Playwright) → manual production promotion.
-- Merges to `main` trigger **preview** deployments only (via `Vercel Preview on Main` workflow after CI passes). Production promotion is always manual (via `Promote to Production` workflow with approval gate).
+- **Enforced pipeline order**: CI → Vercel Preview → E2E (Playwright) → manual production promotion.
+- CI success on any branch triggers **preview** deployments (via `Vercel Preview` workflow). Production promotion is always manual (via `Promote to Production` workflow with approval gate).
 - Environment variables set in Vercel project settings, never committed.
 - `server/api/index.js` only re-exports the Express app. All setup stays in `server/src/app.js`.
 
@@ -220,14 +220,15 @@ cd server && vercel --prod   # deploy backend
 - Add a `build` step to `lint-and-test-client` or as a separate `build-client` job in `ci.yml`.
 
 ### Preview-first deployment model
-- Merges to `main` produce **preview** deployments only (via `vercel-preview-on-main.yml`).
+- CI success on any branch produces **preview** deployments (via `vercel-preview-on-main.yml`).
 - Production promotion is always **manual** (via `vercel-promote-production.yml` with `workflow_dispatch`).
 - This allows reviewing every deployment on preview before it reaches users.
 - Production environment should have an approval gate configured in GitHub → Settings → Environments.
+- **Fork PR trust boundary**: Preview deployments only run when the triggering CI run originates from the same repository (`head_repository.full_name == github.repository`). Fork PRs do not get preview deployments to prevent secret exfiltration via attacker-controlled code.
 - See `DEPLOYMENT_GITHUB_ACTIONS.md` for setup instructions.
 
 ### E2E URL targeting in GitHub Actions
-- E2E tests are triggered by `workflow_run` on `Vercel Preview on Main` (not `deployment_status`).
+- E2E tests are triggered by `workflow_run` on `Vercel Preview` (not `deployment_status`).
 - The client preview URL is passed from the preview workflow to E2E via a `client-preview-url` artifact.
 - E2E tests must target the **client** deployment URL only, never the server.
 
