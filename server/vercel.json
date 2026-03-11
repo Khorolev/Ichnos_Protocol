@@ -1,4 +1,7 @@
 {
+  "git": {
+    "deploymentEnabled": false
+  },
   "version": 2,
   "installCommand": "npm install",
   "builds": [
@@ -10,5 +13,9 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" },
     { "source": "/(.*)", "destination": "/api" }
+  ],
+  "crons": [
+    { "path": "/api/admin/retention-sweep", "schedule": "0 2 * * 0" },
+    { "path": "/api/admin/notifications/digest", "schedule": "0 9 * * *" }
   ]
 }

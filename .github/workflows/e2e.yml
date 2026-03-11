@@ -1,20 +1,61 @@
 name: E2E Tests (Playwright)
 
 on:
-  deployment_status:
+  workflow_run:
+    workflows: ["Vercel Preview"]
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
 
 jobs:
   e2e:
-    if: >
-      github.event.deployment_status.state == 'success' &&
-      contains(github.event.deployment_status.target_url, 'ichnos-protocol-') &&
-      !contains(github.event.deployment_status.target_url, 'ichnos-protocolserver')
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
+      - name: Gate on upstream preview success
+        if: ${{ github.event.workflow_run.conclusion != 'success' }}
+        run: |
+          echo "::error::Upstream Vercel Preview workflow did not succeed (conclusion: ${{ github.event.workflow_run.conclusion }}). Failing E2E."
+          exit 1
+
+      - name: Download client preview URL artifact
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: context.payload.workflow_run.id,
+            });
+            const match = artifacts.data.artifacts.find(a => a.name === 'client-preview-url');
+            if (!match) {
+              core.setFailed('client-preview-url artifact not found');
+              return;
+            }
+            const download = await github.rest.actions.downloadArtifact({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              artifact_id: match.id,
+              archive_format: 'zip',
+            });
+            const fs = require('fs');
+            fs.writeFileSync('/tmp/client-preview-url.zip', Buffer.from(download.data));
+
+      - name: Extract preview URL
+        id: preview_url
+        run: |
+          unzip -o /tmp/client-preview-url.zip -d /tmp/preview-url
+          CLIENT_URL=$(cat /tmp/preview-url/client-url.txt | tr -d '[:space:]')
+          echo "client_url=$CLIENT_URL" >> "$GITHUB_OUTPUT"
+          echo "Preview URL: $CLIENT_URL"
+
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -31,10 +72,35 @@ jobs:
         working-directory: e2e
         run: npx playwright install --with-deps chromium firefox webkit
 
+      - name: Seed E2E test data
+        working-directory: server
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_UID: ${{ secrets.E2E_ADMIN_UID }}
+          E2E_USER_UID: ${{ secrets.E2E_USER_UID }}
+          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+          E2E_SUPER_ADMIN_UID: ${{ secrets.E2E_SUPER_ADMIN_UID }}
+          E2E_SUPER_ADMIN_EMAIL: ${{ secrets.E2E_SUPER_ADMIN_EMAIL }}
+        run: |
+          if [ -n "$E2E_ADMIN_EMAIL" ] && [ -n "$E2E_ADMIN_UID" ] && [ -n "$DATABASE_URL" ]; then
+            npm ci --omit=dev
+            node scripts/seedE2EData.js
+          else
+            echo "Skipping E2E seed: required env vars not set"
+          fi
+
       - name: Run Playwright tests
         working-directory: e2e
         env:
-          BASE_URL: ${{ github.event.deployment_status.target_url }}
+          BASE_URL: ${{ steps.preview_url.outputs.client_url }}
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
+          E2E_ADMIN_UID: ${{ secrets.E2E_ADMIN_UID }}
+          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+          E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+          E2E_SUPER_ADMIN_EMAIL: ${{ secrets.E2E_SUPER_ADMIN_EMAIL }}
+          E2E_SUPER_ADMIN_PASSWORD: ${{ secrets.E2E_SUPER_ADMIN_PASSWORD }}
         run: npx playwright test
 
       - name: Upload Playwright report
