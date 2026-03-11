@@ -112,6 +112,17 @@ describe("buildXaiHeaders", () => {
       "Content-Type": "application/json",
     });
   });
+
+  it("throws 503 when XAI_API_KEY is not set", () => {
+    vi.stubEnv("XAI_API_KEY", "");
+    expect(() => buildXaiHeaders()).toThrow();
+    try {
+      buildXaiHeaders();
+    } catch (err) {
+      expect(err.statusCode).toBe(503);
+      expect(err.message).toContain("XAI_API_KEY");
+    }
+  });
 });
 
 describe("sanitizeUserInput", () => {

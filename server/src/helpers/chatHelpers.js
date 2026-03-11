@@ -75,17 +75,17 @@ export function buildXaiPayload(messages, model, temperature) {
 
 /**
  * Build the HTTP headers required by the xAI API.
- * Reads `XAI_API_KEY` from the environment and throws a 500 error if absent.
+ * Reads `XAI_API_KEY` from the environment and throws a 503 error if absent.
  *
  * @returns {{Authorization: string, "Content-Type": string}} Headers object for xAI API requests
- * @throws {Error} When XAI_API_KEY is not set (statusCode 500)
+ * @throws {Error} When XAI_API_KEY is not set (statusCode 503)
  */
 export function buildXaiHeaders() {
   const apiKey = process.env.XAI_API_KEY;
   if (!apiKey) {
     throw buildError(
       "XAI_API_KEY environment variable is not set. Please configure your xAI API key.",
-      500
+      503
     );
   }
 
