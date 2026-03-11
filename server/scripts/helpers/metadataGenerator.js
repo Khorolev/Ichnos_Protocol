@@ -71,7 +71,7 @@ async function callXaiApi(content) {
             content: `Analyze this text and return ONLY valid JSON (no markdown):
 {
   "title": "concise title, max 10 words",
-  "category": "one of: battery_passport, batteries, homologation, services, regulations, standards, supply_chain, general",
+  "category": "one of: ${VALID_CATEGORIES.join(", ")}",
   "tags": ["3-5", "lowercase", "keyword", "tags"]
 }
 
