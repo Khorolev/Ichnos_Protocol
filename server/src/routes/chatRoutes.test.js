@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import request from "supertest";
 
 const mockVerifyIdToken = vi.fn();
@@ -53,10 +53,15 @@ function xaiResponse(content) {
 
 describe("chat routes", () => {
   beforeEach(() => {
+    vi.stubEnv("XAI_API_KEY", "test-key");
     mockVerifyIdToken.mockReset();
     mockQuery.mockReset();
     mockFetch.mockReset();
     mockQueryKnowledgeBase.mockReset();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   describe("POST /api/chat/message", () => {
