@@ -1,4 +1,7 @@
 {
+  "git": {
+    "deploymentEnabled": false
+  },
   "version": 2,
   "installCommand": "npm install",
   "builds": [

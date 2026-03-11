@@ -64,6 +64,18 @@ jobs:
           echo "### Client Preview Deployment" >> "$GITHUB_STEP_SUMMARY"
           echo "$DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Persist client preview URL for downstream workflows
+        run: |
+          mkdir -p /tmp/preview-url
+          echo "${{ steps.deploy_client.outputs.deployment_url }}" > /tmp/preview-url/client-url.txt
+
+      - name: Upload client preview URL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-preview-url
+          path: /tmp/preview-url/client-url.txt
+          retention-days: 3
+
   deploy-server-preview:
     name: Deploy Server Preview
     if: ${{ github.event.workflow_run.conclusion == 'success' }}

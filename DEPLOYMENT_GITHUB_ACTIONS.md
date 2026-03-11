@@ -9,17 +9,19 @@ sequenceDiagram
     participant Dev as Developer
     participant GH as GitHub Actions
     participant CI as CI Workflow
-    participant VP as Vercel Preview
-    participant E2E as E2E Workflow
+    participant VP as Vercel Preview on Main
+    participant E2E as E2E Tests (Playwright)
     participant Rel as release branch
     participant Prod as Vercel Production
 
     Dev->>GH: Push to feature branch / open PR
     GH->>CI: Trigger CI (lint + test + build)
     CI-->>GH: ✅ CI passes
-    GH->>VP: vercel-preview-on-main triggers (workflow_run)
-    VP-->>GH: Preview URL ready
-    GH->>E2E: deployment_status success → Playwright runs
+    Dev->>GH: Merge PR into main
+    GH->>CI: CI reruns on main
+    CI-->>VP: workflow_run (success, main)
+    VP-->>GH: Preview URL ready (artifact: client-preview-url)
+    VP-->>E2E: workflow_run (success) — E2E retrieves URL from artifact
     E2E-->>Dev: Report uploaded (playwright-report artifact)
     Dev->>Rel: Push commit to release branch 🔴
     Rel->>GH: promote-to-production triggers
@@ -34,7 +36,7 @@ sequenceDiagram
 |---|---|---|---|---|
 | `ci.yml` | CI | `push` to `main`; `pull_request` targeting `main` | Lint, test, build for `client/` and `server/` | None — always runs |
 | `vercel-preview-on-main.yml` | Vercel Preview on Main | `workflow_run` on CI completed, branch `main` | Deploy both apps to Vercel preview | Only runs if CI concluded `success` |
-| `e2e.yml` | E2E Tests (Playwright) | `deployment_status` event | Run Playwright against the preview URL | Only runs if deployment state is `success` and URL matches client pattern |
+| `e2e.yml` | E2E Tests (Playwright) | `workflow_run` on `Vercel Preview on Main` completed | Run Playwright against the client preview URL | Only runs if `Vercel Preview on Main` concluded `success`; retrieves client URL from artifact |
 | `promote-to-production.yml` | Promote to Production | `push` to `release` branch | Auto-fetch latest READY preview for `main` via Vercel API and promote to production | Requires human approval via GitHub `production` environment |
 | `vercel-promote-production.yml` | Promote Vercel Preview to Production | `workflow_dispatch` (manual) | Emergency/manual promotion using explicit deployment URL or ID as input | Requires human approval via GitHub `production` environment |
 
@@ -87,6 +89,8 @@ For **both** `ichnos-client` and `ichnos-server` Vercel projects:
 
 **Why:** Vercel treats the production branch specially — pushes to it create production deployments directly. By switching to `release`, pushes to `main` only ever create preview deployments. Production is updated exclusively via explicit promotion through `promote-to-production.yml`, which calls `vercel promote` against an already-built, already-tested preview artifact. No rebuild occurs at promotion time.
 
+> **Note:** Vercel Git auto-deploy is also disabled at the config level via `"git": { "deploymentEnabled": false }` in both `client/vercel.json` and `server/vercel.json`. All deployments are driven exclusively through GitHub Actions workflows. This ensures the enforced pipeline order: **CI → Vercel Preview on Main → E2E → manual production promotion**.
+
 ## 5. Daily Developer Workflow
 
 | Step | Action | Status |
@@ -94,8 +98,8 @@ For **both** `ichnos-client` and `ichnos-server` Vercel projects:
 | 1 | Create a feature branch from `main` and open a PR | 🔴 Manual |
 | 2 | CI runs automatically: lint + test + build for client and server — must be green before merge | ✅ Automated |
 | 3 | Merge PR into `main` | 🔴 Manual |
-| 4 | CI reruns on `main`; if it passes, `vercel-preview-on-main.yml` deploys both apps to Vercel preview | ✅ Automated |
-| 5 | Vercel fires a `deployment_status` event; `e2e.yml` runs Playwright against the preview URL | ✅ Automated |
+| 4 | CI reruns on `main`; if it passes, `Vercel Preview on Main` deploys both apps to Vercel preview and uploads client URL as artifact | ✅ Automated |
+| 5 | `E2E Tests (Playwright)` triggers via `workflow_run` on preview success, retrieves client URL from artifact, runs Playwright | ✅ Automated |
 | 6 | Review the Playwright report (uploaded as `playwright-report` artifact) and the preview URL | 🔴 Manual |
 | 7 | Ready to ship? Push a commit (or merge) into the `release` branch | 🔴 Manual |
 | 8 | `promote-to-production.yml` triggers; GitHub pauses and waits for approval from a required reviewer | ✅ Automated trigger / 🔴 Manual approval |

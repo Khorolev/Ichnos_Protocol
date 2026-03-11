@@ -138,9 +138,9 @@ cd server && vercel --prod   # deploy backend
 
 - E2E tests live in `e2e/tests/` at the repository root (separate from client/server).
 - **Local**: Start client + server locally, run `cd e2e && npx playwright test`.
-- **CI**: Playwright runs against Vercel preview deployment URLs via GitHub Actions.
+- **CI**: E2E runs automatically after `Vercel Preview on Main` succeeds (via `workflow_run` trigger). The client preview URL is retrieved from an artifact uploaded by the preview workflow.
 - Browsers: Chromium, Firefox, WebKit in CI; Chromium-only locally.
-- E2E tests run on PRs only — not blocking for commits.
+- E2E tests run after merges to `main` only — not blocking for commits.
 
 ## Git conventions
 
@@ -192,8 +192,9 @@ cd server && vercel --prod   # deploy backend
 - Deployed on **Vercel** as two projects from the same repo.
 - **Frontend** (`client/`): Vite static build → `dist/`. SPA rewrites to `index.html`.
 - **Backend** (`server/`): Express app wrapped as a Vercel serverless function via `server/api/index.js` using `@vercel/node`.
-- Merges to `main` trigger automatic production deployments.
-- PRs get automatic preview deployments.
+- **Vercel Git auto-deploy is disabled** via `git.deploymentEnabled: false` in both `client/vercel.json` and `server/vercel.json`. All deployments are workflow-driven.
+- **Enforced pipeline order**: CI → Vercel Preview on Main → E2E (Playwright) → manual production promotion.
+- Merges to `main` trigger **preview** deployments only (via `Vercel Preview on Main` workflow after CI passes). Production promotion is always manual (via `Promote to Production` workflow with approval gate).
 - Environment variables set in Vercel project settings, never committed.
 - `server/api/index.js` only re-exports the Express app. All setup stays in `server/src/app.js`.
 
@@ -226,9 +227,9 @@ cd server && vercel --prod   # deploy backend
 - See `DEPLOYMENT_GITHUB_ACTIONS.md` for setup instructions.
 
 ### E2E URL targeting in GitHub Actions
+- E2E tests are triggered by `workflow_run` on `Vercel Preview on Main` (not `deployment_status`).
+- The client preview URL is passed from the preview workflow to E2E via a `client-preview-url` artifact.
 - E2E tests must target the **client** deployment URL only, never the server.
-- Use a pattern specific enough to exclude server URLs: `contains(target_url, 'ichnos-protocol-') && !contains(target_url, 'ichnos-protocolserver')`.
-- Do not use `contains(target_url, 'ichnos-client')` as Vercel preview URL naming may vary.
 
 ### Secret-conditional steps
 - Any CI step that requires a secret must check for presence before running, not fail silently:
