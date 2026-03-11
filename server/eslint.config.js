@@ -10,7 +10,16 @@ export default [
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "module",
-      globals: globals.node,
+      globals: {
+        ...globals.node,
+        fetch: "readonly",
+        AbortController: "readonly",
+        Request: "readonly",
+        Response: "readonly",
+        Headers: "readonly",
+        URL: "readonly",
+        URLSearchParams: "readonly",
+      },
     },
     rules: {
       ...js.configs.recommended.rules,

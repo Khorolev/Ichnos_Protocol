@@ -4,6 +4,7 @@
  * Pure utility functions for chat service operations.
  */
 const MAX_CONTEXT_WORDS = 1000;
+const MAX_TOPIC_INPUT_LENGTH = 500;
 
 export const SYSTEM_PROMPT = `You are Ichnos Protocol's AI assistant. You help visitors learn about the Ichnos Battery Passport platform, EU battery regulations, compliance requirements, and our services. Be concise, professional, and helpful. If you don't know something, say so honestly. When relevant, suggest contacting the team for detailed pricing or custom requirements.`;
 
@@ -95,15 +96,30 @@ export function buildXaiHeaders() {
 }
 
 /**
+ * Strip control characters from user input to prevent prompt injection.
+ * Preserves normal whitespace (spaces, newlines, tabs).
+ *
+ * @param {string} text - Raw user input
+ * @returns {string} Sanitized text
+ */
+export function sanitizeUserInput(text) {
+  const str = text == null ? "" : String(text);
+  // eslint-disable-next-line no-control-regex
+  return str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "");
+}
+
+/**
  * Build the messages array used to ask the AI to extract topic keywords from
  * a user message. The system prompt instructs the model to return only
- * comma-separated keywords.
+ * comma-separated keywords. User input is sanitized and truncated to prevent
+ * prompt injection.
  *
  * @param {string} message - The user message to extract keywords from
  * @returns {{role: string, content: string}[]} Messages array for the topic-extraction AI call
  */
 export function buildTopicMessages(message) {
   const systemContent = `${SYSTEM_PROMPT}\n\nYour task now is: Extract 1-3 topic keywords from the user's question (respond with comma-separated keywords only).`;
+  const sanitized = sanitizeUserInput(message).slice(0, MAX_TOPIC_INPUT_LENGTH);
 
   return [
     {
@@ -112,7 +128,7 @@ export function buildTopicMessages(message) {
     },
     {
       role: "user",
-      content: message,
+      content: sanitized,
     },
   ];
 }

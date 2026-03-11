@@ -7,6 +7,7 @@ import {
   buildXaiHeaders,
   buildTopicMessages,
   parseTopicKeywords,
+  sanitizeUserInput,
   SYSTEM_PROMPT,
 } from "./chatHelpers.js";
 
@@ -58,7 +59,7 @@ describe("buildContextString", () => {
     expect(result).not.toContain("This should not appear.");
   });
 
-  it("stops accumulation when a document exceeds the word budget", () => {
+  it("skips an oversized document and includes smaller ones that fit", () => {
     const oversized = Array(1100).fill("big").join(" ");
     const docs = [
       { content: oversized },
@@ -66,7 +67,9 @@ describe("buildContextString", () => {
       { content: "Another small doc." },
     ];
     const result = buildContextString(docs);
-    expect(result).toBe("");
+    expect(result).toContain("Small doc fits.");
+    expect(result).toContain("Another small doc.");
+    expect(result).not.toContain("big big big");
   });
 
   it("skips documents with whitespace-only content", () => {
@@ -111,6 +114,36 @@ describe("buildXaiHeaders", () => {
   });
 });
 
+describe("sanitizeUserInput", () => {
+  it("strips control characters but preserves normal text", () => {
+    expect(sanitizeUserInput("hello\x00world\x1Ftest")).toBe("helloworldtest");
+  });
+
+  it("preserves spaces, newlines, and tabs", () => {
+    expect(sanitizeUserInput("hello\n\tworld ")).toBe("hello\n\tworld ");
+  });
+
+  it("handles empty string", () => {
+    expect(sanitizeUserInput("")).toBe("");
+  });
+
+  it("returns empty string for null", () => {
+    expect(sanitizeUserInput(null)).toBe("");
+  });
+
+  it("returns empty string for undefined", () => {
+    expect(sanitizeUserInput(undefined)).toBe("");
+  });
+
+  it("coerces numeric input to string", () => {
+    expect(sanitizeUserInput(42)).toBe("42");
+  });
+
+  it("coerces boolean input to string", () => {
+    expect(sanitizeUserInput(true)).toBe("true");
+  });
+});
+
 describe("buildTopicMessages", () => {
   it("builds a system+user message array for topic extraction", () => {
     const result = buildTopicMessages("What is a battery passport?");
@@ -119,6 +152,32 @@ describe("buildTopicMessages", () => {
     expect(result[0].content).toContain("comma-separated keywords");
     expect(result[1].role).toBe("user");
     expect(result[1].content).toBe("What is a battery passport?");
+  });
+
+  it("sanitizes control characters from user input", () => {
+    const result = buildTopicMessages("battery\x00passport\x1F");
+    expect(result[1].content).toBe("batterypassport");
+  });
+
+  it("truncates input longer than 500 characters", () => {
+    const longMsg = "a".repeat(600);
+    const result = buildTopicMessages(longMsg);
+    expect(result[1].content).toHaveLength(500);
+  });
+
+  it("does not throw on null input", () => {
+    const result = buildTopicMessages(null);
+    expect(result[1].content).toBe("");
+  });
+
+  it("does not throw on undefined input", () => {
+    const result = buildTopicMessages(undefined);
+    expect(result[1].content).toBe("");
+  });
+
+  it("coerces numeric input to string", () => {
+    const result = buildTopicMessages(123);
+    expect(result[1].content).toBe("123");
   });
 });
 
