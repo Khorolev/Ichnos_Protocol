@@ -19,10 +19,10 @@ function resolveStorageBucket() {
   );
 }
 
+const storageBucket = resolveStorageBucket();
+
 if (!globalThis.__firebaseAdmin) {
   try {
-    const storageBucket = resolveStorageBucket();
-
     admin.initializeApp({
       credential: admin.credential.cert({
         projectId: process.env.FIREBASE_PROJECT_ID,
@@ -41,10 +41,9 @@ if (!globalThis.__firebaseAdmin) {
 
 if (!globalThis.__firebaseStorage && globalThis.__firebaseAdmin) {
   try {
-    const bucketName = resolveStorageBucket();
     globalThis.__firebaseStorage = globalThis.__firebaseAdmin
       .storage()
-      .bucket(bucketName);
+      .bucket(storageBucket);
   } catch (error) {
     console.error("Firebase Storage initialization failed:", error.message);
     throw error;
