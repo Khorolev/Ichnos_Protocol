@@ -17,6 +17,10 @@ concurrency:
   group: vercel-preview-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   check-e2e-secrets:
     name: Preflight — Secret Validation
@@ -88,20 +92,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
-
       - name: Pull Vercel environment information
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CLIENT }}
-        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@latest pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Build project artifacts
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CLIENT }}
-        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@latest build --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy preview
         id: deploy_client
@@ -109,7 +110,7 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CLIENT }}
         run: |
-          DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          DEPLOYMENT_URL=$(npx --yes vercel@latest deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
           echo "deployment_url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
           echo "### Client Preview Deployment" >> "$GITHUB_STEP_SUMMARY"
           echo "$DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
@@ -138,20 +139,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
-
       - name: Pull Vercel environment information
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_SERVER }}
-        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@latest pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Build project artifacts
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_SERVER }}
-        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@latest build --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy preview
         id: deploy_server
@@ -159,7 +157,7 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_SERVER }}
         run: |
-          DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          DEPLOYMENT_URL=$(npx --yes vercel@latest deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
           echo "deployment_url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
           echo "### Server Preview Deployment" >> "$GITHUB_STEP_SUMMARY"
           echo "$DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"

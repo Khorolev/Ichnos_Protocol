@@ -11,6 +11,10 @@ concurrency:
   group: promote-to-production
   cancel-in-progress: false
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   promote:
     name: Promote to Production
@@ -28,9 +32,6 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
-
       - name: Deploy client to production
         working-directory: client
         env:
@@ -39,9 +40,9 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           npm ci
-          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-          vercel build --prod --token="$VERCEL_TOKEN"
-          DEPLOYMENT_URL=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")
+          npx --yes vercel@latest pull --yes --environment=production --token="$VERCEL_TOKEN"
+          npx --yes vercel@latest build --prod --token="$VERCEL_TOKEN"
+          DEPLOYMENT_URL=$(npx --yes vercel@latest deploy --prebuilt --prod --token="$VERCEL_TOKEN")
 
           echo "client_url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
           echo "### Client Production Deployment" >> "$GITHUB_STEP_SUMMARY"
@@ -56,9 +57,9 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           npm ci
-          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-          vercel build --prod --token="$VERCEL_TOKEN"
-          DEPLOYMENT_URL=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")
+          npx --yes vercel@latest pull --yes --environment=production --token="$VERCEL_TOKEN"
+          npx --yes vercel@latest build --prod --token="$VERCEL_TOKEN"
+          DEPLOYMENT_URL=$(npx --yes vercel@latest deploy --prebuilt --prod --token="$VERCEL_TOKEN")
 
           echo "server_url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
           echo "### Server Production Deployment" >> "$GITHUB_STEP_SUMMARY"
