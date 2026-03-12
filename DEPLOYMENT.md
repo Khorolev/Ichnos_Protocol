@@ -104,33 +104,35 @@ node server/scripts/seedKnowledgeBase.js
 
 ## 6. Vercel Deployment
 
-### Backend (`server/`)
+### One-Time Project Setup
 
 1. Create a Vercel project named `ichnos-server`.
-2. Set the **root directory** to `server/`.
-3. Add all server environment variables in Vercel project settings.
-4. Deploy:
+   - Set the **root directory** to `server/`.
+   - Add all server environment variables in Vercel project settings.
+2. Create a second Vercel project named `ichnos-client`.
+   - Set the **root directory** to `client/`.
+   - Add all client environment variables in Vercel project settings.
+3. Disable Vercel Git auto-deploy (`"git": { "deploymentEnabled": false }` in both `vercel.json` files).
+
+### Production Deployments (Default Path)
+
+All production deployments are driven exclusively by GitHub Actions workflows. Do **not** use `vercel --prod` for routine releases.
+
+1. Push changes to a feature branch and open a PR.
+2. CI runs lint, tests, and builds. Preview deployments are created automatically.
+3. E2E tests run against preview URLs.
+4. After merge to `main`, use the **Promote to Production** workflow (with approval gate) to deploy.
+
+See [`DEPLOYMENT_GITHUB_ACTIONS.md`](DEPLOYMENT_GITHUB_ACTIONS.md) for the full pipeline setup and details.
+
+### Emergency Manual Fallback (CLI)
+
+> **Use only when GitHub Actions is unavailable or broken.** These commands bypass CI, E2E, and approval gates — any change deployed this way has not been validated by the standard pipeline.
 
 ```bash
 cd server && vercel --prod
-```
-
-Or push to `main` for automatic deployment.
-
-### Frontend (`client/`)
-
-1. Create a second Vercel project named `ichnos-client`.
-2. Set the **root directory** to `client/`.
-3. Add all client environment variables in Vercel project settings.
-4. Deploy:
-
-```bash
 cd client && vercel --prod
 ```
-
-Or push to `main` for automatic deployment.
-
-**Note**: Merges to `main` auto-deploy both projects.
 
 ---
 
@@ -258,15 +260,34 @@ admin.auth().setCustomUserClaims(uid, { admin: true, superAdmin: true });
 
 ---
 
-## 9. Verification Checklist
+## 9. First Rollout Validation Checklist
 
-After deployment, verify the following:
+### One-Time Setup Verification
 
-- [ ] **Auth**: sign up, log in, log out
-- [ ] **Chat**: send a message, receive AI response
-- [ ] **Contact form**: submit an inquiry, confirm it appears in admin dashboard
-- [ ] **Admin dashboard**: log in as admin, view Kanban board, update a request status
-- [ ] **Cron jobs**: visible in Vercel Dashboard → Cron Jobs tab; manually trigger each and check Vercel function logs
+Do once before first deploy:
+
+- [ ] GitHub `production` environment exists with at least one required reviewer configured
+- [ ] All required repository secrets are set (see [`DEPLOYMENT_GITHUB_ACTIONS.md` §3.2](DEPLOYMENT_GITHUB_ACTIONS.md#32-required-repository-secrets) for the full list including `VERCEL_STAGING_ALIAS_CLIENT` and `VERCEL_STAGING_ALIAS_SERVER`)
+- [ ] GitHub rulesets/branch protections are configured for `e2e-testing`, `staging`, and `main` with the correct required check names (see [`DEPLOYMENT_GITHUB_ACTIONS.md` §3.3](DEPLOYMENT_GITHUB_ACTIONS.md#33-required-checks-per-branch))
+- [ ] Vercel Git auto-deploy is disabled (`"git": { "deploymentEnabled": false }` in both `vercel.json` files)
+- [ ] Stable staging alias hostnames are registered in Vercel Dashboard → each project → Settings → Domains
+- [ ] Production environment variables are set in Vercel project settings for both `ichnos-client` and `ichnos-server` (never committed to the repo)
+
+### Daily Flow Verification
+
+After each deployment cycle:
+
+- [ ] **CI checks**: `Client — Lint & Test` and `Server — Lint & Test` are green on the PR
+- [ ] **Preflight check**: `Preflight — Secret Validation` is green (confirms all secrets are present and PR is not from a fork)
+- [ ] **Preview deployments**: `Deploy Client Preview` and `Deploy Server Preview` completed successfully; preview URLs are accessible
+- [ ] **E2E gate**: `E2E Tests (Playwright)` passed on the PR
+- [ ] **Staging alias**: After merge to `staging`, visit the stable staging client URL (`VERCEL_STAGING_ALIAS_CLIENT`) and confirm it reflects the latest merged changes
+- [ ] **Staging alias atomicity**: Check the `Staging Alias Sync` workflow run summary — both client and server aliases must show `SUCCESS`; if the summary shows `FAILED`, do not proceed to `staging → main` PR until aliases are manually verified
+- [ ] **Production approval**: After merging to `main`, confirm the `Promote to Production` workflow is waiting for approval in GitHub → Actions → Environments → production
+- [ ] **Production deploy**: After approving, confirm both client and server production deployments completed successfully in the workflow summary
+- [ ] **App smoke test**: Auth (sign up, log in, log out), Chat (send message, receive AI response), Contact form (submit inquiry, verify it appears in admin dashboard), Admin dashboard (update a request status), Cron jobs (visible in Vercel Dashboard → Cron Jobs tab)
+
+> ⚠️ **Fail-fast secret policy**: On PRs targeting `e2e-testing` or `staging`, missing secrets cause an immediate pipeline failure — there is no silent skip. If `Preflight — Secret Validation` fails, check that all secrets listed in [`DEPLOYMENT_GITHUB_ACTIONS.md` §3.2](DEPLOYMENT_GITHUB_ACTIONS.md#32-required-repository-secrets) are set in **Settings → Secrets and variables → Actions**.
 
 ---
 
