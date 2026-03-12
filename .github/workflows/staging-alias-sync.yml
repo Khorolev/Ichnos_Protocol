@@ -15,6 +15,10 @@ concurrency:
   group: staging-alias-sync
   cancel-in-progress: false
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   validate-secrets:
     name: Preflight — Secret Validation
@@ -70,20 +74,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
-
       - name: Pull Vercel environment information
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CLIENT }}
-        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@latest pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Build project artifacts
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CLIENT }}
-        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@latest build --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy preview
         id: deploy_client
@@ -91,7 +92,7 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CLIENT }}
         run: |
-          DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          DEPLOYMENT_URL=$(npx --yes vercel@latest deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
           echo "deployment_url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
           echo "### Client Staging Deployment" >> "$GITHUB_STEP_SUMMARY"
           echo "$DEPLOYMENT_URL (commit: ${{ github.sha }})" >> "$GITHUB_STEP_SUMMARY"
@@ -122,20 +123,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
-
       - name: Pull Vercel environment information
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_SERVER }}
-        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@latest pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Build project artifacts
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_SERVER }}
-        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@latest build --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy preview
         id: deploy_server
@@ -143,7 +141,7 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_SERVER }}
         run: |
-          DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          DEPLOYMENT_URL=$(npx --yes vercel@latest deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
           echo "deployment_url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
           echo "### Server Staging Deployment" >> "$GITHUB_STEP_SUMMARY"
           echo "$DEPLOYMENT_URL (commit: ${{ github.sha }})" >> "$GITHUB_STEP_SUMMARY"
@@ -154,9 +152,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
-
       - name: Capture current alias targets
         id: capture_previous
         env:
@@ -223,7 +218,7 @@ jobs:
         run: |
           CLIENT_URL="${{ needs.deploy-client-staging.outputs.deployment_url }}"
           CLIENT_ALIAS="${{ secrets.VERCEL_STAGING_ALIAS_CLIENT }}"
-          vercel alias set "$CLIENT_URL" "$CLIENT_ALIAS" --token="$VERCEL_TOKEN"
+          npx --yes vercel@latest alias set "$CLIENT_URL" "$CLIENT_ALIAS" --token="$VERCEL_TOKEN"
           echo "client_alias=$CLIENT_ALIAS" >> "$GITHUB_OUTPUT"
           echo "client_url=$CLIENT_URL" >> "$GITHUB_OUTPUT"
 
@@ -236,7 +231,7 @@ jobs:
         run: |
           SERVER_URL="${{ needs.deploy-server-staging.outputs.deployment_url }}"
           SERVER_ALIAS="${{ secrets.VERCEL_STAGING_ALIAS_SERVER }}"
-          vercel alias set "$SERVER_URL" "$SERVER_ALIAS" --token="$VERCEL_TOKEN"
+          npx --yes vercel@latest alias set "$SERVER_URL" "$SERVER_ALIAS" --token="$VERCEL_TOKEN"
           echo "server_alias=$SERVER_ALIAS" >> "$GITHUB_OUTPUT"
           echo "server_url=$SERVER_URL" >> "$GITHUB_OUTPUT"
 
@@ -258,7 +253,7 @@ jobs:
           fi
 
           echo "Rolling back client alias '$CLIENT_ALIAS' to previous target: $PREV_CLIENT_URL"
-          if vercel alias set "$PREV_CLIENT_URL" "$CLIENT_ALIAS" --token="$VERCEL_TOKEN"; then
+          if npx --yes vercel@latest alias set "$PREV_CLIENT_URL" "$CLIENT_ALIAS" --token="$VERCEL_TOKEN"; then
             echo "Client alias successfully rolled back to $PREV_CLIENT_URL"
             echo "rollback_result=success" >> "$GITHUB_OUTPUT"
           else
