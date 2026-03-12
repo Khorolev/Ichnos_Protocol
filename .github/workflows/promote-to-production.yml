@@ -2,7 +2,7 @@ name: Promote to Production
 
 on:
   push:
-    branches: [release]
+    branches: [main]
 
 permissions:
   contents: read
@@ -18,53 +18,49 @@ jobs:
     environment: production
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
-      - name: Promote client
+      - name: Deploy client to production
+        working-directory: client
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CLIENT }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          DEPLOYMENT_ID=$(curl -s "https://api.vercel.com/v6/deployments?projectId=${VERCEL_PROJECT_ID}&teamId=${VERCEL_ORG_ID}&state=READY&limit=100&target=preview" \
-            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
-            | python3 -c "
-          import sys, json
-          data = json.load(sys.stdin)
-          deployments = [d for d in data.get('deployments', []) if d.get('meta', {}).get('githubCommitRef') == 'main']
-          if not deployments:
-              print('ERROR: No READY preview deployment found for main branch', file=sys.stderr)
-              sys.exit(1)
-          print(deployments[0]['uid'])
-          ")
+          npm ci
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          vercel build --prod --token="$VERCEL_TOKEN"
+          DEPLOYMENT_URL=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")
 
-          echo "Promoting client deployment: $DEPLOYMENT_ID"
-          vercel promote "$DEPLOYMENT_ID" --yes --token="$VERCEL_TOKEN"
+          echo "client_url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
+          echo "### Client Production Deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **URL:** $DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Commit:** ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
 
-          echo "### Client Production Promotion" >> "$GITHUB_STEP_SUMMARY"
-          echo "Promoted deployment ID: $DEPLOYMENT_ID" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Promote server
+      - name: Deploy server to production
+        working-directory: server
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_SERVER }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          DEPLOYMENT_ID=$(curl -s "https://api.vercel.com/v6/deployments?projectId=${VERCEL_PROJECT_ID}&teamId=${VERCEL_ORG_ID}&state=READY&limit=100&target=preview" \
-            -H "Authorization: Bearer ${VERCEL_TOKEN}" \
-            | python3 -c "
-          import sys, json
-          data = json.load(sys.stdin)
-          deployments = [d for d in data.get('deployments', []) if d.get('meta', {}).get('githubCommitRef') == 'main']
-          if not deployments:
-              print('ERROR: No READY preview deployment found for main branch', file=sys.stderr)
-              sys.exit(1)
-          print(deployments[0]['uid'])
-          ")
+          npm ci
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          vercel build --prod --token="$VERCEL_TOKEN"
+          DEPLOYMENT_URL=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")
 
-          echo "Promoting server deployment: $DEPLOYMENT_ID"
-          vercel promote "$DEPLOYMENT_ID" --yes --token="$VERCEL_TOKEN"
-
-          echo "### Server Production Promotion" >> "$GITHUB_STEP_SUMMARY"
-          echo "Promoted deployment ID: $DEPLOYMENT_ID" >> "$GITHUB_STEP_SUMMARY"
+          echo "server_url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
+          echo "### Server Production Deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **URL:** $DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Commit:** ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"

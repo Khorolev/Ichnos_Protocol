@@ -1,0 +1,306 @@
+# Required check name: "Staging Alias Sync"
+# Triggers post-merge on push to staging.
+# Assigns stable client and server staging aliases atomically.
+# Do not rename without updating rulesets.
+name: Staging Alias Sync
+
+on:
+  push:
+    branches: [staging]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-alias-sync
+  cancel-in-progress: false
+
+jobs:
+  validate-secrets:
+    name: Preflight — Secret Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate required secrets
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID_CLIENT: ${{ secrets.VERCEL_PROJECT_ID_CLIENT }}
+          VERCEL_PROJECT_ID_SERVER: ${{ secrets.VERCEL_PROJECT_ID_SERVER }}
+          VERCEL_STAGING_ALIAS_CLIENT: ${{ secrets.VERCEL_STAGING_ALIAS_CLIENT }}
+          VERCEL_STAGING_ALIAS_SERVER: ${{ secrets.VERCEL_STAGING_ALIAS_SERVER }}
+        run: |
+          MISSING=""
+          for VAR_NAME in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID_CLIENT \
+            VERCEL_PROJECT_ID_SERVER VERCEL_STAGING_ALIAS_CLIENT \
+            VERCEL_STAGING_ALIAS_SERVER; do
+            eval "VAL=\$$VAR_NAME"
+            if [ -z "$VAL" ]; then
+              MISSING="$MISSING $VAR_NAME"
+            fi
+          done
+          if [ -n "$MISSING" ]; then
+            echo "::error::Missing required secrets:$MISSING"
+            exit 1
+          fi
+          echo "All required secrets are present."
+
+  deploy-client-staging:
+    name: Deploy Client — Staging
+    needs: [validate-secrets]
+    runs-on: ubuntu-latest
+    outputs:
+      deployment_url: ${{ steps.deploy_client.outputs.deployment_url }}
+    defaults:
+      run:
+        working-directory: client
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel environment information
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CLIENT }}
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build project artifacts
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CLIENT }}
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy preview
+        id: deploy_client
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CLIENT }}
+        run: |
+          DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          echo "deployment_url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
+          echo "### Client Staging Deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "$DEPLOYMENT_URL (commit: ${{ github.sha }})" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-server-staging:
+    name: Deploy Server — Staging
+    needs: [validate-secrets]
+    runs-on: ubuntu-latest
+    outputs:
+      deployment_url: ${{ steps.deploy_server.outputs.deployment_url }}
+    defaults:
+      run:
+        working-directory: server
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Pull Vercel environment information
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_SERVER }}
+        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build project artifacts
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_SERVER }}
+        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy preview
+        id: deploy_server
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_SERVER }}
+        run: |
+          DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+          echo "deployment_url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
+          echo "### Server Staging Deployment" >> "$GITHUB_STEP_SUMMARY"
+          echo "$DEPLOYMENT_URL (commit: ${{ github.sha }})" >> "$GITHUB_STEP_SUMMARY"
+
+  assign-staging-aliases:
+    name: Assign Staging Aliases — Atomic Cutover
+    needs: [deploy-client-staging, deploy-server-staging]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Capture current alias targets
+        id: capture_previous
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          CLIENT_ALIAS="${{ secrets.VERCEL_STAGING_ALIAS_CLIENT }}"
+          SERVER_ALIAS="${{ secrets.VERCEL_STAGING_ALIAS_SERVER }}"
+
+          # Fetch current client alias target via Vercel API
+          PREV_CLIENT_URL=$(curl -s -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v4/aliases?teamId=$VERCEL_ORG_ID&domain=$CLIENT_ALIAS" \
+            | jq -r '.aliases[0].deployment.url // empty') || true
+          if [ -n "$PREV_CLIENT_URL" ]; then
+            PREV_CLIENT_URL="https://$PREV_CLIENT_URL"
+          fi
+          echo "prev_client_url=$PREV_CLIENT_URL" >> "$GITHUB_OUTPUT"
+          echo "Captured previous client alias target: ${PREV_CLIENT_URL:-<none>}"
+
+          PREV_SERVER_URL=$(curl -s -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v4/aliases?teamId=$VERCEL_ORG_ID&domain=$SERVER_ALIAS" \
+            | jq -r '.aliases[0].deployment.url // empty') || true
+          if [ -n "$PREV_SERVER_URL" ]; then
+            PREV_SERVER_URL="https://$PREV_SERVER_URL"
+          fi
+          echo "prev_server_url=$PREV_SERVER_URL" >> "$GITHUB_OUTPUT"
+          echo "Captured previous server alias target: ${PREV_SERVER_URL:-<none>}"
+
+      - name: Precondition — Verify rollback targets exist
+        id: precondition_check
+        run: |
+          PREV_CLIENT_URL="${{ steps.capture_previous.outputs.prev_client_url }}"
+          PREV_SERVER_URL="${{ steps.capture_previous.outputs.prev_server_url }}"
+          FAILED=false
+
+          if [ -z "$PREV_CLIENT_URL" ]; then
+            echo "::error::No previous client alias target found for '${{ secrets.VERCEL_STAGING_ALIAS_CLIENT }}'."
+            FAILED=true
+          fi
+
+          if [ -z "$PREV_SERVER_URL" ]; then
+            echo "::error::No previous server alias target found for '${{ secrets.VERCEL_STAGING_ALIAS_SERVER }}'."
+            FAILED=true
+          fi
+
+          if [ "$FAILED" = true ]; then
+            echo "::error::Cannot proceed with alias cutover — rollback targets are unavailable."
+            echo "Bootstrap the missing alias manually by running:"
+            echo "  vercel alias set <deployment-url> <alias>"
+            echo "then re-run this workflow."
+            exit 1
+          fi
+
+          echo "Rollback targets verified — both previous alias targets are present."
+          echo "  Client: $PREV_CLIENT_URL"
+          echo "  Server: $PREV_SERVER_URL"
+
+      - name: Assign client staging alias
+        id: assign_client
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CLIENT }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          CLIENT_URL="${{ needs.deploy-client-staging.outputs.deployment_url }}"
+          CLIENT_ALIAS="${{ secrets.VERCEL_STAGING_ALIAS_CLIENT }}"
+          vercel alias set "$CLIENT_URL" "$CLIENT_ALIAS" --token="$VERCEL_TOKEN"
+          echo "client_alias=$CLIENT_ALIAS" >> "$GITHUB_OUTPUT"
+          echo "client_url=$CLIENT_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Assign server staging alias
+        id: assign_server
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_SERVER }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          SERVER_URL="${{ needs.deploy-server-staging.outputs.deployment_url }}"
+          SERVER_ALIAS="${{ secrets.VERCEL_STAGING_ALIAS_SERVER }}"
+          vercel alias set "$SERVER_URL" "$SERVER_ALIAS" --token="$VERCEL_TOKEN"
+          echo "server_alias=$SERVER_ALIAS" >> "$GITHUB_OUTPUT"
+          echo "server_url=$SERVER_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Rollback client alias on server failure
+        id: rollback
+        if: failure() && steps.assign_client.outcome == 'success'
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CLIENT }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          PREV_CLIENT_URL="${{ steps.capture_previous.outputs.prev_client_url }}"
+          CLIENT_ALIAS="${{ secrets.VERCEL_STAGING_ALIAS_CLIENT }}"
+
+          if [ -z "$PREV_CLIENT_URL" ]; then
+            echo "::error::No previous client alias target was captured — cannot rollback automatically."
+            echo "rollback_result=no_previous_target" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          echo "Rolling back client alias '$CLIENT_ALIAS' to previous target: $PREV_CLIENT_URL"
+          if vercel alias set "$PREV_CLIENT_URL" "$CLIENT_ALIAS" --token="$VERCEL_TOKEN"; then
+            echo "Client alias successfully rolled back to $PREV_CLIENT_URL"
+            echo "rollback_result=success" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Client alias rollback FAILED. Manual intervention required."
+            echo "::error::Client alias '$CLIENT_ALIAS' is currently pointing to the new deployment."
+            echo "::error::Previous target was: $PREV_CLIENT_URL"
+            echo "rollback_result=failed" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+      - name: Write audit summary
+        if: success()
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+
+          ## Staging Alias Cutover — SUCCESS
+
+          | App    | Alias | Deployment URL | Commit |
+          |--------|-------|----------------|--------|
+          EOF
+          echo "| Client | ${{ steps.assign_client.outputs.client_alias }} | ${{ steps.assign_client.outputs.client_url }} | ${{ github.sha }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Server | ${{ steps.assign_server.outputs.server_alias }} | ${{ steps.assign_server.outputs.server_url }} | ${{ github.sha }} |" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Write failure summary
+        if: failure()
+        run: |
+          ROLLBACK_RESULT="${{ steps.rollback.outputs.rollback_result }}"
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+
+          ## Staging Alias Cutover — FAILED
+
+          EOF
+
+          if [ "$ROLLBACK_RESULT" = "success" ]; then
+            echo "Client alias was automatically rolled back to its previous target. Previous staging aliases remain authoritative." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$ROLLBACK_RESULT" = "failed" ]; then
+            echo "**WARNING: Client alias rollback FAILED.** Staging environment may be in an inconsistent state. Manual intervention required." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$ROLLBACK_RESULT" = "no_previous_target" ]; then
+            echo "**WARNING: No previous client alias target was available for rollback.** Manual verification of staging alias state is required." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No alias cutover was accepted. Previous staging aliases remain authoritative." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Check the step logs above for details." >> "$GITHUB_STEP_SUMMARY"
