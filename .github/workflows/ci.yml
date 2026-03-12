@@ -1,13 +1,13 @@
 # Required check names: "Client — Lint & Test", "Server — Lint & Test"
 # These names are registered as required status checks in GitHub rulesets
-# for main, e2e-testing, and staging. Do not rename without updating rulesets.
+# for main. Do not rename without updating rulesets.
 name: CI
 
 on:
   push:
-    branches: [main, e2e-testing, staging]
+    branches: [main]
   pull_request:
-    branches: [main, e2e-testing, staging]
+    branches: [main]
 
 jobs:
   lint-and-test-client:
