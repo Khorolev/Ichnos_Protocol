@@ -8,8 +8,9 @@
 
 ## Workflows
 
-[![Vercel Preview (e2e-testing / staging)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/vercel-preview-on-main.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/vercel-preview-on-main.yml)
+[![Vercel Preview (main PRs)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/vercel-preview-on-main.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/vercel-preview-on-main.yml)
 [![Promote to Production](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/promote-to-production.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/promote-to-production.yml)
+[![Release Policy Check](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/release-policy-check.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/release-policy-check.yml)
 [![Promote Vercel Preview to Production](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/vercel-promote-production.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/vercel-promote-production.yml)
 
 ---
@@ -434,15 +435,16 @@ Ichnos_Protocol/
 │   └── package.json               # Playwright dependencies
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml                           # Lint + unit tests on push/PR to main, e2e-testing, staging
-│       ├── vercel-preview-on-main.yml       # Preview deploy + E2E gate on PRs to e2e-testing/staging
-│       ├── staging-alias-sync.yml           # Atomic staging alias update after merge to staging
-│       ├── promote-to-production.yml        # Production deploy on push to main (approval-gated)
+│       ├── vercel-preview-on-main.yml       # Unified PR gate: CI + preview deploy + E2E (PRs to main)
+│       ├── promote-to-production.yml        # Production promotion on push to release (approval-gated)
+│       ├── release-policy-check.yml         # Policy gate: confirms PR head is main before release merge
 │       ├── vercel-promote-production.yml    # Emergency manual production promotion
 │       └── e2e.yml                          # Manual/ad-hoc Playwright run via workflow_dispatch
 ├── assets/                        # Brand assets (logo, images)
 ├── CLAUDE.md                      # Claude AI coding instructions
 ├── AGENTS.md                      # Shared agent conventions
+├── GITHUB_SETTINGS.md             # GitHub repository settings reference
+├── VERCEL_SETTINGS.md             # Vercel project settings reference
 └── README.md                      # This file
 ```
 
@@ -485,33 +487,30 @@ The project is deployed on **Vercel** as a monorepo with two separate Vercel pro
 
 ### Deployment Flow
 
-The project follows a **4-stage deployment pipeline**:
+The project follows a **2-branch deployment model**:
 
 ```
-feature/* → e2e-testing (PR-gated: CI + Deploy + E2E)
-    → staging (auto-merge when checks pass)
-        → main (CI only, manual merge)
-            → production (environment approval required)
+feature/* → main (PR-gated: CI + Deploy + E2E)
+    → release (PR from main only, Release Policy Check required)
+        → production (environment approval required, promote-only model)
 ```
 
-- **Preview deployments**: PRs targeting `e2e-testing` or `staging` get unique preview URLs for both frontend and backend, used by the E2E gate.
-- **Staging aliases**: After every merge to `staging`, `staging-alias-sync.yml` updates stable client and server staging aliases atomically. These are the canonical review URLs for the `staging → main` PR.
-- **Production deployments**: Merges to `main` trigger `promote-to-production.yml`, which requires a human approval via the GitHub `production` environment before deploying.
+- **Preview deployments**: PRs targeting `main` get unique preview URLs for both frontend and backend, used by the E2E gate.
+- **Production deployments**: Merges to `release` trigger `promote-to-production.yml`, which discovers the latest READY `main` preview and promotes it — no rebuild. Requires human approval via the GitHub `production` environment.
 - **Environment variables**: Configured in each Vercel project's settings dashboard (Production, Preview, Development scopes). Never committed to the repository.
 
-For the authoritative CI/CD reference, see [`DEPLOYMENT_GITHUB_ACTIONS.md`](DEPLOYMENT_GITHUB_ACTIONS.md). For infrastructure setup, see [`DEPLOYMENT.md`](DEPLOYMENT.md).
+For the authoritative CI/CD reference, see [`DEPLOYMENT_GITHUB_ACTIONS.md`](DEPLOYMENT_GITHUB_ACTIONS.md). For infrastructure setup, see [`DEPLOYMENT.md`](DEPLOYMENT.md). For GitHub settings, see [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md). For Vercel settings, see [`VERCEL_SETTINGS.md`](VERCEL_SETTINGS.md).
 
 ### Manual Deploys (Vercel CLI)
 
-```bash
-# Install Vercel CLI globally
-npm i -g vercel
+> **Emergency use only.** These commands bypass CI, E2E, and approval gates. Use only when GitHub Actions is unavailable or broken.
 
+```bash
 # Deploy frontend
-cd client && vercel --prod
+cd client && npx vercel --prod
 
 # Deploy backend
-cd server && vercel --prod
+cd server && npx vercel --prod
 ```
 
 ### Cron Jobs
@@ -575,7 +574,7 @@ This project uses **Traycer AI** for planning and **Claude CLI** for execution.
 
 ### Git Conventions
 
-- **Branching**: `feature/<short-description>` from `e2e-testing`.
+- **Branching**: `feature/<short-description>` from `main`.
 - **Commits**: [Conventional Commits](https://www.conventionalcommits.org/) — `type(scope): description`.
 - **Types**: `feat`, `fix`, `refactor`, `test`, `chore`, `docs`, `style`.
 - **Scopes**: `client`, `server`, `db`, `chat`, `auth`, `admin`, `linkedin`.
