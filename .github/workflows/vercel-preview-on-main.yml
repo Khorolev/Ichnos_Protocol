@@ -1,12 +1,13 @@
-# Required check names: "Preflight — Secret Validation", "Deploy Client Preview",
+# Required check names: "Client — Lint & Test", "Server — Lint & Test",
+# "Preflight — Secret Validation", "Deploy Client Preview",
 # "Deploy Server Preview", "E2E Tests (Playwright)"
 # These names are registered as required status checks in GitHub rulesets
-# for e2e-testing and staging. Do not rename without updating rulesets.
+# for main. Do not rename without updating rulesets.
 name: Vercel Preview
 
 on:
   pull_request:
-    branches: [e2e-testing, staging]
+    branches: [main]
     types: [opened, synchronize, reopened]
 
 permissions:
@@ -22,6 +23,72 @@ defaults:
     shell: bash
 
 jobs:
+  lint-and-test-client:
+    name: Client — Lint & Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test -- --run
+
+      - name: Build
+        env:
+          VITE_FIREBASE_API_KEY: ci-stub
+          VITE_FIREBASE_AUTH_DOMAIN: ci-stub.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: ci-stub
+          VITE_FIREBASE_STORAGE_BUCKET: ci-stub.appspot.com
+          VITE_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
+          VITE_FIREBASE_APP_ID: 1:000000000000:web:ci-stub
+          VITE_API_BASE_URL: https://ci-stub.vercel.app
+          VITE_CALENDLY_URL: https://calendly.com/ci-stub
+        run: npm run build
+
+  lint-and-test-server:
+    name: Server — Lint & Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run tests
+        run: npm test -- --run
+
   check-e2e-secrets:
     name: Preflight — Secret Validation
     runs-on: ubuntu-latest
@@ -68,7 +135,7 @@ jobs:
 
   deploy-client-preview:
     name: Deploy Client Preview
-    needs: [check-e2e-secrets]
+    needs: [lint-and-test-client, lint-and-test-server, check-e2e-secrets]
     runs-on: ubuntu-latest
     outputs:
       deployment_url: ${{ steps.deploy_client.outputs.deployment_url }}
@@ -117,7 +184,7 @@ jobs:
 
   deploy-server-preview:
     name: Deploy Server Preview
-    needs: [check-e2e-secrets]
+    needs: [lint-and-test-client, lint-and-test-server, check-e2e-secrets]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -164,7 +231,7 @@ jobs:
 
   e2e:
     name: E2E Tests (Playwright)
-    needs: [check-e2e-secrets, deploy-client-preview, deploy-server-preview]
+    needs: [deploy-client-preview, deploy-server-preview]
     runs-on: ubuntu-latest
     timeout-minutes: 15
 

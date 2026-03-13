@@ -19,6 +19,10 @@ concurrency:
   group: promote-to-production
   cancel-in-progress: false
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   promote:
     name: Promote Preview Deployments
@@ -26,16 +30,13 @@ jobs:
     environment: production
 
     steps:
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
-
       - name: Promote client deployment
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CLIENT }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          vercel promote "${{ inputs.client_deployment_url }}" --yes --token="$VERCEL_TOKEN"
+          npx --yes vercel@latest promote "${{ inputs.client_deployment_url }}" --yes --token="$VERCEL_TOKEN"
           echo "### Client Production Promotion" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Promoted:** ${{ inputs.client_deployment_url }}" >> "$GITHUB_STEP_SUMMARY"
 
@@ -45,6 +46,6 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_SERVER }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          vercel promote "${{ inputs.server_deployment_url }}" --yes --token="$VERCEL_TOKEN"
+          npx --yes vercel@latest promote "${{ inputs.server_deployment_url }}" --yes --token="$VERCEL_TOKEN"
           echo "### Server Production Promotion" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Promoted:** ${{ inputs.server_deployment_url }}" >> "$GITHUB_STEP_SUMMARY"
