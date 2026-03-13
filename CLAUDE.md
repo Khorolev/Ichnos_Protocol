@@ -453,6 +453,25 @@ CORS_ORIGIN=                     # Frontend URL
 - **Naming**: `<ModuleName>.test.js` or `<ModuleName>.test.jsx`.
 - **Coverage target**: Minimum 80% line coverage for helpers and services.
 - **Run tests before every commit**. A failing test suite blocks the commit.
+- **No conditional expects** (`vitest/no-conditional-expect`): Never place `expect()` inside `try/catch`, `if/else`, or any conditional branch. This hides test failures when the expected branch is not reached.
+  - **Anti-pattern**:
+    ```js
+    try {
+      await fn();
+    } catch (e) {
+      expect(e.message).toBe("fail");
+    }
+    ```
+  - **Correct pattern**:
+    ```js
+    expect(() => fn()).toThrowError(
+      expect.objectContaining({ message: "fail" })
+    );
+    // For async functions:
+    await expect(() => fn()).rejects.toThrowError(
+      expect.objectContaining({ message: "fail" })
+    );
+    ```
 
 ### 14.4 End-to-End Testing: Playwright
 

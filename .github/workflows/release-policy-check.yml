@@ -1,0 +1,26 @@
+name: Release Policy Check
+
+on:
+  pull_request:
+    branches: [release]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  policy-check:
+    name: Release Policy Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Verify source branch is main
+        run: |
+          if [ "${{ github.head_ref }}" != "main" ]; then
+            echo "::error::Only the 'main' branch may be merged into 'release'. Source branch is '${{ github.head_ref }}'."
+            exit 1
+          fi
+          echo "Source branch is 'main' — policy check passed."

@@ -114,6 +114,7 @@ cd server && vercel --prod   # deploy backend
 - Use react-bootstrap components (`Container`, `Row`, `Col`, `Card`, `Table`, `Badge`, `Button`, etc.) for layout and UI. Import from `react-bootstrap/<Component>`.
 - All API calls through RTK Query. No raw fetch/axios in components.
 - Extract helpers for any logic block > 3 lines. Helpers must be pure functions.
+- Extract named constants (`UPPER_SNAKE_CASE`) for configuration values used in service/API calls: model names, timeouts, batch sizes. Never use magic strings.
 
 ## Testing
 
@@ -127,14 +128,20 @@ cd server && vercel --prod   # deploy backend
 - API tests: Vitest + Supertest for endpoints.
 - Coverage: `v8` provider, 80% target for helpers and services.
 - Mocking: `vi.fn()`, `vi.spyOn()`, `vi.mock()`.
+- Always test schema validators directly with edge cases (empty string, whitespace-only, boundary lengths) in addition to route-level tests.
+- Integration tests that require external services must use `describeIf = process.env.TEST_DATABASE_URL ? describe : describe.skip` pattern and must pass (skip) in CI without secrets.
+- **No conditional expects** (`vitest/no-conditional-expect`): Never place `expect()` inside `try/catch`, `if/else`, or any conditional branch. Use `.toThrowError()` with a matcher instead.
+  - Anti-pattern: `try { fn(); } catch (e) { expect(e.message).toBe("fail"); }`
+  - Correct: `expect(() => fn()).toThrowError(expect.objectContaining({ message: "fail" }))`
 
 ### End-to-End Tests (Playwright)
 
 - E2E tests live in `e2e/tests/` at the repository root (separate from client/server).
 - **Local**: Start client + server locally, run `cd e2e && npx playwright test`.
-- **CI**: Playwright runs against Vercel preview deployment URLs via GitHub Actions.
+- **CI**: E2E runs as a dependent job (`needs: [deploy-client-preview, deploy-server-preview]`) inside the `Vercel Preview` workflow. The client preview URL is passed directly via job outputs — no cross-workflow artifact transfer.
+- A standalone `e2e.yml` workflow exists for **manual/ad-hoc** runs via `workflow_dispatch` (requires a `base_url` input).
 - Browsers: Chromium, Firefox, WebKit in CI; Chromium-only locally.
-- E2E tests run on PRs only — not blocking for commits.
+- E2E tests run on every PR and after merges to `main`. Merge to `main` is blocked until E2E passes (required status check: `Vercel Preview / E2E Tests (Playwright)`).
 
 ## Git conventions
 
@@ -154,15 +161,88 @@ cd server && vercel --prod   # deploy backend
 - File uploads: validate type + size (max 10MB, PDF/DOCX/PNG/JPG only).
 - Never commit `.env` files or secrets.
 
+## Security best practices
+
+### Authorization: middleware, not controllers
+- Authorization guards (e.g., super-admin checks) must live in **middleware**, not inside controller handler bodies.
+- Each middleware in the chain should be a single-responsibility check: `auth` → `admin` → `superAdmin` → handler.
+- Example: `router.post("/manage-admins", auth, admin, superAdmin, validate(...), controller.manageAdmins)`.
+- Never write `if (req.user?.superAdmin !== true) return res.status(403)...` inside a controller.
+
+### AI prompt injection prevention
+- Never inject raw user-supplied text directly into AI `system` role content or as part of system instructions.
+- Always place user input in the `user` role only.
+- Before passing user text to topic classification or any AI system prompt, sanitize (strip control characters) and truncate to a maximum length.
+- Example anti-pattern: `{ role: "system", content: `${systemPrompt} ${userMessage}` }` — do NOT do this.
+- Correct pattern: `[{ role: "system", content: systemPrompt }, { role: "user", content: sanitize(message) }]`.
+
+### HTML injection in server-rendered pages
+- Always escape values interpolated into HTML templates using an `escapeHtml()` helper.
+- Validate URL scheme before using a value as `href` or `src` — reject `javascript:`, `data:`, and any non-http/https protocol.
+- This applies even to environment variables: env vars can be misconfigured.
+- Reference implementation: `server/src/helpers/buildStatusPage.js` (`escapeHtml`, `sanitizeOrigin`).
+
+### Firebase Admin SDK initialization guard
+- Firebase Admin SDK must be initialized exactly once (singleton pattern).
+- Guard initialization with `!admin.apps.length` before calling `admin.initializeApp()`.
+- Never call `admin.auth()`, `admin.storage()`, or `admin.firestore()` before the app is fully initialized.
+- Reference implementation: `server/src/config/firebase.js`.
+
 ## Deployment (Vercel Monorepo)
 
 - Deployed on **Vercel** as two projects from the same repo.
 - **Frontend** (`client/`): Vite static build → `dist/`. SPA rewrites to `index.html`.
 - **Backend** (`server/`): Express app wrapped as a Vercel serverless function via `server/api/index.js` using `@vercel/node`.
-- Merges to `main` trigger automatic production deployments.
-- PRs get automatic preview deployments.
+- **Vercel Git auto-deploy is disabled** via `git.deploymentEnabled: false` in both `client/vercel.json` and `server/vercel.json`. All deployments are workflow-driven.
+- **Enforced pipeline order**: CI → Vercel Preview → E2E (Playwright) → manual production promotion.
+- CI success on any branch triggers **preview** deployments (via `Vercel Preview` workflow). Production promotion is always manual (via `Promote to Production` workflow with approval gate).
 - Environment variables set in Vercel project settings, never committed.
 - `server/api/index.js` only re-exports the Express app. All setup stays in `server/src/app.js`.
+
+## CI/CD best practices
+
+### Integration test gating
+- Integration tests that require external services (PostgreSQL, Firebase, xAI) must gate on an env var using the pattern:
+  ```js
+  const skip = !process.env.TEST_DATABASE_URL;
+  const describeIf = skip ? describe.skip : describe;
+  ```
+- This ensures integration tests are silently skipped in CI when secrets are absent, not treated as errors.
+- Document which secret enables each integration test suite in a comment at the top of the file.
+
+### Schema edge-case testing
+- Write unit tests for schema validators that explicitly cover edge cases: empty string, whitespace-only, too long, wrong type.
+- Test at the validator level (direct Zod schema test) in addition to route-level tests.
+- Edge-case tests must run in CI without any external dependencies.
+
+### Build verification in CI
+- The CI pipeline must run `npm run build` for the client as a separate step before any deployment.
+- A broken Vite build should fail in CI, not only be caught at Vercel deploy time.
+- Add a `build` step to `lint-and-test-client` or as a separate `build-client` job in `ci.yml`.
+
+### Preview-first deployment model
+- CI success on any branch produces **preview** deployments (via `vercel-preview-on-main.yml`).
+- Production promotion is always **manual** (via `vercel-promote-production.yml` with `workflow_dispatch`).
+- This allows reviewing every deployment on preview before it reaches users.
+- Production environment should have an approval gate configured in GitHub → Settings → Environments.
+- **Fork PR trust boundary**: Preview deployments only run when the triggering CI run originates from the same repository (`head_repository.full_name == github.repository`). Fork PRs do not get preview deployments to prevent secret exfiltration via attacker-controlled code.
+- See `DEPLOYMENT_GITHUB_ACTIONS.md` for setup instructions.
+
+### E2E URL targeting in GitHub Actions
+- E2E tests run as a dependent job inside the `Vercel Preview` workflow (not as a separate `workflow_run` workflow).
+- The client preview URL is passed via job outputs from `deploy-client-preview` — no cross-workflow artifact transfer.
+- A standalone `e2e.yml` workflow exists for manual/ad-hoc runs via `workflow_dispatch`.
+- E2E tests must target the **client** deployment URL only, never the server.
+
+### Secret-conditional steps
+- Any CI step that requires a secret must check for presence before running, not fail silently:
+  ```bash
+  if [ -n "$MY_SECRET" ]; then
+    node scripts/myScript.js
+  else
+    echo "Skipping: MY_SECRET not set"
+  fi
+  ```
 
 ## Development workflow
 
@@ -170,3 +250,6 @@ cd server && vercel --prod   # deploy backend
 - Each Traycer phase scoped to max 3 files.
 - All tests must pass before commit.
 - ESLint zero warnings, Prettier applied before commit.
+- Run `npm run build` locally before opening a PR to catch Vite build errors early.
+- All authorization guards go in middleware, never inline in controllers.
+- All magic strings in API/service code go in named constants.

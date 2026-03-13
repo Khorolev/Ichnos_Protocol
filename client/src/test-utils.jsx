@@ -4,19 +4,28 @@ import { Provider } from 'react-redux';
 import { HelmetProvider } from 'react-helmet-async';
 import { configureStore } from '@reduxjs/toolkit';
 
-function createTestStore() {
+import authReducer from './features/auth/authSlice';
+
+function createTestStore(preloadedState = {}) {
   return configureStore({
-    reducer: { _placeholder: (state = null) => state },
+    reducer: {
+      auth: authReducer,
+      _placeholder: (state = null) => state,
+    },
+    preloadedState,
   });
 }
 
-export function renderWithProviders(ui, { route = '/', state, ...options } = {}) {
-  const store = createTestStore();
+export function renderWithProviders(
+  ui,
+  { route = '/', state, preloadedState, store, ...options } = {},
+) {
+  const testStore = store || createTestStore(preloadedState);
   const initialEntries = state ? [{ pathname: route, state }] : [route];
 
   function Wrapper({ children }) {
     return (
-      <Provider store={store}>
+      <Provider store={testStore}>
         <HelmetProvider>
           <MemoryRouter initialEntries={initialEntries}>
             {children}
@@ -26,7 +35,7 @@ export function renderWithProviders(ui, { route = '/', state, ...options } = {})
     );
   }
 
-  return render(ui, { wrapper: Wrapper, ...options });
+  return { ...render(ui, { wrapper: Wrapper, ...options }), store: testStore };
 }
 
 export { screen, fireEvent, waitFor, within, act, cleanup } from '@testing-library/react';
