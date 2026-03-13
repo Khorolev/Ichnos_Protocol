@@ -1,7 +1,4 @@
 {
-  "git": {
-    "deploymentEnabled": false
-  },
   "version": 2,
   "functions": {
     "api/index.js": {
