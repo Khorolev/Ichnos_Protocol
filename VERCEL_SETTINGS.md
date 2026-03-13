@@ -11,7 +11,7 @@ Complete configuration guide for the Ichnos Protocol Vercel projects (`ichnos-cl
 | Area | What | Why |
 |---|---|---|
 | **Production Branch** | Set to `release` on both projects | The 2-branch model promotes to production via `release`, not `main` |
-| **Git Auto-Deploy** | Disabled via `vercel.json` | All deployments are workflow-driven; auto-deploy would bypass CI/E2E |
+| **Git Auto-Deploy** | Preview auto-deploy **enabled** via native Vercel integration; production auto-deploy managed via `promote-to-production.yml` | Vercel automatically deploys preview environments for every pull request, feeding the E2E pipeline; production promotion remains manual |
 | **Server Environment Variables** | Runtime secrets and config for the Express backend | The serverless function needs database, Firebase, AI, email, and CORS config |
 | **Client Environment Variables** | Build-time config for the Vite frontend | The Vite build injects Firebase, API, and widget config at build time |
 | **Old Alias Cleanup** | Remove any previously configured aliases for removed environments | Stale aliases (e.g., for `staging`) waste quota and cause confusion |
@@ -31,11 +31,11 @@ For **both** `ichnos-client` and `ichnos-server` Vercel projects:
 
 > **Why `release`?** The 2-branch model (`feature/* → main → release`) uses `release` as the production trigger. The `Promote to Production` workflow discovers the latest READY `main` preview deployment and promotes it to production when code is merged into `release`. If the production branch were set to `main`, Vercel would auto-deploy on every merge to `main` — bypassing E2E validation and the approval gate.
 
-### Disable Git Auto-Deploy
+### Native Preview Integration
 
-Vercel Git auto-deploy is disabled via `"git": { "deploymentEnabled": false }` in both `vercel.json` files. This ensures **all deployments are driven exclusively through GitHub Actions workflows**, maintaining the enforced pipeline order: CI → Vercel Preview → E2E → manual production promotion.
+The `"git": { "deploymentEnabled": false }` key has been removed from both `client/vercel.json` and `server/vercel.json` as part of the CI/CD refactor. Vercel now automatically deploys preview environments for every pull request.
 
-> **Do not remove** `"git": { "deploymentEnabled": false }` from either `vercel.json` file. If this setting is removed, Vercel will resume auto-deploying on every push, bypassing the entire CI/CD pipeline.
+> **Do not re-add** `"git": { "deploymentEnabled": false }` to either `vercel.json` file. Doing so would disable preview deployments and break the E2E pipeline, which depends on Vercel creating a preview URL automatically when a PR is opened.
 
 ---
 
@@ -118,7 +118,7 @@ Quick reference for finding the Vercel values needed as GitHub repository secret
 Use this checklist when setting up new Vercel projects or verifying existing ones:
 
 - [ ] **Production branch** — Set to `release` on both `ichnos-client` and `ichnos-server` (§1)
-- [ ] **Git auto-deploy** — Disabled via `"git": { "deploymentEnabled": false }` in both `vercel.json` files (§1)
+- [ ] **Native preview integration** — Confirm `"deploymentEnabled": false` does **not** exist in either `client/vercel.json` or `server/vercel.json`, and that Vercel creates a preview deployment automatically when a PR is opened (§1)
 - [ ] **Server environment variables** — All variables set with correct environment scoping (§2)
 - [ ] **Client environment variables** — All variables set with correct environment scoping (§2)
 - [ ] **CORS_ORIGIN** — Production value matches the frontend production URL; preview value is configured for preview URLs (§2)
