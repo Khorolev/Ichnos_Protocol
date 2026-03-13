@@ -187,7 +187,9 @@ jobs:
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CLIENT }}
-        run: npx --yes vercel@latest build --token=${{ secrets.VERCEL_TOKEN }}
+        run: |
+          export PATH="$PWD/node_modules/.bin:$PATH"
+          npx --yes vercel@latest build --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy preview
         id: deploy_client
@@ -240,7 +242,9 @@ jobs:
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_SERVER }}
-        run: npx --yes vercel@latest build --token=${{ secrets.VERCEL_TOKEN }}
+        run: |
+          export PATH="$PWD/node_modules/.bin:$PATH"
+          npx --yes vercel@latest build --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy preview
         id: deploy_server
