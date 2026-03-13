@@ -41,6 +41,12 @@ jobs:
           cache: npm
           cache-dependency-path: client/package-lock.json
 
+      - name: Verify shell and Node/npm
+        run: |
+          which sh
+          node -v
+          npm -v
+
       - name: Install dependencies
         run: npm ci
 
@@ -79,6 +85,12 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: server/package-lock.json
+
+      - name: Verify shell and Node/npm
+        run: |
+          which sh
+          node -v
+          npm -v
 
       - name: Install dependencies
         run: npm ci
@@ -156,6 +168,12 @@ jobs:
           cache: npm
           cache-dependency-path: client/package-lock.json
 
+      - name: Verify shell and Node/npm
+        run: |
+          which sh
+          node -v
+          npm -v
+
       - name: Install dependencies
         run: npm ci
 
@@ -203,6 +221,12 @@ jobs:
           cache: npm
           cache-dependency-path: server/package-lock.json
 
+      - name: Verify shell and Node/npm
+        run: |
+          which sh
+          node -v
+          npm -v
+
       - name: Install dependencies
         run: npm ci
 
@@ -247,6 +271,12 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: e2e/package-lock.json
+
+      - name: Verify shell and Node/npm
+        run: |
+          which sh
+          node -v
+          npm -v
 
       - name: Install E2E dependencies
         working-directory: e2e
