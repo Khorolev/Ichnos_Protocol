@@ -41,6 +41,12 @@ jobs:
           cache: npm
           cache-dependency-path: client/package-lock.json
 
+      - name: Verify shell and Node/npm
+        run: |
+          which sh
+          node -v
+          npm -v
+
       - name: Install dependencies
         run: npm ci
 
@@ -80,6 +86,12 @@ jobs:
           cache: npm
           cache-dependency-path: server/package-lock.json
 
+      - name: Verify shell and Node/npm
+        run: |
+          which sh
+          node -v
+          npm -v
+
       - name: Install dependencies
         run: npm ci
 
@@ -88,205 +100,3 @@ jobs:
 
       - name: Run tests
         run: npm test -- --run
-
-  check-e2e-secrets:
-    name: Preflight — Secret Validation
-    runs-on: ubuntu-latest
-    steps:
-      - name: Reject fork PRs
-        if: github.event.pull_request.head.repo.full_name != github.repository
-        run: |
-          echo "::error::Fork-origin PRs are not permitted to run secret-consuming jobs on protected branches."
-          exit 1
-
-      - name: Validate required secrets
-        if: github.event.pull_request.head.repo.full_name == github.repository
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID_CLIENT: ${{ secrets.VERCEL_PROJECT_ID_CLIENT }}
-          VERCEL_PROJECT_ID_SERVER: ${{ secrets.VERCEL_PROJECT_ID_SERVER }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_UID: ${{ secrets.E2E_ADMIN_UID }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
-          E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
-          E2E_USER_UID: ${{ secrets.E2E_USER_UID }}
-          E2E_SUPER_ADMIN_EMAIL: ${{ secrets.E2E_SUPER_ADMIN_EMAIL }}
-          E2E_SUPER_ADMIN_PASSWORD: ${{ secrets.E2E_SUPER_ADMIN_PASSWORD }}
-          E2E_SUPER_ADMIN_UID: ${{ secrets.E2E_SUPER_ADMIN_UID }}
-        run: |
-          MISSING=""
-          for VAR_NAME in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID_CLIENT \
-            VERCEL_PROJECT_ID_SERVER DATABASE_URL E2E_ADMIN_EMAIL E2E_ADMIN_UID \
-            E2E_ADMIN_PASSWORD E2E_USER_EMAIL E2E_USER_PASSWORD E2E_USER_UID \
-            E2E_SUPER_ADMIN_EMAIL E2E_SUPER_ADMIN_PASSWORD E2E_SUPER_ADMIN_UID; do
-            eval "VAL=\$$VAR_NAME"
-            if [ -z "$VAL" ]; then
-              MISSING="$MISSING $VAR_NAME"
-            fi
-          done
-          if [ -n "$MISSING" ]; then
-            echo "::error::Missing required secrets:$MISSING"
-            exit 1
-          fi
-          echo "All required secrets are present."
-
-  deploy-client-preview:
-    name: Deploy Client Preview
-    needs: [lint-and-test-client, lint-and-test-server, check-e2e-secrets]
-    runs-on: ubuntu-latest
-    outputs:
-      deployment_url: ${{ steps.deploy_client.outputs.deployment_url }}
-    defaults:
-      run:
-        working-directory: client
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: client/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Pull Vercel environment information
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CLIENT }}
-        run: npx --yes vercel@latest pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Build project artifacts
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CLIENT }}
-        run: npx --yes vercel@latest build --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Deploy preview
-        id: deploy_client
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CLIENT }}
-        run: |
-          DEPLOYMENT_URL=$(npx --yes vercel@latest deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
-          echo "deployment_url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
-          echo "### Client Preview Deployment" >> "$GITHUB_STEP_SUMMARY"
-          echo "$DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
-
-  deploy-server-preview:
-    name: Deploy Server Preview
-    needs: [lint-and-test-client, lint-and-test-server, check-e2e-secrets]
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: server
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: server/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Pull Vercel environment information
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_SERVER }}
-        run: npx --yes vercel@latest pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Build project artifacts
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_SERVER }}
-        run: npx --yes vercel@latest build --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Deploy preview
-        id: deploy_server
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_SERVER }}
-        run: |
-          DEPLOYMENT_URL=$(npx --yes vercel@latest deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
-          echo "deployment_url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
-          echo "### Server Preview Deployment" >> "$GITHUB_STEP_SUMMARY"
-          echo "$DEPLOYMENT_URL" >> "$GITHUB_STEP_SUMMARY"
-
-  e2e:
-    name: E2E Tests (Playwright)
-    needs: [deploy-client-preview, deploy-server-preview]
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: e2e/package-lock.json
-
-      - name: Install E2E dependencies
-        working-directory: e2e
-        run: npm ci
-
-      - name: Install Playwright browsers
-        working-directory: e2e
-        run: npx playwright install --with-deps chromium firefox webkit
-
-      - name: Seed E2E test data
-        working-directory: server
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_UID: ${{ secrets.E2E_ADMIN_UID }}
-          E2E_USER_UID: ${{ secrets.E2E_USER_UID }}
-          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
-          E2E_SUPER_ADMIN_UID: ${{ secrets.E2E_SUPER_ADMIN_UID }}
-          E2E_SUPER_ADMIN_EMAIL: ${{ secrets.E2E_SUPER_ADMIN_EMAIL }}
-        run: |
-          npm ci --omit=dev
-          node scripts/seedE2EData.js
-
-      - name: Run Playwright tests
-        working-directory: e2e
-        env:
-          BASE_URL: ${{ needs.deploy-client-preview.outputs.deployment_url }}
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          E2E_ADMIN_UID: ${{ secrets.E2E_ADMIN_UID }}
-          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
-          E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
-          E2E_SUPER_ADMIN_EMAIL: ${{ secrets.E2E_SUPER_ADMIN_EMAIL }}
-          E2E_SUPER_ADMIN_PASSWORD: ${{ secrets.E2E_SUPER_ADMIN_PASSWORD }}
-        run: npx playwright test
-
-      - name: Upload Playwright report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: e2e/playwright-report/
-          retention-days: 14

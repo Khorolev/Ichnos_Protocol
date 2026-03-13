@@ -14,7 +14,7 @@ The GitHub repository requires the following settings to support the 2-branch de
 |---|---|---|
 | **Repository Secrets** | 14 secrets (Vercel, database, E2E test accounts) | Workflows authenticate with Vercel CLI, seed E2E test data, and run Playwright tests |
 | **Environments** | `production` environment with required reviewers | Production promotion workflow pauses for human approval before deploying |
-| **Branch Protections** | `main` (6 required checks + PR required) and `release` (1 required check + PR required) | Enforces the CI → Preview → E2E → merge pipeline and the `main`-only release policy |
+| **Branch Protections** | `main` (3 required checks + PR required) and `release` (1 required check + PR required) | Enforces the CI → Preview → E2E → merge pipeline and the `main`-only release policy |
 | **Old Rule Cleanup** | Remove stale branch protections and rulesets from previous configurations | Stale rules (e.g., for `staging`, `e2e-testing`, or different check names) can block merges or silently bypass the pipeline |
 | **Auto-Merge** (optional) | Allow auto-merge at the repository level | Enables automatic merge of `main → release` PRs once the `Release Policy Check` passes |
 
@@ -38,8 +38,10 @@ If this repository was previously configured with different branch protections (
 ### Step 3 — Verify no orphan required status checks on `main`
 
 1. Open the existing `main` branch protection rule (or ruleset).
-2. Under **Required status checks**, remove any check names that do not match the 6 checks listed in §4 below.
+2. Under **Required status checks**, remove any check names that do not match the 3 checks listed in §4 below.
 3. Old check names (e.g., `build`, `test`, `ci`, `deploy-preview`) will block all PRs if left in place because no workflow produces them.
+
+> **If you previously had `Preflight — Secret Validation`, `Deploy Client Preview`, or `Deploy Server Preview` as required checks on `main`, these must be removed — no workflow produces these check names anymore.**
 
 ### Step 4 — Verify no orphan required status checks on `release`
 
@@ -85,8 +87,6 @@ Three test accounts are required for Playwright E2E tests. Each account must be 
 | `E2E_SUPER_ADMIN_PASSWORD` | Super-admin test account password |
 | `E2E_SUPER_ADMIN_UID` | Super-admin test account Firebase UID |
 
-> **Fail-fast policy:** On PRs targeting `main`, all 14 secrets are validated by the `Preflight — Secret Validation` job before any deployment runs. A missing secret fails the pipeline immediately — there is no silent skip.
-
 ---
 
 ## 3. Environments
@@ -111,7 +111,7 @@ Configure branch protection rules in **Settings → Branches** (or **Settings �
 | Setting | Value |
 |---|---|
 | Require a pull request before merging | Yes |
-| Required status checks | `Client — Lint & Test`, `Server — Lint & Test`, `Preflight — Secret Validation`, `Deploy Client Preview`, `Deploy Server Preview`, `E2E Tests (Playwright)` |
+| Required status checks | `Client — Lint & Test`, `Server — Lint & Test`, `E2E Tests (Playwright)` |
 | Require branches to be up to date before merging | Recommended |
 | Include administrators | Recommended (see §6 for trade-offs) |
 
@@ -123,7 +123,7 @@ Configure branch protection rules in **Settings → Branches** (or **Settings �
 | Required status checks | `Release Policy Check` |
 | Include administrators | Recommended |
 
-> **Important:** Check names are frozen in workflow file headers (the `name:` field of each job). Do not rename jobs in workflow YAML without updating the corresponding branch protection rules here.
+> **Important:** Check names are frozen in workflow file headers (the `name:` field of each job). Do not rename jobs in workflow YAML without updating the corresponding branch protection rules here. `E2E Tests (Playwright)` is produced by `e2e-on-preview.yml`.
 
 ---
 
@@ -167,7 +167,7 @@ After completing setup (or when verifying an existing configuration), confirm ev
 | `E2E_SUPER_ADMIN_PASSWORD` secret | Set, non-empty | Settings → Secrets → Actions |
 | `E2E_SUPER_ADMIN_UID` secret | Set, non-empty | Settings → Secrets → Actions |
 | `production` environment | Exists with ≥1 required reviewer | Settings → Environments |
-| `main` branch protection | PR required + 6 status checks | Settings → Branches (or Rules → Rulesets) |
+| `main` branch protection | PR required + 3 status checks | Settings → Branches (or Rules → Rulesets) |
 | `release` branch protection | PR required + `Release Policy Check` | Settings → Branches (or Rules → Rulesets) |
 | Include administrators (`main`) | Enabled | Settings → Branches → `main` rule |
 | Include administrators (`release`) | Enabled | Settings → Branches → `release` rule |
@@ -192,7 +192,7 @@ Use this checklist when setting up a new repository or verifying an existing one
   - [ ] `E2E_USER_EMAIL` / `E2E_USER_PASSWORD` / `E2E_USER_UID`
   - [ ] `E2E_SUPER_ADMIN_EMAIL` / `E2E_SUPER_ADMIN_PASSWORD` / `E2E_SUPER_ADMIN_UID`
 - [ ] **Environment** — `production` environment exists with at least one required reviewer (§3)
-- [ ] **Branch protection: `main`** — 6 required status checks configured (§4)
+- [ ] **Branch protection: `main`** — 3 required status checks configured: `Client — Lint & Test`, `Server — Lint & Test`, `E2E Tests (Playwright)` (§4)
 - [ ] **Branch protection: `release`** — `Release Policy Check` required + PR required (§4)
 - [ ] **Admin bypass** — "Include administrators" enabled on both branches (§6)
 - [ ] **Verification matrix** — All rows confirmed (§Verification Matrix)
