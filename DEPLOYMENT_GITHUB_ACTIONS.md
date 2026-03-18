@@ -47,14 +47,14 @@ sequenceDiagram
 
 ## 2. Workflows
 
-| Workflow file | Name | Trigger | Purpose |
-|---|---|---|---|
-| `ci.yml` | CI | `pull_request` to `main` | Lint + unit tests + client build verification |
-| `e2e-on-preview.yml` | E2E Tests on Preview | `deployment_status` | Run E2E for client hostnames (custom domain, git-branch preview, hash-based preview); skip server hostnames; fail-fast unknown hostname |
-| `promote-to-production.yml` | Promote to Production | `push` to `release` | Discover latest READY `main` preview → promote to production (approval-gated) |
-| `release-policy-check.yml` | Release Policy Check | `pull_request` to `release` | Fails if PR head branch is not `main` |
-| `vercel-promote-production.yml` | Promote Vercel Preview to Production | `workflow_dispatch` (manual) | Emergency/manual promotion via explicit deployment URL inputs |
-| `e2e.yml` | E2E Tests (Playwright) | `workflow_dispatch` (manual) | Ad-hoc Playwright diagnostics against a provided `base_url` |
+| Workflow file                   | Name                                 | Trigger                      | Purpose                                                                                                                                 |
+| ------------------------------- | ------------------------------------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci.yml`                        | CI                                   | `pull_request` to `main`     | Lint + unit tests + client build verification                                                                                           |
+| `e2e-on-preview.yml`            | E2E Tests on Preview                 | `deployment_status`          | Run E2E for client hostnames (custom domain, git-branch preview, hash-based preview); skip server hostnames; fail-fast unknown hostname |
+| `promote-to-production.yml`     | Promote to Production                | `push` to `release`          | Discover latest READY `main` preview → promote to production (approval-gated)                                                           |
+| `release-policy-check.yml`      | Release Policy Check                 | `pull_request` to `release`  | Fails if PR head branch is not `main`                                                                                                   |
+| `vercel-promote-production.yml` | Promote Vercel Preview to Production | `workflow_dispatch` (manual) | Emergency/manual promotion via explicit deployment URL inputs                                                                           |
+| `e2e.yml`                       | E2E Tests (Playwright)               | `workflow_dispatch` (manual) | Ad-hoc Playwright diagnostics against a provided `base_url`                                                                             |
 
 > **Note:** Preview deployments are **not** managed by any GitHub Actions workflow. They are created automatically by Vercel's native Git integration whenever code is pushed to a branch or a PR is opened. There is no `vercel-preview-on-main.yml` workflow.
 
@@ -64,16 +64,16 @@ E2E tests are triggered by **GitHub `deployment_status` events** via `e2e-on-pre
 
 Three detection families are used — custom domains, git-branch auto-preview URLs, and hash-based auto-preview URLs:
 
-| Hostname pattern in `target_url` | Type | Action | Rationale |
-|---|---|---|---|
-| `staging-client.ichnos-protocol.com` | Custom domain | Run Playwright tests | Client deployment — the E2E target |
-| `staging-api.ichnos-protocol.com` | Custom domain | Intentional skip (job succeeds without running tests) | Server deployment — no browser tests needed |
-| `ichnos-protocol-server-git-*` or `ichnos-protocolserver-git-*` | Auto-preview (git) | Intentional skip (job succeeds without running tests) | Server feature-branch preview — no browser tests needed (both slug variants matched for compatibility) |
-| `ichnos-protocol-git-*` (excluding server variants above) | Auto-preview (git) | Run Playwright tests | Client feature-branch preview — E2E target |
-| `ichnos-protocolserver-*-khorolevs-projects.vercel.app` | Auto-preview (hash) | Intentional skip (job succeeds without running tests) | Server hash-based preview — no browser tests needed |
-| `ichnos-protocol-*-khorolevs-projects.vercel.app` (excluding `ichnos-protocolserver-*`) | Auto-preview (hash) | Run Playwright tests | Client hash-based preview — E2E target |
-| `*.vercel.app`, `ichnos-protocol.com`, `*.ichnos-protocol.com` | Production | Intentional skip | Production deployments do not trigger E2E |
-| Any other hostname | — | Fail fast (`exit 1`) | Unexpected deployment — flag for investigation |
+| Hostname pattern in `target_url`                                                        | Type                | Action                                                | Rationale                                                                                              |
+| --------------------------------------------------------------------------------------- | ------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `staging-client.ichnos-protocol.com`                                                    | Custom domain       | Run Playwright tests                                  | Client deployment — the E2E target                                                                     |
+| `staging-api.ichnos-protocol.com`                                                       | Custom domain       | Intentional skip (job succeeds without running tests) | Server deployment — no browser tests needed                                                            |
+| `ichnos-protocol-server-git-*` or `ichnos-protocolserver-git-*`                         | Auto-preview (git)  | Intentional skip (job succeeds without running tests) | Server feature-branch preview — no browser tests needed (both slug variants matched for compatibility) |
+| `ichnos-protocol-git-*` (excluding server variants above)                               | Auto-preview (git)  | Run Playwright tests                                  | Client feature-branch preview — E2E target                                                             |
+| `ichnos-protocolserver-*-khorolevs-projects.vercel.app`                                 | Auto-preview (hash) | Intentional skip (job succeeds without running tests) | Server hash-based preview — no browser tests needed                                                    |
+| `ichnos-protocol-*-khorolevs-projects.vercel.app` (excluding `ichnos-protocolserver-*`) | Auto-preview (hash) | Run Playwright tests                                  | Client hash-based preview — E2E target                                                                 |
+| `*.vercel.app`, `ichnos-protocol.com`, `*.ichnos-protocol.com`                          | Production          | Intentional skip                                      | Production deployments do not trigger E2E                                                              |
+| Any other hostname                                                                      | —                   | Fail fast (`exit 1`)                                  | Unexpected deployment — flag for investigation                                                         |
 
 **Key details:**
 
@@ -87,13 +87,13 @@ Three detection families are used — custom domains, git-branch auto-preview UR
 
 When investigating E2E check results, use this table to interpret the status:
 
-| Check Status | Meaning | Action |
-|---|---|---|
-| **Passed** (client hostname) | Playwright tests executed and passed | No action needed |
-| **Skipped** (server hostname) | Server deployment event (`staging-api.ichnos-protocol.com`, `ichnos-protocol-server-git-*`, `ichnos-protocolserver-git-*`, or `ichnos-protocolserver-*-khorolevs-projects.vercel.app`); tests intentionally skipped | No action needed — this is expected behavior |
-| **Failed** — "unknown deployment target pattern" | Hostname in `target_url` did not match any expected pattern (custom domains or auto-preview URL patterns) | Check if Vercel domain or project naming changed; verify `target_url` and extracted hostname in the workflow run logs |
-| **Failed** — Playwright test failure | Tests executed against the client deployment and failed | Check the Playwright HTML report artifact uploaded to the workflow run |
-| **Cancelled** | Workflow run was cancelled mid-execution | Re-run the workflow or push a new commit to trigger a fresh deployment |
+| Check Status                                     | Meaning                                                                                                                                                                                                             | Action                                                                                                                |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| **Passed** (client hostname)                     | Playwright tests executed and passed                                                                                                                                                                                | No action needed                                                                                                      |
+| **Skipped** (server hostname)                    | Server deployment event (`staging-api.ichnos-protocol.com`, `ichnos-protocol-server-git-*`, `ichnos-protocolserver-git-*`, or `ichnos-protocolserver-*-khorolevs-projects.vercel.app`); tests intentionally skipped | No action needed — this is expected behavior                                                                          |
+| **Failed** — "unknown deployment target pattern" | Hostname in `target_url` did not match any expected pattern (custom domains or auto-preview URL patterns)                                                                                                           | Check if Vercel domain or project naming changed; verify `target_url` and extracted hostname in the workflow run logs |
+| **Failed** — Playwright test failure             | Tests executed against the client deployment and failed                                                                                                                                                             | Check the Playwright HTML report artifact uploaded to the workflow run                                                |
+| **Cancelled**                                    | Workflow run was cancelled mid-execution                                                                                                                                                                            | Re-run the workflow or push a new commit to trigger a fresh deployment                                                |
 
 **First debugging step:** Open the **Job summary** tab in the GitHub Actions run for `e2e-on-preview.yml`. It shows `target_url`, hostname classification result, and step outcomes in a compact table.
 
@@ -107,36 +107,36 @@ Kept here for quick reference. [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md) is the
 
 #### CI and E2E secrets (10)
 
-| Secret | Purpose |
-|---|---|
-| `NEON_API_KEY` | Neon API key — used to create/delete ephemeral DB branches for E2E |
-| `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` / `E2E_ADMIN_UID` | Admin test account |
-| `E2E_USER_EMAIL` / `E2E_USER_PASSWORD` / `E2E_USER_UID` | Regular user test account |
-| `E2E_SUPER_ADMIN_EMAIL` / `E2E_SUPER_ADMIN_PASSWORD` / `E2E_SUPER_ADMIN_UID` | Super-admin test account |
+| Secret                                                                       | Purpose                                                                               |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `NEON_API_KEY`                                                               | Neon API key — used to resolve Neon-managed preview branch connection details for E2E |
+| `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` / `E2E_ADMIN_UID`                   | Admin test account                                                                    |
+| `E2E_USER_EMAIL` / `E2E_USER_PASSWORD` / `E2E_USER_UID`                      | Regular user test account                                                             |
+| `E2E_SUPER_ADMIN_EMAIL` / `E2E_SUPER_ADMIN_PASSWORD` / `E2E_SUPER_ADMIN_UID` | Super-admin test account                                                              |
 
-> **Repository variable:** `NEON_PROJECT_ID` is a repository **variable** (not a secret), referenced as `vars.NEON_PROJECT_ID` in workflows. Both `NEON_API_KEY` and `NEON_PROJECT_ID` are auto-provisioned by the Neon GitHub Integration — no manual setup needed.
+> **Repository variable:** `NEON_PROJECT_ID` is a repository **variable** (not a secret), referenced as `vars.NEON_PROJECT_ID` in workflows. Together, `NEON_API_KEY` and `NEON_PROJECT_ID` are used to look up the Neon-managed preview branch and resolve the effective connection URI for migrations/seeding in E2E.
 
-> **Note:** The `DATABASE_URL` secret is **no longer used** by the E2E workflow. Each E2E run provisions an ephemeral Neon DB branch via `neondatabase/create-branch-action@v6`, and the branch URL is passed automatically. After tests complete (pass or fail), cleanup is handled by `neondatabase/delete-branch-action@v3`, which uses the input key `branch` with the value from `steps.neon.outputs.branch_id`. The `DATABASE_URL` secret can be removed from repository settings if no other workflow uses it.
+> **Note:** The E2E workflow always resolves `effective_db_url` from the Neon-managed preview branch through Neon REST API lookup (`preview/<deployment ref>`). The legacy `DATABASE_URL` secret can be removed from repository settings if no other workflow uses it.
 
 These secrets are sufficient for CI, E2E, and preview deployments. Preview deployments are handled entirely by Vercel's native Git integration — no Vercel API tokens or project IDs are needed.
 
 #### Production promotion secrets (4)
 
-| Secret | Purpose |
-|---|---|
-| `VERCEL_TOKEN` | Vercel API token — used by `promote-to-production.yml` and `vercel-promote-production.yml` |
-| `VERCEL_ORG_ID` | Vercel team/org ID — used by both promotion workflows |
-| `VERCEL_PROJECT_ID_CLIENT` | Vercel project ID for the client app — used by both promotion workflows |
-| `VERCEL_PROJECT_ID_SERVER` | Vercel project ID for the server app — used by both promotion workflows |
+| Secret                     | Purpose                                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------------------ |
+| `VERCEL_TOKEN`             | Vercel API token — used by `promote-to-production.yml` and `vercel-promote-production.yml` |
+| `VERCEL_ORG_ID`            | Vercel team/org ID — used by both promotion workflows                                      |
+| `VERCEL_PROJECT_ID_CLIENT` | Vercel project ID for the client app — used by both promotion workflows                    |
+| `VERCEL_PROJECT_ID_SERVER` | Vercel project ID for the server app — used by both promotion workflows                    |
 
 These 4 secrets are **required** for production promotion via GitHub Actions. Without them, merging into `release` will trigger `promote-to-production.yml` which will fail. If you prefer to promote manually via the Vercel dashboard, you can omit these secrets.
 
 ### Required checks per branch
 
-| Target branch | Required status checks |
-|---|---|
-| `main` | `Client — Lint & Test`, `Server — Lint & Test`, `<your-client-vercel-check>`, `<your-server-vercel-check>`, `E2E Tests (Playwright)` |
-| `release` | `Release Policy Check` + require a pull request before merging |
+| Target branch | Required status checks                                                                                                               |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `main`        | `Client — Lint & Test`, `Server — Lint & Test`, `<your-client-vercel-check>`, `<your-server-vercel-check>`, `E2E Tests (Playwright)` |
+| `release`     | `Release Policy Check` + require a pull request before merging                                                                       |
 
 > **Note:** The `E2E Tests (Playwright)` check name is produced by `e2e-on-preview.yml` (job name: `E2E Tests (Playwright)`). The Vercel checks are produced by Vercel's native Git integration — **their exact names depend on your Vercel project names** (e.g., `Vercel – ichnos-protocol`, `Vercel – ichnos-protocol-server`). To find the correct names: open a recent PR, scroll to the status checks section, and copy the exact Vercel check context strings. A mismatch between the configured required check name and the actual check context will block all merges. GitHub Actions check names are frozen in workflow file headers — do not rename jobs without updating branch protection rules. See [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md) §4 for step-by-step configuration.
 
@@ -153,24 +153,24 @@ Two critical invariants to maintain:
 
 ### Feature → main (PR-gated)
 
-| Step | Action | Status |
-|---|---|---|
-| 1 | Create `feature/<name>` from `main`; open PR targeting `main` | 🔴 Manual |
-| 2 | CI runs: lint + test + build (client and server) | ✅ Automated |
-| 3 | Vercel automatically creates preview deployments for both client and server | ✅ Automated (native Git integration) |
-| 4 | Vercel emits `deployment_status` events; `e2e-on-preview.yml` runs `E2E Tests (Playwright)` for each | ✅ Automated |
-| 5 | All 5 required checks pass — PR is mergeable | ✅ Automated gate |
-| 6 | Merge PR into `main` | 🔴 Manual |
+| Step | Action                                                                                               | Status                                |
+| ---- | ---------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| 1    | Create `feature/<name>` from `main`; open PR targeting `main`                                        | 🔴 Manual                             |
+| 2    | CI runs: lint + test + build (client and server)                                                     | ✅ Automated                          |
+| 3    | Vercel automatically creates preview deployments for both client and server                          | ✅ Automated (native Git integration) |
+| 4    | Vercel emits `deployment_status` events; `e2e-on-preview.yml` runs `E2E Tests (Playwright)` for each | ✅ Automated                          |
+| 5    | All 5 required checks pass — PR is mergeable                                                         | ✅ Automated gate                     |
+| 6    | Merge PR into `main`                                                                                 | 🔴 Manual                             |
 
 ### main → release (production promotion)
 
-| Step | Action | Status |
-|---|---|---|
-| 7 | Open PR from `main` to `release` | 🔴 Manual |
-| 8 | `Release Policy Check` runs — fails if head branch is not `main` | ✅ Automated gate |
-| 9 | Merge PR into `release` | 🔴 Manual |
-| 10 | `Promote to Production` triggers; GitHub pauses for `production` environment approval | ✅ Automated trigger / 🔴 Manual approval |
-| 11 | Approve → workflow discovers latest READY `main` preview and promotes it to production | 🔴 Manual approval → ✅ Automated |
+| Step | Action                                                                                 | Status                                    |
+| ---- | -------------------------------------------------------------------------------------- | ----------------------------------------- |
+| 7    | Open PR from `main` to `release`                                                       | 🔴 Manual                                 |
+| 8    | `Release Policy Check` runs — fails if head branch is not `main`                       | ✅ Automated gate                         |
+| 9    | Merge PR into `release`                                                                | 🔴 Manual                                 |
+| 10   | `Promote to Production` triggers; GitHub pauses for `production` environment approval  | ✅ Automated trigger / 🔴 Manual approval |
+| 11   | Approve → workflow discovers latest READY `main` preview and promotes it to production | 🔴 Manual approval → ✅ Automated         |
 
 ## 8. Vercel Quota Protection
 
