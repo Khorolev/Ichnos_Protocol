@@ -22,8 +22,11 @@
 #   Unknown hostname → fail fast
 #
 # DB source for migration/seeding:
-#   Always resolved from the Neon-managed preview branch via Neon REST API
-#   using the deployment ref mapped to branch name preview/<ref>.
+#   Resolved from the Neon-managed preview branch via Neon REST API.
+#   Branch name is preview/<git-branch> (Neon Vercel integration convention).
+#   Git branch extracted from (in priority order): github.ref_name,
+#   deployment environment name, preview URL hostname, deployment payload
+#   metadata, or GitHub API commit-to-branch lookup.
 name: E2E Tests on Preview
 
 on:
@@ -90,6 +93,11 @@ jobs:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
           DEPLOYMENT_REF: ${{ github.event.deployment.ref }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          DEPLOYMENT_ENV: ${{ github.event.deployment.environment }}
+          TARGET_URL: ${{ github.event.deployment_status.target_url }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           if [[ -z "$NEON_API_KEY" ]]; then
             echo "::error::NEON_API_KEY secret is required for Neon-managed preview branch lookup."
@@ -101,46 +109,195 @@ jobs:
             exit 1
           fi
 
-          if [[ -z "$DEPLOYMENT_REF" ]]; then
-            echo "::error::github.event.deployment.ref is empty; cannot derive Neon preview branch name."
-            exit 1
-          fi
-
-          BRANCH_NAME="preview/$DEPLOYMENT_REF"
-          ENCODED_BRANCH_NAME=$(jq -rn --arg v "$BRANCH_NAME" '$v|@uri')
           NEON_API_BASE="https://console.neon.tech/api/v2"
           MAX_ATTEMPTS=6
           SLEEP_SECONDS=5
 
-          echo "Resolving Neon-managed preview branch for ref: $DEPLOYMENT_REF"
-          echo "Derived Neon branch name: $BRANCH_NAME"
-          echo "Lookup retry policy: $MAX_ATTEMPTS attempts with ${SLEEP_SECONDS}s backoff"
+          echo "=== Neon preview branch resolution ==="
+          echo "deployment.ref: $DEPLOYMENT_REF"
+          echo "github.ref_name: $GITHUB_REF_NAME"
+          echo "deployment.environment: $DEPLOYMENT_ENV"
+          echo "target_url: $TARGET_URL"
+          echo "Retry policy: $MAX_ATTEMPTS attempts × ${SLEEP_SECONDS}s backoff"
+
+          # Debug: dump deployment event payload structure for troubleshooting
+          echo "--- Deployment event payload debug ---"
+          jq '{
+            "deployment.ref": .deployment.ref,
+            "deployment.environment": .deployment.environment,
+            "deployment.payload_keys": (.deployment.payload | keys? // "n/a"),
+            "deployment.payload.meta": .deployment.payload.meta?,
+            "deployment.payload.deployment.meta": .deployment.payload.deployment?.meta?,
+            "deployment.payload.githubCommitRef": .deployment.payload.githubCommitRef?,
+            "deployment.payload.branch": .deployment.payload.branch?,
+            "deployment.payload.ref": .deployment.payload.ref?
+          }' "$GITHUB_EVENT_PATH" 2>/dev/null || echo "(debug extraction failed — non-blocking)"
+          echo "--- End payload debug ---"
+
+          # Vercel deployment_status often sets deployment.ref to commit SHA.
+          # Gather branch-ref candidates from multiple sources, then map to preview/<ref>.
+          #
+          # Sources (in priority order):
+          #   1. github.ref_name — GitHub context, typically the branch for deployment_status events
+          #   2. Deployment environment name — Vercel sets e.g. "Preview – branch-name"
+          #   3. Git-branch pattern in preview URL — e.g. ichnos-protocol-git-branch-name-*
+          #   4. Deployment payload metadata — various Vercel payload structures
+          #   5. GitHub API fallback — branches-where-head and PR head refs
+          #   6. deployment.ref — often a commit SHA (filtered later)
+          ALL_CANDIDATES=()
+
+          # Source 1: github.ref_name
+          if [[ -n "$GITHUB_REF_NAME" ]]; then
+            echo "Source 1 (github.ref_name): $GITHUB_REF_NAME"
+            ALL_CANDIDATES+=("$GITHUB_REF_NAME")
+          fi
+
+          # Source 2: deployment environment name (e.g. "Preview – e2e-testing" or "Preview - e2e-testing")
+          if [[ -n "$DEPLOYMENT_ENV" ]]; then
+            ENV_BRANCH=$(echo "$DEPLOYMENT_ENV" | sed -E 's/^Preview\s*[–—-]\s*//')
+            if [[ "$ENV_BRANCH" != "$DEPLOYMENT_ENV" && -n "$ENV_BRANCH" ]]; then
+              echo "Source 2 (deployment.environment → branch): $ENV_BRANCH"
+              ALL_CANDIDATES+=("$ENV_BRANCH")
+            fi
+          fi
+
+          # Source 3: extract branch name from git-branch pattern in target URL
+          # e.g. ichnos-protocol-git-e2e-testing-<owner-hash>.vercel.app → e2e-testing
+          if [[ -n "$TARGET_URL" ]]; then
+            URL_HOSTNAME=$(echo "$TARGET_URL" | sed -E 's|https?://([^/]+).*|\1|')
+            URL_BRANCH=$(echo "$URL_HOSTNAME" | sed -nE 's/^ichnos-protocol-git-(.+)-[a-z0-9]+-khorolevs-projects\.vercel\.app$/\1/p')
+            if [[ -n "$URL_BRANCH" ]]; then
+              echo "Source 3 (URL hostname → branch): $URL_BRANCH"
+              ALL_CANDIDATES+=("$URL_BRANCH")
+            fi
+          fi
+
+          # Source 4: deployment payload metadata (various Vercel payload structures)
+          PAYLOAD_REFS=$(jq -r '
+            [
+              .deployment.payload.deployment.meta.githubCommitRef,
+              .deployment.payload.meta.githubCommitRef,
+              .deployment.payload.githubCommitRef,
+              .deployment.payload.branch,
+              .deployment.payload.ref,
+              .deployment.ref
+            ]
+            | map(select(type == "string" and length > 0))
+            | unique
+            | .[]
+          ' "$GITHUB_EVENT_PATH" 2>/dev/null || true)
+
+          if [[ -n "$PAYLOAD_REFS" ]]; then
+            while IFS= read -r ref; do
+              ref=$(echo "$ref" | sed -E 's#^refs/heads/##')
+              if [[ -n "$ref" ]]; then
+                echo "Source 4 (payload): $ref"
+                ALL_CANDIDATES+=("$ref")
+              fi
+            done <<< "$PAYLOAD_REFS"
+          fi
+
+          # Deduplicate and filter out commit SHAs
+          mapfile -t UNIQUE_CANDIDATES < <(printf '%s\n' "${ALL_CANDIDATES[@]}" | awk 'NF' | awk '!seen[$0]++')
+
+          FILTERED_REF_CANDIDATES=()
+          for candidate in "${UNIQUE_CANDIDATES[@]}"; do
+            if [[ "$candidate" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "Filtering out SHA-like candidate: $candidate"
+              continue
+            fi
+            FILTERED_REF_CANDIDATES+=("$candidate")
+          done
+
+          # Source 5: GitHub API fallback — only if no candidates yet and we have a SHA
+          if [[ ${#FILTERED_REF_CANDIDATES[@]} -eq 0 ]] && [[ "$DEPLOYMENT_REF" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "No branch candidates from sources 1-4; trying GitHub API for commit $DEPLOYMENT_REF..."
+
+            GH_BRANCHES=$(curl --silent --show-error \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$DEPLOYMENT_REF/branches-where-head" 2>/dev/null || true)
+
+            while IFS= read -r name; do
+              if [[ -n "$name" ]]; then
+                echo "Source 5a (branches-where-head): $name"
+                FILTERED_REF_CANDIDATES+=("$name")
+              fi
+            done < <(echo "$GH_BRANCHES" | jq -r '.[]?.name // empty' 2>/dev/null)
+
+            GH_PRS=$(curl --silent --show-error \
+              -H "Authorization: Bearer $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/$GITHUB_REPOSITORY/commits/$DEPLOYMENT_REF/pulls" 2>/dev/null || true)
+
+            while IFS= read -r pr_ref; do
+              if [[ -n "$pr_ref" ]]; then
+                echo "Source 5b (PR head ref): $pr_ref"
+                FILTERED_REF_CANDIDATES+=("$pr_ref")
+              fi
+            done < <(echo "$GH_PRS" | jq -r '.[].head.ref // empty' 2>/dev/null)
+
+            # Deduplicate
+            if [[ ${#FILTERED_REF_CANDIDATES[@]} -gt 0 ]]; then
+              mapfile -t FILTERED_REF_CANDIDATES < <(printf '%s\n' "${FILTERED_REF_CANDIDATES[@]}" | awk 'NF' | awk '!seen[$0]++')
+            fi
+          fi
+
+          echo "Final branch ref candidates: ${FILTERED_REF_CANDIDATES[*]:-(none)}"
+
+          if [[ ${#FILTERED_REF_CANDIDATES[@]} -eq 0 ]]; then
+            echo "::warning::No branch ref candidates found. Listing all Neon branches for diagnosis:"
+            curl --silent --show-error \
+              -H "Authorization: Bearer $NEON_API_KEY" \
+              "$NEON_API_BASE/projects/$NEON_PROJECT_ID/branches" 2>/dev/null \
+              | jq -r '.branches[]? | "  \(.name) (id: \(.id), created: \(.created_at))"' || echo "(failed to list)"
+            echo "::error::No usable branch ref candidate found for Neon preview branch lookup (project '$NEON_PROJECT_ID', deployment.ref='$DEPLOYMENT_REF', github.ref_name='$GITHUB_REF_NAME', environment='$DEPLOYMENT_ENV')."
+            exit 1
+          fi
+
+          CANDIDATE_LABEL=$(printf "%s " "${FILTERED_REF_CANDIDATES[@]}")
+          echo "Neon preview branch ref candidates: $CANDIDATE_LABEL"
 
           BRANCH_ID=""
-          for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
-            BRANCHES_RESPONSE=$(curl --fail --silent --show-error \
-              -H "Authorization: Bearer $NEON_API_KEY" \
-              "$NEON_API_BASE/projects/$NEON_PROJECT_ID/branches?search=$ENCODED_BRANCH_NAME" || true)
+          RESOLVED_BRANCH_NAME=""
+          for ref_candidate in "${FILTERED_REF_CANDIDATES[@]}"; do
+            BRANCH_NAME="preview/$ref_candidate"
+            ENCODED_BRANCH_NAME=$(jq -rn --arg v "$BRANCH_NAME" '$v|@uri')
+            echo "Trying Neon preview branch candidate: $BRANCH_NAME"
 
-            BRANCH_ID=$(echo "$BRANCHES_RESPONSE" | jq -r --arg name "$BRANCH_NAME" '
-              .branches
-              | map(select(.name == $name))
-              | .[0].id // empty
-            ')
+            for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
+              BRANCHES_RESPONSE=$(curl --fail --silent --show-error \
+                -H "Authorization: Bearer $NEON_API_KEY" \
+                "$NEON_API_BASE/projects/$NEON_PROJECT_ID/branches?search=$ENCODED_BRANCH_NAME" || true)
 
-            if [[ -n "$BRANCH_ID" ]]; then
-              echo "Resolved Neon branch id on attempt $attempt/$MAX_ATTEMPTS: $BRANCH_ID"
-              break
-            fi
+              BRANCH_ID=$(echo "$BRANCHES_RESPONSE" | jq -r --arg name "$BRANCH_NAME" '
+                .branches
+                | map(select(.name == $name))
+                | .[0].id // empty
+              ')
 
-            if [[ "$attempt" -lt "$MAX_ATTEMPTS" ]]; then
-              echo "Neon-managed preview branch '$BRANCH_NAME' not visible yet (attempt $attempt/$MAX_ATTEMPTS). Retrying in ${SLEEP_SECONDS}s..."
-              sleep "$SLEEP_SECONDS"
-            fi
+              if [[ -n "$BRANCH_ID" ]]; then
+                RESOLVED_BRANCH_NAME="$BRANCH_NAME"
+                echo "Resolved Neon branch '$RESOLVED_BRANCH_NAME' on attempt $attempt/$MAX_ATTEMPTS: $BRANCH_ID"
+                break 2
+              fi
+
+              if [[ "$attempt" -lt "$MAX_ATTEMPTS" ]]; then
+                echo "Neon-managed preview branch '$BRANCH_NAME' not visible yet (attempt $attempt/$MAX_ATTEMPTS). Retrying in ${SLEEP_SECONDS}s..."
+                sleep "$SLEEP_SECONDS"
+              fi
+            done
           done
 
           if [[ -z "$BRANCH_ID" ]]; then
-            echo "::error::Failed to resolve Neon-managed preview branch '$BRANCH_NAME' in project '$NEON_PROJECT_ID' after $MAX_ATTEMPTS attempts."
+            echo "::warning::No Neon branch matched candidates. Listing all Neon branches for diagnosis:"
+            curl --silent --show-error \
+              -H "Authorization: Bearer $NEON_API_KEY" \
+              "$NEON_API_BASE/projects/$NEON_PROJECT_ID/branches" 2>/dev/null \
+              | jq -r '.branches[]? | "  \(.name) (id: \(.id), created: \(.created_at))"' || echo "(failed to list)"
+            echo "::error::Failed to resolve Neon-managed preview branch in project '$NEON_PROJECT_ID' after trying candidates '$CANDIDATE_LABEL' (mapped as preview/<ref>) with $MAX_ATTEMPTS attempts each."
             exit 1
           fi
 
@@ -158,13 +315,13 @@ jobs:
             fi
 
             if [[ "$attempt" -lt "$MAX_ATTEMPTS" ]]; then
-              echo "Connection URI not available yet for branch '$BRANCH_NAME' (id: $BRANCH_ID) on attempt $attempt/$MAX_ATTEMPTS. Retrying in ${SLEEP_SECONDS}s..."
+              echo "Connection URI not available yet for branch '$RESOLVED_BRANCH_NAME' (id: $BRANCH_ID) on attempt $attempt/$MAX_ATTEMPTS. Retrying in ${SLEEP_SECONDS}s..."
               sleep "$SLEEP_SECONDS"
             fi
           done
 
           if [[ -z "$EFFECTIVE_DB_URL" ]]; then
-            echo "::error::Failed to resolve connection URI for Neon-managed preview branch '$BRANCH_NAME' in project '$NEON_PROJECT_ID' (branch id: '$BRANCH_ID') after $MAX_ATTEMPTS attempts."
+            echo "::error::Failed to resolve connection URI for Neon-managed preview branch '$RESOLVED_BRANCH_NAME' in project '$NEON_PROJECT_ID' (branch id: '$BRANCH_ID') after $MAX_ATTEMPTS attempts."
             exit 1
           fi
 
