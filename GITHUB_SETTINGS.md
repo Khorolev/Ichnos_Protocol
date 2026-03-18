@@ -115,6 +115,8 @@ Configure branch protection rules in **Settings → Branches** (or **Settings �
 | Require branches to be up to date before merging | Recommended |
 | Include administrators | Recommended (see §6 for trade-offs) |
 
+> **`E2E Tests (Playwright)` check behavior:** This check is emitted by `e2e-on-preview.yml`, which triggers on `deployment_status` events. Both client and server Preview deployments emit this check. For the client deployment (`staging-client.ichnos-protocol.com`), Playwright tests execute. For the server deployment (`staging-api.ichnos-protocol.com`), the job succeeds immediately without running tests — this is intentional so the required status check is satisfied for both deployment events. See [`DEPLOYMENT_GITHUB_ACTIONS.md`](DEPLOYMENT_GITHUB_ACTIONS.md) §3 for full hostname-based routing details.
+
 ### `release` branch
 
 | Setting | Value |

@@ -5,10 +5,10 @@
 # Triggers on Vercel deployment_status events. Runs Playwright E2E tests
 # against the client preview URL after a successful Preview deployment.
 #
-# Prerequisites (GitHub Settings):
-#   - Secret: VERCEL_PROJECT_ID_CLIENT — the Vercel project ID for the client.
-#     Used to distinguish client vs. server deployments. If absent, the job
-#     fails explicitly instead of being silently skipped.
+# Routing is hostname-based via deployment_status.target_url:
+#   - staging-client.ichnos-protocol.com → client deployment → run E2E
+#   - staging-api.ichnos-protocol.com → server deployment → skip E2E
+#   - Unknown hostname → fail fast
 name: E2E Tests on Preview
 
 on:
@@ -25,8 +25,8 @@ jobs:
   e2e:
     name: E2E Tests (Playwright)
     # Run on every successful Preview deployment so the check name is always
-    # emitted (required by branch protection). The project-ID filter is
-    # handled inside the job to avoid silent skips when the variable is absent.
+    # emitted (required by branch protection). The hostname filter is
+    # handled inside the job via target_url to avoid silent skips.
     if: >-
       github.event.deployment_status.state == 'success' &&
       github.event.deployment.environment == 'Preview'
@@ -37,19 +37,18 @@ jobs:
       - name: Validate deployment target
         id: check
         env:
-          VERCEL_PROJECT_ID_CLIENT: ${{ secrets.VERCEL_PROJECT_ID_CLIENT }}
-          DEPLOYMENT_PROJECT_ID: ${{ github.event.deployment.payload.projectId }}
+          TARGET_URL: ${{ github.event.deployment_status.target_url }}
         run: |
-          if [ -z "$VERCEL_PROJECT_ID_CLIENT" ]; then
-            echo "::error::VERCEL_PROJECT_ID_CLIENT secret is not configured. E2E tests cannot identify client deployments."
-            exit 1
-          fi
-          if [ "$DEPLOYMENT_PROJECT_ID" != "$VERCEL_PROJECT_ID_CLIENT" ]; then
-            echo "Deployment is for server project (got: $DEPLOYMENT_PROJECT_ID). Skipping E2E."
-            echo "is_client=false" >> "$GITHUB_OUTPUT"
-          else
+          echo "Deployment target URL: $TARGET_URL"
+          if [[ "$TARGET_URL" == *"staging-client.ichnos-protocol.com"* ]]; then
             echo "Client deployment detected. Running E2E tests."
             echo "is_client=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$TARGET_URL" == *"staging-api.ichnos-protocol.com"* ]]; then
+            echo "Server deployment detected; E2E intentionally skipped."
+            echo "is_client=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Unknown deployment target pattern: $TARGET_URL"
+            exit 1
           fi
 
       - name: Checkout repository
@@ -92,6 +91,7 @@ jobs:
           node scripts/seedE2EData.js
 
       - name: Run Playwright tests
+        id: playwright
         if: steps.check.outputs.is_client == 'true'
         working-directory: e2e
         env:
@@ -112,3 +112,50 @@ jobs:
           name: playwright-report
           path: e2e/playwright-report/
           retention-days: 14
+
+      - name: Job summary
+        if: always()
+        env:
+          TARGET_URL: ${{ github.event.deployment_status.target_url }}
+          IS_CLIENT: ${{ steps.check.outputs.is_client }}
+          CHECK_OUTCOME: ${{ steps.check.outcome }}
+          PW_OUTCOME: ${{ steps.playwright.outcome }}
+        run: |
+          # Determine human-readable outcome label
+          if [[ "$CHECK_OUTCOME" == "failure" ]]; then
+            OUTCOME_LABEL="fail-fast: unknown deployment target pattern"
+          elif [[ "$IS_CLIENT" == "false" ]]; then
+            OUTCOME_LABEL="intentionally skipped (server deployment)"
+          elif [[ "$PW_OUTCOME" == "success" ]]; then
+            OUTCOME_LABEL="tests executed — passed"
+          elif [[ "$PW_OUTCOME" == "failure" ]]; then
+            OUTCOME_LABEL="tests executed — failed"
+          elif [[ "$PW_OUTCOME" == "cancelled" ]]; then
+            OUTCOME_LABEL="tests executed — cancelled"
+          elif [[ "$PW_OUTCOME" == "skipped" ]]; then
+            OUTCOME_LABEL="tests skipped"
+          else
+            OUTCOME_LABEL="unknown (check=$CHECK_OUTCOME, playwright=$PW_OUTCOME)"
+          fi
+
+          # Log to console
+          echo "=== E2E Job Summary ==="
+          echo "Target URL:     $TARGET_URL"
+          echo "Is client:      $IS_CLIENT"
+          echo "Check step:     $CHECK_OUTCOME"
+          echo "Playwright step: $PW_OUTCOME"
+          echo "Outcome:        $OUTCOME_LABEL"
+          echo "========================"
+
+          # Write to GitHub job summary
+          {
+            echo "## E2E Tests — Job Summary"
+            echo ""
+            echo "| Field | Value |"
+            echo "|---|---|"
+            echo "| **Target URL** | \`$TARGET_URL\` |"
+            echo "| **Is client** | \`$IS_CLIENT\` |"
+            echo "| **Check step** | \`$CHECK_OUTCOME\` |"
+            echo "| **Playwright step** | \`$PW_OUTCOME\` |"
+            echo "| **Outcome** | $OUTCOME_LABEL |"
+          } >> "$GITHUB_STEP_SUMMARY"

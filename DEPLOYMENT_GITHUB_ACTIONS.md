@@ -11,7 +11,9 @@ sequenceDiagram
     participant CI as CI Jobs (Lint + Test)
     participant PF as Preflight — Secret Validation
     participant VP as Vercel Preview (deploy jobs)
-    participant E2E as E2E Tests (Playwright)
+    participant DS as GitHub deployment_status
+    participant E2E as e2e-on-preview.yml
+    participant PW as Playwright
     participant RPC as Release Policy Check
     participant Prod as Vercel Production
 
@@ -20,8 +22,15 @@ sequenceDiagram
     GH->>PF: Preflight validates all secrets; fork PRs hard-blocked
     CI-->>GH: ✅ CI passes
     PF-->>VP: Secrets valid → deploy both apps to preview (parallel)
-    VP-->>E2E: Deploy jobs complete → E2E job starts (needs dependency)
-    E2E-->>GH: ✅ E2E passes — required status check for merge
+    VP-->>DS: Vercel emits deployment_status (success, Preview) for each app
+    DS->>E2E: Trigger E2E Tests (Playwright) job
+    E2E->>E2E: Classify target_url hostname
+    alt staging-client.ichnos-protocol.com
+        E2E->>PW: Run Playwright tests against client URL
+        PW-->>GH: ✅ E2E passes — required status check for merge
+    else staging-api.ichnos-protocol.com
+        E2E-->>GH: ✅ Intentional skip (server event) — check still emitted
+    end
     Dev->>GH: Merge PR into main
 
     Dev->>GH: Open PR from main to release
@@ -38,13 +47,44 @@ sequenceDiagram
 
 | Workflow file | Name | Trigger | Purpose |
 |---|---|---|---|
-| `vercel-preview-on-main.yml` | Vercel Preview | `pull_request` to `main` | CI + preflight + deploy both apps to preview + E2E |
+| `vercel-preview-on-main.yml` | Vercel Preview | `pull_request` to `main` | CI + preflight + deploy both apps to preview |
+| `e2e-on-preview.yml` | E2E Tests on Preview | `deployment_status` | Run E2E only for client preview hostname; skip server hostname; fail-fast unknown hostname |
 | `promote-to-production.yml` | Promote to Production | `push` to `release` | Discover latest READY `main` preview → promote to production (approval-gated) |
 | `release-policy-check.yml` | Release Policy Check | `pull_request` to `release` | Fails if PR head branch is not `main` |
 | `vercel-promote-production.yml` | Promote Vercel Preview to Production | `workflow_dispatch` (manual) | Emergency/manual promotion via explicit deployment URL inputs |
 | `e2e.yml` | E2E Tests (Playwright) | `workflow_dispatch` (manual) | Ad-hoc Playwright diagnostics against a provided `base_url` |
 
-## 3. One-Time Setup — GitHub
+## 3. E2E Hostname-Based Target Detection
+
+E2E tests are triggered by **GitHub `deployment_status` events** via `e2e-on-preview.yml`. When Vercel completes a Preview deployment, GitHub emits a `deployment_status` event containing a `target_url`. The workflow classifies this URL by hostname to decide what action to take:
+
+| Hostname in `target_url` | Action | Rationale |
+|---|---|---|
+| `staging-client.ichnos-protocol.com` | Run Playwright tests | Client deployment — the E2E target |
+| `staging-api.ichnos-protocol.com` | Intentional skip (job succeeds without running tests) | Server deployment — no browser tests needed |
+| Any other hostname | Fail fast | Unexpected deployment — flag for investigation |
+
+**Key details:**
+
+- Detection uses `deployment_status.target_url` hostname matching, **not** `VERCEL_PROJECT_ID_CLIENT` or any other secret.
+- Both client and server Preview deployments emit the `E2E Tests (Playwright)` check context. The server path succeeds immediately without executing tests — this is intentional so the required status check is satisfied for both deployment events.
+- The job-level `if` condition filters on `deployment_status.state == 'success'` and `deployment.environment == 'Preview'` before hostname classification occurs.
+
+## 4. E2E Troubleshooting
+
+When investigating E2E check results, use this table to interpret the status:
+
+| Check Status | Meaning | Action |
+|---|---|---|
+| **Passed** (client hostname) | Playwright tests executed and passed | No action needed |
+| **Skipped** (server hostname) | Server deployment event (`staging-api.ichnos-protocol.com`); tests intentionally skipped | No action needed — this is expected behavior |
+| **Failed** — "unknown deployment target pattern" | Hostname in `target_url` did not match either expected pattern | Check if Vercel domain configuration changed; verify `target_url` in the workflow run logs |
+| **Failed** — Playwright test failure | Tests executed against the client deployment and failed | Check the Playwright HTML report artifact uploaded to the workflow run |
+| **Cancelled** | Workflow run was cancelled mid-execution | Re-run the workflow or push a new commit to trigger a fresh deployment |
+
+**First debugging step:** Open the **Job summary** tab in the GitHub Actions run for `e2e-on-preview.yml`. It shows `target_url`, hostname classification result, and step outcomes in a compact table.
+
+## 5. One-Time Setup — GitHub
 
 Full GitHub repository settings — secrets, environments, branch protections, auto-merge, and fork policy — are documented in [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md). Follow that guide from top to bottom for initial setup or to verify an existing configuration.
 
@@ -67,12 +107,12 @@ Kept here for quick reference. [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md) is the
 
 | Target branch | Required status checks |
 |---|---|
-| `main` | `Client — Lint & Test`, `Server — Lint & Test`, `Preflight — Secret Validation`, `Deploy Client Preview`, `Deploy Server Preview`, `E2E Tests (Playwright)` |
+| `main` | `Client — Lint & Test`, `Server — Lint & Test`, `E2E Tests (Playwright)` |
 | `release` | `Release Policy Check` + require a pull request before merging |
 
-> **Note:** Check names are frozen in workflow file headers. Do not rename jobs without updating branch protection rules. See [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md) §3 for step-by-step configuration.
+> **Note:** The `E2E Tests (Playwright)` check name is produced by `e2e-on-preview.yml` (job name: `E2E Tests (Playwright)`). Check names are frozen in workflow file headers. Do not rename jobs without updating branch protection rules. See [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md) §4 for step-by-step configuration.
 
-## 4. One-Time Setup — Vercel
+## 6. One-Time Setup — Vercel
 
 Full Vercel project settings — production branch, environment variables, old alias cleanup, and token/ID lookup — are documented in [`VERCEL_SETTINGS.md`](VERCEL_SETTINGS.md). Follow that guide for both `ichnos-client` and `ichnos-server`.
 
@@ -81,7 +121,7 @@ Two critical invariants to maintain:
 - **Vercel production branch must be `release`** on both projects (not `main`).
 - **`"git": { "deploymentEnabled": false }`** must remain in both `vercel.json` files — all deployments are workflow-driven.
 
-## 5. Daily Developer Workflow
+## 7. Daily Developer Workflow
 
 ### Feature → main (PR-gated)
 
@@ -91,8 +131,8 @@ Two critical invariants to maintain:
 | 2 | CI runs: lint + test + build (client and server) | ✅ Automated |
 | 3 | `Preflight — Secret Validation` validates secrets; fork PRs hard-blocked | ✅ Automated gate |
 | 4 | `Deploy Client Preview` and `Deploy Server Preview` create preview URLs | ✅ Automated |
-| 5 | `E2E Tests (Playwright)` runs against client preview URL | ✅ Automated |
-| 6 | All 6 required checks pass — PR is mergeable | ✅ Automated gate |
+| 5 | Vercel emits `deployment_status` events; `e2e-on-preview.yml` runs `E2E Tests (Playwright)` for each | ✅ Automated |
+| 6 | All 3 required checks pass — PR is mergeable | ✅ Automated gate |
 | 7 | Merge PR into `main` | 🔴 Manual |
 
 ### main → release (production promotion)
@@ -105,13 +145,13 @@ Two critical invariants to maintain:
 | 11 | `Promote to Production` triggers; GitHub pauses for `production` environment approval | ✅ Automated trigger / 🔴 Manual approval |
 | 12 | Approve → workflow discovers latest READY `main` preview and promotes it to production | 🔴 Manual approval → ✅ Automated |
 
-## 6. Vercel Quota Protection
+## 8. Vercel Quota Protection
 
 `vercel-preview-on-main.yml` fires on PRs to `main` (not on every push). The `Preflight — Secret Validation` job ensures no deployment runs when secrets are missing or the PR is from a fork. This means broken or unauthorized code never consumes a Vercel deployment slot.
 
 Additionally, E2E tests run against the preview URL rather than a separate deployment, so no extra Vercel build is triggered for testing.
 
-## 7. Rollback
+## 9. Rollback
 
 ### Option A — Revert through the pipeline
 
