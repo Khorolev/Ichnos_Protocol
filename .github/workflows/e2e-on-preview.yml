@@ -11,9 +11,12 @@
 #   Custom domains:
 #     - staging-client.ichnos-protocol.com → client deployment → run E2E
 #     - staging-api.ichnos-protocol.com → server deployment → skip E2E
-#   Auto-preview URLs (feature-branch deployments):
-#     - ichnos-protocol-git-* (excluding ichnos-protocol-server-git-*) → client → run E2E
-#     - ichnos-protocol-server-git-* → server → skip E2E
+#   Auto-preview URLs — git-branch pattern:
+#     - ichnos-protocol-git-* (excluding server variants) → client → run E2E
+#     - ichnos-protocol-server-git-* OR ichnos-protocolserver-git-* → server → skip E2E
+#   Auto-preview URLs — hash-based pattern:
+#     - ichnos-protocol-*-khorolevs-projects.vercel.app (excluding ichnos-protocolserver-*) → client → run E2E
+#     - ichnos-protocolserver-*-khorolevs-projects.vercel.app → server → skip E2E
 #   Production domains (*.vercel.app, ichnos-protocol.com):
 #     - Skipped — production deployments do not trigger E2E in this workflow
 #   Unknown hostname → fail fast
@@ -56,11 +59,17 @@ jobs:
           elif [[ "$HOSTNAME" == "staging-api.ichnos-protocol.com" ]]; then
             echo "Server deployment detected (custom domain); E2E intentionally skipped."
             echo "is_client=false" >> "$GITHUB_OUTPUT"
-          elif [[ "$HOSTNAME" == ichnos-protocol-server-git-* ]]; then
+          elif [[ "$HOSTNAME" == ichnos-protocol-server-git-* ]] || [[ "$HOSTNAME" == ichnos-protocolserver-git-* ]]; then
             echo "Server deployment detected (auto-preview URL: $HOSTNAME); E2E intentionally skipped."
             echo "is_client=false" >> "$GITHUB_OUTPUT"
           elif [[ "$HOSTNAME" == ichnos-protocol-git-* ]]; then
             echo "Client deployment detected (auto-preview URL: $HOSTNAME). Running E2E tests."
+            echo "is_client=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$HOSTNAME" == ichnos-protocolserver-*-khorolevs-projects.vercel.app ]]; then
+            echo "Server deployment detected (hash-based preview URL: $HOSTNAME); E2E intentionally skipped."
+            echo "is_client=false" >> "$GITHUB_OUTPUT"
+          elif [[ "$HOSTNAME" == ichnos-protocol-*-khorolevs-projects.vercel.app ]]; then
+            echo "Client deployment detected (hash-based preview URL: $HOSTNAME). Running E2E tests."
             echo "is_client=true" >> "$GITHUB_OUTPUT"
           elif [[ "$HOSTNAME" == *.vercel.app ]] || [[ "$HOSTNAME" == ichnos-protocol.com ]] || [[ "$HOSTNAME" == *.ichnos-protocol.com ]]; then
             echo "Production deployment detected ($HOSTNAME); E2E intentionally skipped."

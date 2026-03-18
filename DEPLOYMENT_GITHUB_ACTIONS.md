@@ -24,10 +24,10 @@ sequenceDiagram
     Vercel->>DS: Emit deployment_status (success, Preview) for each app
     DS->>E2E: Trigger E2E Tests (Playwright) job
     E2E->>E2E: Classify target_url hostname
-    alt staging-client.ichnos-protocol.com OR ichnos-protocol-git-*
+    alt Client hostname (custom / git / hash)
         E2E->>PW: Run Playwright tests against client URL
         PW-->>GH: ✅ E2E passes — required status check for merge
-    else staging-api.ichnos-protocol.com OR ichnos-protocol-server-git-*
+    else Server hostname (custom / git / hash)
         E2E-->>GH: ✅ Intentional skip (server event) — check still emitted
     else Unknown hostname
         E2E-->>GH: ❌ Fail fast — unexpected deployment target
@@ -50,7 +50,7 @@ sequenceDiagram
 | Workflow file | Name | Trigger | Purpose |
 |---|---|---|---|
 | `ci.yml` | CI | `pull_request` to `main` | Lint + unit tests + client build verification |
-| `e2e-on-preview.yml` | E2E Tests on Preview | `deployment_status` | Run E2E for client hostnames (custom domain + auto-preview URL); skip server hostnames; fail-fast unknown hostname |
+| `e2e-on-preview.yml` | E2E Tests on Preview | `deployment_status` | Run E2E for client hostnames (custom domain, git-branch preview, hash-based preview); skip server hostnames; fail-fast unknown hostname |
 | `promote-to-production.yml` | Promote to Production | `push` to `release` | Discover latest READY `main` preview → promote to production (approval-gated) |
 | `release-policy-check.yml` | Release Policy Check | `pull_request` to `release` | Fails if PR head branch is not `main` |
 | `vercel-promote-production.yml` | Promote Vercel Preview to Production | `workflow_dispatch` (manual) | Emergency/manual promotion via explicit deployment URL inputs |
@@ -62,22 +62,26 @@ sequenceDiagram
 
 E2E tests are triggered by **GitHub `deployment_status` events** via `e2e-on-preview.yml`. When Vercel's native Git integration completes a Preview deployment, GitHub emits a `deployment_status` event containing a `target_url`. The workflow classifies this URL by hostname to decide what action to take:
 
-Two detection families are used — custom domains and Vercel auto-preview URLs:
+Three detection families are used — custom domains, git-branch auto-preview URLs, and hash-based auto-preview URLs:
 
 | Hostname pattern in `target_url` | Type | Action | Rationale |
 |---|---|---|---|
 | `staging-client.ichnos-protocol.com` | Custom domain | Run Playwright tests | Client deployment — the E2E target |
-| `ichnos-protocol-git-*` (excluding `ichnos-protocol-server-git-*`) | Auto-preview URL | Run Playwright tests | Client feature-branch preview — E2E target |
 | `staging-api.ichnos-protocol.com` | Custom domain | Intentional skip (job succeeds without running tests) | Server deployment — no browser tests needed |
-| `ichnos-protocol-server-git-*` | Auto-preview URL | Intentional skip (job succeeds without running tests) | Server feature-branch preview — no browser tests needed |
+| `ichnos-protocol-server-git-*` or `ichnos-protocolserver-git-*` | Auto-preview (git) | Intentional skip (job succeeds without running tests) | Server feature-branch preview — no browser tests needed (both slug variants matched for compatibility) |
+| `ichnos-protocol-git-*` (excluding server variants above) | Auto-preview (git) | Run Playwright tests | Client feature-branch preview — E2E target |
+| `ichnos-protocolserver-*-khorolevs-projects.vercel.app` | Auto-preview (hash) | Intentional skip (job succeeds without running tests) | Server hash-based preview — no browser tests needed |
+| `ichnos-protocol-*-khorolevs-projects.vercel.app` (excluding `ichnos-protocolserver-*`) | Auto-preview (hash) | Run Playwright tests | Client hash-based preview — E2E target |
+| `*.vercel.app`, `ichnos-protocol.com`, `*.ichnos-protocol.com` | Production | Intentional skip | Production deployments do not trigger E2E |
 | Any other hostname | — | Fail fast (`exit 1`) | Unexpected deployment — flag for investigation |
 
 **Key details:**
 
 - Detection uses `deployment_status.target_url` hostname pattern matching, **not** `VERCEL_PROJECT_ID_CLIENT` or any other secret. Hostname routing is the source of truth for E2E target classification.
-- The server auto-preview pattern (`ichnos-protocol-server-git-*`) is checked **before** the client auto-preview pattern (`ichnos-protocol-git-*`) to prevent false positives, since the server pattern is a subset of the client pattern.
+- The server auto-preview patterns (`ichnos-protocol-server-git-*` and `ichnos-protocolserver-git-*`) are checked **before** the client auto-preview pattern (`ichnos-protocol-git-*`) to prevent false positives, since both server patterns are subsets of the client pattern. Similarly, the server hash pattern (`ichnos-protocolserver-*`) is checked before the client hash pattern (`ichnos-protocol-*`).
 - Both client and server Preview deployments emit the `E2E Tests (Playwright)` check context. The server path succeeds immediately without executing tests — this is intentional so the required status check is satisfied for both deployment events.
-- The job-level `if` condition filters on `deployment_status.state == 'success'` and `deployment.environment == 'Preview'` before hostname classification occurs.
+- The job-level `if` condition filters on `deployment_status.state == 'success'` before hostname classification occurs. Preview vs production routing is handled entirely by hostname matching inside the "Validate deployment target" step.
+- Note: The Vercel server project slug is `ichnos-protocolserver` (no hyphen before "server"), which affects both `-git-` and hash-based hostname patterns.
 
 ## 4. E2E Troubleshooting
 
@@ -86,7 +90,7 @@ When investigating E2E check results, use this table to interpret the status:
 | Check Status | Meaning | Action |
 |---|---|---|
 | **Passed** (client hostname) | Playwright tests executed and passed | No action needed |
-| **Skipped** (server hostname) | Server deployment event (`staging-api.ichnos-protocol.com` or `ichnos-protocol-server-git-*`); tests intentionally skipped | No action needed — this is expected behavior |
+| **Skipped** (server hostname) | Server deployment event (`staging-api.ichnos-protocol.com`, `ichnos-protocol-server-git-*`, `ichnos-protocolserver-git-*`, or `ichnos-protocolserver-*-khorolevs-projects.vercel.app`); tests intentionally skipped | No action needed — this is expected behavior |
 | **Failed** — "unknown deployment target pattern" | Hostname in `target_url` did not match any expected pattern (custom domains or auto-preview URL patterns) | Check if Vercel domain or project naming changed; verify `target_url` and extracted hostname in the workflow run logs |
 | **Failed** — Playwright test failure | Tests executed against the client deployment and failed | Check the Playwright HTML report artifact uploaded to the workflow run |
 | **Cancelled** | Workflow run was cancelled mid-execution | Re-run the workflow or push a new commit to trigger a fresh deployment |
