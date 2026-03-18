@@ -238,7 +238,7 @@ cd server && vercel --prod   # deploy backend
 - Migrations run against the ephemeral branch before seeding test data.
 - The branch `DATABASE_URL` is passed from the create-branch step output — the static `DATABASE_URL` secret is **no longer used** by the E2E workflow.
 - After tests complete (pass or fail), `neondatabase/delete-branch-action@v3` cleans up the branch. The delete action uses input key `branch` with the value from the create step's `branch_id` output.
-- Required secrets: `NEON_PROJECT_ID` and `NEON_API_KEY` (repository-level).
+- Required credentials: `NEON_API_KEY` (repository secret) and `NEON_PROJECT_ID` (repository variable). Both are auto-created by the Neon GitHub Integration — no manual setup needed.
 
 ### E2E URL targeting in GitHub Actions
 - E2E tests are triggered by `deployment_status` events via `e2e-on-preview.yml`, not as a dependent job inside another workflow.
