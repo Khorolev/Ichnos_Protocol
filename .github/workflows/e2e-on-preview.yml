@@ -3,7 +3,9 @@
 # for main. Do not rename without updating rulesets.
 #
 # Triggers on Vercel deployment_status events. Runs Playwright E2E tests
-# against the client preview URL after a successful Preview deployment.
+# against the client preview URL after a successful deployment_status event.
+# Preview vs production and client vs server decisions are handled by
+# hostname routing inside the "Validate deployment target" step.
 #
 # Routing is hostname-based via deployment_status.target_url:
 #   Custom domains:
@@ -12,6 +14,8 @@
 #   Auto-preview URLs (feature-branch deployments):
 #     - ichnos-protocol-git-* (excluding ichnos-protocol-server-git-*) → client → run E2E
 #     - ichnos-protocol-server-git-* → server → skip E2E
+#   Production domains (*.vercel.app, ichnos-protocol.com):
+#     - Skipped — production deployments do not trigger E2E in this workflow
 #   Unknown hostname → fail fast
 name: E2E Tests on Preview
 
@@ -28,12 +32,10 @@ defaults:
 jobs:
   e2e:
     name: E2E Tests (Playwright)
-    # Run on every successful Preview deployment so the check name is always
-    # emitted (required by branch protection). The hostname filter is
-    # handled inside the job via target_url to avoid silent skips.
-    if: >-
-      github.event.deployment_status.state == 'success' &&
-      github.event.deployment.environment == 'Preview'
+    # Run on every successful deployment_status event so the check name is
+    # always emitted (required by branch protection). Client/server and
+    # preview routing decisions are handled inside "Validate deployment target".
+    if: github.event.deployment_status.state == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -60,6 +62,9 @@ jobs:
           elif [[ "$HOSTNAME" == ichnos-protocol-git-* ]]; then
             echo "Client deployment detected (auto-preview URL: $HOSTNAME). Running E2E tests."
             echo "is_client=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$HOSTNAME" == *.vercel.app ]] || [[ "$HOSTNAME" == ichnos-protocol.com ]] || [[ "$HOSTNAME" == *.ichnos-protocol.com ]]; then
+            echo "Production deployment detected ($HOSTNAME); E2E intentionally skipped."
+            echo "is_client=false" >> "$GITHUB_OUTPUT"
           else
             echo "::error::Unknown deployment target pattern: $TARGET_URL (hostname: $HOSTNAME)"
             exit 1
@@ -139,7 +144,7 @@ jobs:
           if [[ "$CHECK_OUTCOME" == "failure" ]]; then
             OUTCOME_LABEL="fail-fast: unknown deployment target pattern"
           elif [[ "$IS_CLIENT" == "false" ]]; then
-            OUTCOME_LABEL="intentionally skipped (server deployment)"
+            OUTCOME_LABEL="intentionally skipped (non-client deployment)"
           elif [[ "$PW_OUTCOME" == "success" ]]; then
             OUTCOME_LABEL="tests executed — passed"
           elif [[ "$PW_OUTCOME" == "failure" ]]; then
