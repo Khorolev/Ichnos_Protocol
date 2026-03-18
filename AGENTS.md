@@ -233,6 +233,13 @@ cd server && vercel --prod   # deploy backend
 - **Fork PR trust boundary**: Vercel's Git integration does not expose environment variables to builds from forks by default, preventing secret exfiltration via attacker-controlled code.
 - See `DEPLOYMENT_GITHUB_ACTIONS.md` for setup instructions.
 
+### Ephemeral Neon DB branches for E2E
+- Each E2E run provisions an ephemeral Neon DB branch (`e2e-<run_id>`) via `neondatabase/create-branch-action@v5`.
+- Migrations run against the ephemeral branch before seeding test data.
+- The branch `DATABASE_URL` is passed from the create-branch step output — the static `DATABASE_URL` secret is **no longer used** by the E2E workflow.
+- After tests complete (pass or fail), `neondatabase/delete-branch-action@v5` cleans up the branch.
+- Required secrets: `NEON_PROJECT_ID` and `NEON_API_KEY` (repository-level).
+
 ### E2E URL targeting in GitHub Actions
 - E2E tests are triggered by `deployment_status` events via `e2e-on-preview.yml`, not as a dependent job inside another workflow.
 - Hostname-based routing on `deployment_status.target_url` is the source of truth. Three detection families are used:
