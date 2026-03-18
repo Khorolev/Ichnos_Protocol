@@ -138,7 +138,10 @@ cd server && vercel --prod   # deploy backend
 
 - E2E tests live in `e2e/tests/` at the repository root (separate from client/server).
 - **Local**: Start client + server locally, run `cd e2e && npx playwright test`.
-- **CI**: E2E is triggered by `deployment_status` events via `e2e-on-preview.yml`. When Vercel completes a Preview deployment, the workflow classifies `deployment_status.target_url` by hostname: `staging-client.ichnos-protocol.com` runs Playwright, `staging-api.ichnos-protocol.com` intentionally skips, unknown hostnames fail fast. Both client and server events emit the `E2E Tests (Playwright)` check context.
+- **CI**: E2E is triggered by `deployment_status` events via `e2e-on-preview.yml`. When Vercel completes a Preview deployment, the workflow classifies `deployment_status.target_url` by hostname using two detection families:
+  - **Custom domains**: `staging-client.ichnos-protocol.com` → run Playwright; `staging-api.ichnos-protocol.com` → intentional skip.
+  - **Auto-preview URLs** (feature-branch deployments): `ichnos-protocol-git-*` (excluding `ichnos-protocol-server-git-*`) → run Playwright; `ichnos-protocol-server-git-*` → intentional skip.
+  - Unknown hostnames fail fast (`exit 1`). Hostname routing is the source of truth for E2E target classification. Both client and server events emit the `E2E Tests (Playwright)` check context.
 - A standalone `e2e.yml` workflow exists for **manual/ad-hoc** runs via `workflow_dispatch` (requires a `base_url` input).
 - Browsers: Chromium, Firefox, WebKit in CI; Chromium-only locally.
 - E2E tests run on every PR and after merges to `main`. Merge to `main` is blocked until E2E passes (required status check: `Vercel Preview / E2E Tests (Playwright)`).
@@ -230,7 +233,11 @@ cd server && vercel --prod   # deploy backend
 
 ### E2E URL targeting in GitHub Actions
 - E2E tests are triggered by `deployment_status` events via `e2e-on-preview.yml`, not as a dependent job inside another workflow.
-- Hostname-based routing on `deployment_status.target_url` determines whether to run Playwright (`staging-client.ichnos-protocol.com`), skip (`staging-api.ichnos-protocol.com`), or fail fast (unknown hostname).
+- Hostname-based routing on `deployment_status.target_url` is the source of truth. Two detection families are used:
+  - **Custom domains**: `staging-client.ichnos-protocol.com` → run Playwright; `staging-api.ichnos-protocol.com` → skip.
+  - **Auto-preview URLs**: `ichnos-protocol-git-*` (excluding `ichnos-protocol-server-git-*`) → run Playwright; `ichnos-protocol-server-git-*` → skip.
+- Unknown hostnames fail fast (`exit 1`) to flag unexpected deployment patterns for investigation.
+- Detection uses `deployment_status.target_url` hostname matching, **not** `VERCEL_PROJECT_ID_CLIENT` or any other secret.
 - A standalone `e2e.yml` workflow exists for manual/ad-hoc runs via `workflow_dispatch`.
 - E2E tests must target the **client** deployment URL only, never the server.
 

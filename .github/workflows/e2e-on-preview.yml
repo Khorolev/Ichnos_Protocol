@@ -6,9 +6,13 @@
 # against the client preview URL after a successful Preview deployment.
 #
 # Routing is hostname-based via deployment_status.target_url:
-#   - staging-client.ichnos-protocol.com → client deployment → run E2E
-#   - staging-api.ichnos-protocol.com → server deployment → skip E2E
-#   - Unknown hostname → fail fast
+#   Custom domains:
+#     - staging-client.ichnos-protocol.com → client deployment → run E2E
+#     - staging-api.ichnos-protocol.com → server deployment → skip E2E
+#   Auto-preview URLs (feature-branch deployments):
+#     - ichnos-protocol-git-* (excluding ichnos-protocol-server-git-*) → client → run E2E
+#     - ichnos-protocol-server-git-* → server → skip E2E
+#   Unknown hostname → fail fast
 name: E2E Tests on Preview
 
 on:
@@ -40,14 +44,24 @@ jobs:
           TARGET_URL: ${{ github.event.deployment_status.target_url }}
         run: |
           echo "Deployment target URL: $TARGET_URL"
-          if [[ "$TARGET_URL" == *"staging-client.ichnos-protocol.com"* ]]; then
-            echo "Client deployment detected. Running E2E tests."
+          # Extract hostname from target URL
+          HOSTNAME=$(echo "$TARGET_URL" | sed -E 's|https?://([^/]+).*|\1|')
+          echo "Extracted hostname: $HOSTNAME"
+
+          if [[ "$HOSTNAME" == "staging-client.ichnos-protocol.com" ]]; then
+            echo "Client deployment detected (custom domain). Running E2E tests."
             echo "is_client=true" >> "$GITHUB_OUTPUT"
-          elif [[ "$TARGET_URL" == *"staging-api.ichnos-protocol.com"* ]]; then
-            echo "Server deployment detected; E2E intentionally skipped."
+          elif [[ "$HOSTNAME" == "staging-api.ichnos-protocol.com" ]]; then
+            echo "Server deployment detected (custom domain); E2E intentionally skipped."
             echo "is_client=false" >> "$GITHUB_OUTPUT"
+          elif [[ "$HOSTNAME" == ichnos-protocol-server-git-* ]]; then
+            echo "Server deployment detected (auto-preview URL: $HOSTNAME); E2E intentionally skipped."
+            echo "is_client=false" >> "$GITHUB_OUTPUT"
+          elif [[ "$HOSTNAME" == ichnos-protocol-git-* ]]; then
+            echo "Client deployment detected (auto-preview URL: $HOSTNAME). Running E2E tests."
+            echo "is_client=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::error::Unknown deployment target pattern: $TARGET_URL"
+            echo "::error::Unknown deployment target pattern: $TARGET_URL (hostname: $HOSTNAME)"
             exit 1
           fi
 
