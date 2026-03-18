@@ -105,15 +105,16 @@ Full GitHub repository settings — secrets, environments, branch protections, a
 
 Kept here for quick reference. [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md) is the authoritative source.
 
-#### CI and E2E secrets (11)
+#### CI and E2E secrets (10)
 
 | Secret | Purpose |
 |---|---|
-| `NEON_PROJECT_ID` | Neon project ID — used to create/delete ephemeral DB branches for E2E |
 | `NEON_API_KEY` | Neon API key — used to create/delete ephemeral DB branches for E2E |
 | `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` / `E2E_ADMIN_UID` | Admin test account |
 | `E2E_USER_EMAIL` / `E2E_USER_PASSWORD` / `E2E_USER_UID` | Regular user test account |
 | `E2E_SUPER_ADMIN_EMAIL` / `E2E_SUPER_ADMIN_PASSWORD` / `E2E_SUPER_ADMIN_UID` | Super-admin test account |
+
+> **Repository variable:** `NEON_PROJECT_ID` is a repository **variable** (not a secret), referenced as `vars.NEON_PROJECT_ID` in workflows. Both `NEON_API_KEY` and `NEON_PROJECT_ID` are auto-provisioned by the Neon GitHub Integration — no manual setup needed.
 
 > **Note:** The `DATABASE_URL` secret is **no longer used** by the E2E workflow. Each E2E run provisions an ephemeral Neon DB branch via `neondatabase/create-branch-action@v6`, and the branch URL is passed automatically. After tests complete (pass or fail), cleanup is handled by `neondatabase/delete-branch-action@v3`, which uses the input key `branch` with the value from `steps.neon.outputs.branch_id`. The `DATABASE_URL` secret can be removed from repository settings if no other workflow uses it.
 
