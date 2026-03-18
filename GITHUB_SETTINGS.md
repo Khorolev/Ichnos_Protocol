@@ -12,9 +12,9 @@ The GitHub repository requires the following settings to support the 2-branch de
 
 | Area | What | Why |
 |---|---|---|
-| **Repository Secrets** | 14 secrets (Vercel, database, E2E test accounts) | Workflows authenticate with Vercel CLI, seed E2E test data, and run Playwright tests |
+| **Repository Secrets** | 10 secrets for CI/E2E + 4 additional secrets for production promotion (14 total) | CI/E2E workflows need database and test accounts; production promotion workflows need Vercel API access |
 | **Environments** | `production` environment with required reviewers | Production promotion workflow pauses for human approval before deploying |
-| **Branch Protections** | `main` (3 required checks + PR required) and `release` (1 required check + PR required) | Enforces the CI → Preview → E2E → merge pipeline and the `main`-only release policy |
+| **Branch Protections** | `main` (5 required checks + PR required) and `release` (1 required check + PR required) | Enforces the CI → Preview → E2E → merge pipeline and the `main`-only release policy |
 | **Old Rule Cleanup** | Remove stale branch protections and rulesets from previous configurations | Stale rules (e.g., for `staging`, `e2e-testing`, or different check names) can block merges or silently bypass the pipeline |
 | **Auto-Merge** (optional) | Allow auto-merge at the repository level | Enables automatic merge of `main → release` PRs once the `Release Policy Check` passes |
 
@@ -38,10 +38,10 @@ If this repository was previously configured with different branch protections (
 ### Step 3 — Verify no orphan required status checks on `main`
 
 1. Open the existing `main` branch protection rule (or ruleset).
-2. Under **Required status checks**, remove any check names that do not match the 3 checks listed in §4 below.
+2. Under **Required status checks**, remove any check names that do not match the 5 checks listed in §4 below.
 3. Old check names (e.g., `build`, `test`, `ci`, `deploy-preview`) will block all PRs if left in place because no workflow produces them.
 
-> **If you previously had `Preflight — Secret Validation`, `Deploy Client Preview`, or `Deploy Server Preview` as required checks on `main`, these must be removed — no workflow produces these check names anymore.**
+> **If you previously had `Preflight — Secret Validation`, `Deploy Client Preview`, or `Deploy Server Preview` as required checks on `main`, these must be removed — no workflow produces these check names anymore. These were from the legacy CLI-driven preview deployment model.**
 
 ### Step 4 — Verify no orphan required status checks on `release`
 
@@ -53,17 +53,6 @@ If this repository was previously configured with different branch protections (
 ## 2. Repository Secrets
 
 Navigate to **Settings → Secrets and variables → Actions → New repository secret** and add each secret listed below.
-
-### Vercel Secrets
-
-| Secret | Description | Where to Find |
-|---|---|---|
-| `VERCEL_TOKEN` | Personal or team token for Vercel CLI authentication | Vercel → Settings → Tokens → Create |
-| `VERCEL_ORG_ID` | Org/owner ID for deterministic Vercel CLI resolution | Vercel → Settings → General → "Your ID" |
-| `VERCEL_PROJECT_ID_CLIENT` | Project ID for `ichnos-client` | Vercel → ichnos-client → Settings → General → Project ID |
-| `VERCEL_PROJECT_ID_SERVER` | Project ID for `ichnos-server` | Vercel → ichnos-server → Settings → General → Project ID |
-
-> **Note:** `VERCEL_ORG_ID` is passed as an environment variable to every Vercel CLI step to ensure deterministic org resolution — without it, the CLI may prompt interactively and hang in CI.
 
 ### Database Secrets
 
@@ -86,6 +75,19 @@ Three test accounts are required for Playwright E2E tests. Each account must be 
 | `E2E_SUPER_ADMIN_EMAIL` | Super-admin test account email |
 | `E2E_SUPER_ADMIN_PASSWORD` | Super-admin test account password |
 | `E2E_SUPER_ADMIN_UID` | Super-admin test account Firebase UID |
+
+### Production Promotion Secrets
+
+These 4 secrets are **required** for the production promotion workflows (`promote-to-production.yml` and `vercel-promote-production.yml`). They are not needed for preview deployments (handled by Vercel's native Git integration) or for CI/E2E workflows.
+
+| Secret | Description | Where to Find |
+|---|---|---|
+| `VERCEL_TOKEN` | Vercel API token for CLI and API access | Vercel → Account Settings → Tokens |
+| `VERCEL_ORG_ID` | Vercel team/org ID | Vercel → Team Settings → General → Team ID |
+| `VERCEL_PROJECT_ID_CLIENT` | Vercel project ID for the client app | Vercel → Project Settings → General → Project ID |
+| `VERCEL_PROJECT_ID_SERVER` | Vercel project ID for the server app | Vercel → Project Settings → General → Project ID |
+
+> **Without these 4 secrets, merging into `release` will trigger `promote-to-production.yml` which will fail.** If you only need preview deployments and CI/E2E (no production promotion via GitHub Actions), you can omit these secrets and promote manually via the Vercel dashboard instead.
 
 ---
 
@@ -111,11 +113,15 @@ Configure branch protection rules in **Settings → Branches** (or **Settings �
 | Setting | Value |
 |---|---|
 | Require a pull request before merging | Yes |
-| Required status checks | `Client — Lint & Test`, `Server — Lint & Test`, `E2E Tests (Playwright)` |
+| Required status checks | `Client — Lint & Test`, `Server — Lint & Test`, `<your-client-vercel-check>`, `<your-server-vercel-check>`, `E2E Tests (Playwright)` |
 | Require branches to be up to date before merging | Recommended |
 | Include administrators | Recommended (see §6 for trade-offs) |
 
-> **`E2E Tests (Playwright)` check behavior:** This check is emitted by `e2e-on-preview.yml`, which triggers on `deployment_status` events. Both client and server Preview deployments emit this check. For the client deployment (`staging-client.ichnos-protocol.com`), Playwright tests execute. For the server deployment (`staging-api.ichnos-protocol.com`), the job succeeds immediately without running tests — this is intentional so the required status check is satisfied for both deployment events. See [`DEPLOYMENT_GITHUB_ACTIONS.md`](DEPLOYMENT_GITHUB_ACTIONS.md) §3 for full hostname-based routing details.
+> **Required checks explained:**
+>
+> - **`Client — Lint & Test`** and **`Server — Lint & Test`**: Produced by `ci.yml`. Run linting, unit tests, and client build verification.
+> - **Vercel deployment checks** (e.g., `Vercel – ichnos-protocol` and `Vercel – ichnos-protocol-server`): Produced by Vercel's native Git integration. These checks confirm that preview deployments build and deploy successfully. **The exact check names are determined by your Vercel project names and may differ from the examples shown here.** To find the correct names: open a recent PR, scroll to the status checks section, and copy the exact Vercel check context strings. Use those exact strings when configuring required status checks — a mismatch will block all merges.
+> - **`E2E Tests (Playwright)`**: Produced by `e2e-on-preview.yml`. Triggered by `deployment_status` events after Vercel completes a preview deployment. For client deployments, Playwright tests execute. For server deployments, the job succeeds immediately without running tests — this is intentional so the required status check is satisfied for both deployment events. See [`DEPLOYMENT_GITHUB_ACTIONS.md`](DEPLOYMENT_GITHUB_ACTIONS.md) §3 for full hostname-based routing details.
 
 ### `release` branch
 
@@ -125,7 +131,7 @@ Configure branch protection rules in **Settings → Branches** (or **Settings �
 | Required status checks | `Release Policy Check` |
 | Include administrators | Recommended |
 
-> **Important:** Check names are frozen in workflow file headers (the `name:` field of each job). Do not rename jobs in workflow YAML without updating the corresponding branch protection rules here. `E2E Tests (Playwright)` is produced by `e2e-on-preview.yml`.
+> **Important:** GitHub Actions check names are frozen in workflow file headers (the `name:` field of each job). Do not rename jobs in workflow YAML without updating the corresponding branch protection rules here. `E2E Tests (Playwright)` is produced by `e2e-on-preview.yml`. Vercel check names are determined by your Vercel project names — always copy the exact context string from a recent PR's checks tab before configuring branch protection rules.
 
 ---
 
@@ -154,10 +160,6 @@ After completing setup (or when verifying an existing configuration), confirm ev
 
 | Setting | Expected State | How to Verify |
 |---|---|---|
-| `VERCEL_TOKEN` secret | Set, non-empty | Settings → Secrets → Actions |
-| `VERCEL_ORG_ID` secret | Set, non-empty | Settings → Secrets → Actions |
-| `VERCEL_PROJECT_ID_CLIENT` secret | Set, non-empty | Settings → Secrets → Actions |
-| `VERCEL_PROJECT_ID_SERVER` secret | Set, non-empty | Settings → Secrets → Actions |
 | `DATABASE_URL` secret | Set, non-empty | Settings → Secrets → Actions |
 | `E2E_ADMIN_EMAIL` secret | Set, non-empty | Settings → Secrets → Actions |
 | `E2E_ADMIN_PASSWORD` secret | Set, non-empty | Settings → Secrets → Actions |
@@ -168,8 +170,12 @@ After completing setup (or when verifying an existing configuration), confirm ev
 | `E2E_SUPER_ADMIN_EMAIL` secret | Set, non-empty | Settings → Secrets → Actions |
 | `E2E_SUPER_ADMIN_PASSWORD` secret | Set, non-empty | Settings → Secrets → Actions |
 | `E2E_SUPER_ADMIN_UID` secret | Set, non-empty | Settings → Secrets → Actions |
+| `VERCEL_TOKEN` secret (production promotion) | Set, non-empty | Settings → Secrets → Actions |
+| `VERCEL_ORG_ID` secret (production promotion) | Set, non-empty | Settings → Secrets → Actions |
+| `VERCEL_PROJECT_ID_CLIENT` secret (production promotion) | Set, non-empty | Settings → Secrets → Actions |
+| `VERCEL_PROJECT_ID_SERVER` secret (production promotion) | Set, non-empty | Settings → Secrets → Actions |
 | `production` environment | Exists with ≥1 required reviewer | Settings → Environments |
-| `main` branch protection | PR required + 3 status checks | Settings → Branches (or Rules → Rulesets) |
+| `main` branch protection | PR required + 5 status checks | Settings → Branches (or Rules → Rulesets) |
 | `release` branch protection | PR required + `Release Policy Check` | Settings → Branches (or Rules → Rulesets) |
 | Include administrators (`main`) | Enabled | Settings → Branches → `main` rule |
 | Include administrators (`release`) | Enabled | Settings → Branches → `release` rule |
@@ -184,17 +190,18 @@ After completing setup (or when verifying an existing configuration), confirm ev
 Use this checklist when setting up a new repository or verifying an existing one:
 
 - [ ] **Old rules cleaned up** — No stale branch protections or rulesets from previous configurations (§1)
-- [ ] **Secrets** — All 14 repository secrets are set (§2)
-  - [ ] `VERCEL_TOKEN`
-  - [ ] `VERCEL_ORG_ID`
-  - [ ] `VERCEL_PROJECT_ID_CLIENT`
-  - [ ] `VERCEL_PROJECT_ID_SERVER`
+- [ ] **Secrets (CI/E2E)** — All 10 CI/E2E secrets are set (§2)
   - [ ] `DATABASE_URL`
   - [ ] `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` / `E2E_ADMIN_UID`
   - [ ] `E2E_USER_EMAIL` / `E2E_USER_PASSWORD` / `E2E_USER_UID`
   - [ ] `E2E_SUPER_ADMIN_EMAIL` / `E2E_SUPER_ADMIN_PASSWORD` / `E2E_SUPER_ADMIN_UID`
+- [ ] **Secrets (production promotion)** — All 4 Vercel secrets are set if using `promote-to-production.yml` or `vercel-promote-production.yml` (§2)
+  - [ ] `VERCEL_TOKEN`
+  - [ ] `VERCEL_ORG_ID`
+  - [ ] `VERCEL_PROJECT_ID_CLIENT`
+  - [ ] `VERCEL_PROJECT_ID_SERVER`
 - [ ] **Environment** — `production` environment exists with at least one required reviewer (§3)
-- [ ] **Branch protection: `main`** — 3 required status checks configured: `Client — Lint & Test`, `Server — Lint & Test`, `E2E Tests (Playwright)` (§4)
+- [ ] **Branch protection: `main`** — 5 required status checks configured: `Client — Lint & Test`, `Server — Lint & Test`, the two Vercel deployment checks (copy exact names from a recent PR's check list), `E2E Tests (Playwright)` (§4)
 - [ ] **Branch protection: `release`** — `Release Policy Check` required + PR required (§4)
 - [ ] **Admin bypass** — "Include administrators" enabled on both branches (§6)
 - [ ] **Verification matrix** — All rows confirmed (§Verification Matrix)

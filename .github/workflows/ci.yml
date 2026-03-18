@@ -1,9 +1,7 @@
-# Required check names: "Client — Lint & Test", "Server — Lint & Test",
-# "Preflight — Secret Validation", "Deploy Client Preview",
-# "Deploy Server Preview", "E2E Tests (Playwright)"
+# Required check names: "Client — Lint & Test", "Server — Lint & Test"
 # These names are registered as required status checks in GitHub rulesets
 # for main. Do not rename without updating rulesets.
-name: Vercel Preview
+name: CI
 
 on:
   pull_request:
@@ -15,7 +13,7 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: vercel-preview-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+  group: ci-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
   cancel-in-progress: true
 
 defaults:
