@@ -106,7 +106,7 @@ jobs:
       - name: Create Neon DB branch
         id: neon
         if: steps.check.outputs.is_client == 'true'
-        uses: neondatabase/create-branch-action@v5
+        uses: neondatabase/create-branch-action@v6
         with:
           project_id: ${{ secrets.NEON_PROJECT_ID }}
           api_key: ${{ secrets.NEON_API_KEY }}
@@ -162,7 +162,7 @@ jobs:
 
       - name: Delete Neon DB branch
         if: always() && steps.check.outputs.is_client == 'true'
-        uses: neondatabase/delete-branch-action@v5
+        uses: neondatabase/delete-branch-action@v3
         with:
           project_id: ${{ secrets.NEON_PROJECT_ID }}
           api_key: ${{ secrets.NEON_API_KEY }}

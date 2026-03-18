@@ -234,10 +234,10 @@ cd server && vercel --prod   # deploy backend
 - See `DEPLOYMENT_GITHUB_ACTIONS.md` for setup instructions.
 
 ### Ephemeral Neon DB branches for E2E
-- Each E2E run provisions an ephemeral Neon DB branch (`e2e-<run_id>`) via `neondatabase/create-branch-action@v5`.
+- Each E2E run provisions an ephemeral Neon DB branch (`e2e-<run_id>`) via `neondatabase/create-branch-action@v6`.
 - Migrations run against the ephemeral branch before seeding test data.
 - The branch `DATABASE_URL` is passed from the create-branch step output — the static `DATABASE_URL` secret is **no longer used** by the E2E workflow.
-- After tests complete (pass or fail), `neondatabase/delete-branch-action@v5` cleans up the branch.
+- After tests complete (pass or fail), `neondatabase/delete-branch-action@v3` cleans up the branch. The delete action uses input key `branch` with the value from the create step's `branch_id` output.
 - Required secrets: `NEON_PROJECT_ID` and `NEON_API_KEY` (repository-level).
 
 ### E2E URL targeting in GitHub Actions

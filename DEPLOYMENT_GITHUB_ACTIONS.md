@@ -115,7 +115,7 @@ Kept here for quick reference. [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md) is the
 | `E2E_USER_EMAIL` / `E2E_USER_PASSWORD` / `E2E_USER_UID` | Regular user test account |
 | `E2E_SUPER_ADMIN_EMAIL` / `E2E_SUPER_ADMIN_PASSWORD` / `E2E_SUPER_ADMIN_UID` | Super-admin test account |
 
-> **Note:** The `DATABASE_URL` secret is **no longer used** by the E2E workflow. Each E2E run provisions an ephemeral Neon DB branch via `neondatabase/create-branch-action@v5`, and the branch URL is passed automatically. The `DATABASE_URL` secret can be removed from repository settings if no other workflow uses it.
+> **Note:** The `DATABASE_URL` secret is **no longer used** by the E2E workflow. Each E2E run provisions an ephemeral Neon DB branch via `neondatabase/create-branch-action@v6`, and the branch URL is passed automatically. After tests complete (pass or fail), cleanup is handled by `neondatabase/delete-branch-action@v3`, which uses the input key `branch` with the value from `steps.neon.outputs.branch_id`. The `DATABASE_URL` secret can be removed from repository settings if no other workflow uses it.
 
 These secrets are sufficient for CI, E2E, and preview deployments. Preview deployments are handled entirely by Vercel's native Git integration — no Vercel API tokens or project IDs are needed.
 
