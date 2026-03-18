@@ -101,46 +101,85 @@ jobs:
             exit 1
           fi
 
-          if [[ -z "$DEPLOYMENT_REF" ]]; then
-            echo "::error::github.event.deployment.ref is empty; cannot derive Neon preview branch name."
-            exit 1
-          fi
-
-          BRANCH_NAME="preview/$DEPLOYMENT_REF"
-          ENCODED_BRANCH_NAME=$(jq -rn --arg v "$BRANCH_NAME" '$v|@uri')
           NEON_API_BASE="https://console.neon.tech/api/v2"
           MAX_ATTEMPTS=6
           SLEEP_SECONDS=5
 
-          echo "Resolving Neon-managed preview branch for ref: $DEPLOYMENT_REF"
-          echo "Derived Neon branch name: $BRANCH_NAME"
+          echo "Resolving Neon-managed preview branch for deployment ref: $DEPLOYMENT_REF"
           echo "Lookup retry policy: $MAX_ATTEMPTS attempts with ${SLEEP_SECONDS}s backoff"
 
+          # Vercel deployment_status often sets deployment.ref to commit SHA.
+          # Build branch-ref candidates from deployment payload metadata, then map to preview/<ref>.
+          RAW_REF_CANDIDATES=$(jq -r '
+            [
+              .deployment.payload.deployment.meta.githubCommitRef,
+              .deployment.payload.githubCommitRef,
+              .deployment.payload.branch,
+              .deployment.payload.ref,
+              .deployment.ref
+            ]
+            | map(select(type == "string" and length > 0))
+            | unique
+            | .[]
+          ' "$GITHUB_EVENT_PATH")
+
+          mapfile -t REF_CANDIDATES < <(
+            printf '%s\n' "$RAW_REF_CANDIDATES" \
+              | sed -E 's#^refs/heads/##' \
+              | awk 'NF' \
+              | awk '!seen[$0]++'
+          )
+
+          FILTERED_REF_CANDIDATES=()
+          for candidate in "${REF_CANDIDATES[@]}"; do
+            if [[ "$candidate" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "Skipping SHA-like ref candidate for Neon preview branch naming: $candidate"
+              continue
+            fi
+            FILTERED_REF_CANDIDATES+=("$candidate")
+          done
+
+          if [[ ${#FILTERED_REF_CANDIDATES[@]} -eq 0 ]]; then
+            echo "::error::No usable branch ref candidate found in deployment event for Neon-managed preview branch lookup (project '$NEON_PROJECT_ID', deployment.ref='$DEPLOYMENT_REF')."
+            exit 1
+          fi
+
+          CANDIDATE_LABEL=$(printf "%s " "${FILTERED_REF_CANDIDATES[@]}")
+          echo "Neon preview branch ref candidates: $CANDIDATE_LABEL"
+
           BRANCH_ID=""
-          for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
-            BRANCHES_RESPONSE=$(curl --fail --silent --show-error \
-              -H "Authorization: Bearer $NEON_API_KEY" \
-              "$NEON_API_BASE/projects/$NEON_PROJECT_ID/branches?search=$ENCODED_BRANCH_NAME" || true)
+          RESOLVED_BRANCH_NAME=""
+          for ref_candidate in "${FILTERED_REF_CANDIDATES[@]}"; do
+            BRANCH_NAME="preview/$ref_candidate"
+            ENCODED_BRANCH_NAME=$(jq -rn --arg v "$BRANCH_NAME" '$v|@uri')
+            echo "Trying Neon preview branch candidate: $BRANCH_NAME"
 
-            BRANCH_ID=$(echo "$BRANCHES_RESPONSE" | jq -r --arg name "$BRANCH_NAME" '
-              .branches
-              | map(select(.name == $name))
-              | .[0].id // empty
-            ')
+            for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
+              BRANCHES_RESPONSE=$(curl --fail --silent --show-error \
+                -H "Authorization: Bearer $NEON_API_KEY" \
+                "$NEON_API_BASE/projects/$NEON_PROJECT_ID/branches?search=$ENCODED_BRANCH_NAME" || true)
 
-            if [[ -n "$BRANCH_ID" ]]; then
-              echo "Resolved Neon branch id on attempt $attempt/$MAX_ATTEMPTS: $BRANCH_ID"
-              break
-            fi
+              BRANCH_ID=$(echo "$BRANCHES_RESPONSE" | jq -r --arg name "$BRANCH_NAME" '
+                .branches
+                | map(select(.name == $name))
+                | .[0].id // empty
+              ')
 
-            if [[ "$attempt" -lt "$MAX_ATTEMPTS" ]]; then
-              echo "Neon-managed preview branch '$BRANCH_NAME' not visible yet (attempt $attempt/$MAX_ATTEMPTS). Retrying in ${SLEEP_SECONDS}s..."
-              sleep "$SLEEP_SECONDS"
-            fi
+              if [[ -n "$BRANCH_ID" ]]; then
+                RESOLVED_BRANCH_NAME="$BRANCH_NAME"
+                echo "Resolved Neon branch '$RESOLVED_BRANCH_NAME' on attempt $attempt/$MAX_ATTEMPTS: $BRANCH_ID"
+                break 2
+              fi
+
+              if [[ "$attempt" -lt "$MAX_ATTEMPTS" ]]; then
+                echo "Neon-managed preview branch '$BRANCH_NAME' not visible yet (attempt $attempt/$MAX_ATTEMPTS). Retrying in ${SLEEP_SECONDS}s..."
+                sleep "$SLEEP_SECONDS"
+              fi
+            done
           done
 
           if [[ -z "$BRANCH_ID" ]]; then
-            echo "::error::Failed to resolve Neon-managed preview branch '$BRANCH_NAME' in project '$NEON_PROJECT_ID' after $MAX_ATTEMPTS attempts."
+            echo "::error::Failed to resolve Neon-managed preview branch in project '$NEON_PROJECT_ID' after trying candidates '$CANDIDATE_LABEL' (mapped as preview/<ref>) with $MAX_ATTEMPTS attempts each."
             exit 1
           fi
 
@@ -158,13 +197,13 @@ jobs:
             fi
 
             if [[ "$attempt" -lt "$MAX_ATTEMPTS" ]]; then
-              echo "Connection URI not available yet for branch '$BRANCH_NAME' (id: $BRANCH_ID) on attempt $attempt/$MAX_ATTEMPTS. Retrying in ${SLEEP_SECONDS}s..."
+              echo "Connection URI not available yet for branch '$RESOLVED_BRANCH_NAME' (id: $BRANCH_ID) on attempt $attempt/$MAX_ATTEMPTS. Retrying in ${SLEEP_SECONDS}s..."
               sleep "$SLEEP_SECONDS"
             fi
           done
 
           if [[ -z "$EFFECTIVE_DB_URL" ]]; then
-            echo "::error::Failed to resolve connection URI for Neon-managed preview branch '$BRANCH_NAME' in project '$NEON_PROJECT_ID' (branch id: '$BRANCH_ID') after $MAX_ATTEMPTS attempts."
+            echo "::error::Failed to resolve connection URI for Neon-managed preview branch '$RESOLVED_BRANCH_NAME' in project '$NEON_PROJECT_ID' (branch id: '$BRANCH_ID') after $MAX_ATTEMPTS attempts."
             exit 1
           fi
 
