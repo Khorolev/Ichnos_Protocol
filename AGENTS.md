@@ -138,9 +138,10 @@ cd server && vercel --prod   # deploy backend
 
 - E2E tests live in `e2e/tests/` at the repository root (separate from client/server).
 - **Local**: Start client + server locally, run `cd e2e && npx playwright test`.
-- **CI**: E2E is triggered by `deployment_status` events via `e2e-on-preview.yml`. When Vercel completes a Preview deployment, the workflow classifies `deployment_status.target_url` by hostname using two detection families:
+- **CI**: E2E is triggered by `deployment_status` events via `e2e-on-preview.yml`. When Vercel completes a Preview deployment, the workflow classifies `deployment_status.target_url` by hostname using three detection families:
   - **Custom domains**: `staging-client.ichnos-protocol.com` → run Playwright; `staging-api.ichnos-protocol.com` → intentional skip.
-  - **Auto-preview URLs** (feature-branch deployments): `ichnos-protocol-git-*` (excluding `ichnos-protocol-server-git-*`) → run Playwright; `ichnos-protocol-server-git-*` → intentional skip.
+  - **Auto-preview URLs — git-branch pattern**: `ichnos-protocol-git-*` (excluding server variants) → run Playwright; `ichnos-protocol-server-git-*` or `ichnos-protocolserver-git-*` → intentional skip. Both server slug variants are matched for compatibility.
+  - **Auto-preview URLs — hash-based pattern**: `ichnos-protocol-*-khorolevs-projects.vercel.app` (excluding `ichnos-protocolserver-*`) → run Playwright; `ichnos-protocolserver-*-khorolevs-projects.vercel.app` → intentional skip. These are valid Vercel preview targets classified by hostname routing.
   - Unknown hostnames fail fast (`exit 1`). Hostname routing is the source of truth for E2E target classification. Both client and server events emit the `E2E Tests (Playwright)` check context.
 - A standalone `e2e.yml` workflow exists for **manual/ad-hoc** runs via `workflow_dispatch` (requires a `base_url` input).
 - Browsers: Chromium, Firefox, WebKit in CI; Chromium-only locally.
@@ -198,7 +199,7 @@ cd server && vercel --prod   # deploy backend
 - **Backend** (`server/`): Express app wrapped as a Vercel serverless function via `server/api/index.js` using `@vercel/node`.
 - **Vercel Git integration handles preview deployments** automatically on every branch push and PR — no GitHub Actions workflow is involved in creating previews.
 - **Enforced pipeline order**: CI → Vercel Preview (native) → E2E (Playwright via `deployment_status`) → manual production promotion.
-- `deployment_status` events from Vercel trigger `e2e-on-preview.yml`, which classifies the target URL by hostname to decide whether to run Playwright tests.
+- `deployment_status` events from Vercel trigger `e2e-on-preview.yml`, which classifies the target URL by hostname to decide whether to run Playwright tests. Three hostname families are recognized: custom domains, `-git-` auto-preview URLs, and hash-based auto-preview URLs.
 - Production promotion is always manual (via `Promote to Production` workflow with approval gate).
 - Environment variables set in Vercel project settings, never committed.
 - `server/api/index.js` only re-exports the Express app. All setup stays in `server/src/app.js`.
@@ -232,13 +233,22 @@ cd server && vercel --prod   # deploy backend
 - **Fork PR trust boundary**: Vercel's Git integration does not expose environment variables to builds from forks by default, preventing secret exfiltration via attacker-controlled code.
 - See `DEPLOYMENT_GITHUB_ACTIONS.md` for setup instructions.
 
+### Ephemeral Neon DB branches for E2E
+- Each E2E run provisions an ephemeral Neon DB branch (`e2e-<run_id>`) via `neondatabase/create-branch-action@v6`.
+- Migrations run against the ephemeral branch before seeding test data.
+- The branch `DATABASE_URL` is passed from the create-branch step output — the static `DATABASE_URL` secret is **no longer used** by the E2E workflow.
+- After tests complete (pass or fail), `neondatabase/delete-branch-action@v3` cleans up the branch. The delete action uses input key `branch` with the value from the create step's `branch_id` output.
+- Required secrets: `NEON_PROJECT_ID` and `NEON_API_KEY` (repository-level).
+
 ### E2E URL targeting in GitHub Actions
 - E2E tests are triggered by `deployment_status` events via `e2e-on-preview.yml`, not as a dependent job inside another workflow.
-- Hostname-based routing on `deployment_status.target_url` is the source of truth. Two detection families are used:
+- Hostname-based routing on `deployment_status.target_url` is the source of truth. Three detection families are used:
   - **Custom domains**: `staging-client.ichnos-protocol.com` → run Playwright; `staging-api.ichnos-protocol.com` → skip.
-  - **Auto-preview URLs**: `ichnos-protocol-git-*` (excluding `ichnos-protocol-server-git-*`) → run Playwright; `ichnos-protocol-server-git-*` → skip.
+  - **Auto-preview URLs — git-branch pattern**: `ichnos-protocol-git-*` (excluding server variants) → run Playwright; `ichnos-protocol-server-git-*` or `ichnos-protocolserver-git-*` → skip. Both server slug variants are matched for compatibility.
+  - **Auto-preview URLs — hash-based pattern**: `ichnos-protocol-*-khorolevs-projects.vercel.app` (excluding `ichnos-protocolserver-*`) → run Playwright; `ichnos-protocolserver-*-khorolevs-projects.vercel.app` → skip. Hash-based hostnames are valid Vercel preview targets.
 - Unknown hostnames fail fast (`exit 1`) to flag unexpected deployment patterns for investigation.
 - Detection uses `deployment_status.target_url` hostname matching, **not** `VERCEL_PROJECT_ID_CLIENT` or any other secret.
+- Note: Vercel server project slug is `ichnos-protocolserver` (no hyphen before "server") — this affects both `-git-` and hash-based hostname patterns. The workflow also matches `ichnos-protocol-server-git-*` (with hyphen) for backward compatibility.
 - A standalone `e2e.yml` workflow exists for manual/ad-hoc runs via `workflow_dispatch`.
 - E2E tests must target the **client** deployment URL only, never the server.
 

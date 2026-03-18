@@ -12,7 +12,7 @@ The GitHub repository requires the following settings to support the 2-branch de
 
 | Area | What | Why |
 |---|---|---|
-| **Repository Secrets** | 10 secrets for CI/E2E + 4 additional secrets for production promotion (14 total) | CI/E2E workflows need database and test accounts; production promotion workflows need Vercel API access |
+| **Repository Secrets** | 11 secrets for CI/E2E + 4 additional secrets for production promotion (15 total) | CI/E2E workflows need Neon DB access and test accounts; production promotion workflows need Vercel API access |
 | **Environments** | `production` environment with required reviewers | Production promotion workflow pauses for human approval before deploying |
 | **Branch Protections** | `main` (5 required checks + PR required) and `release` (1 required check + PR required) | Enforces the CI → Preview → E2E → merge pipeline and the `main`-only release policy |
 | **Old Rule Cleanup** | Remove stale branch protections and rulesets from previous configurations | Stale rules (e.g., for `staging`, `e2e-testing`, or different check names) can block merges or silently bypass the pipeline |
@@ -54,11 +54,14 @@ If this repository was previously configured with different branch protections (
 
 Navigate to **Settings → Secrets and variables → Actions → New repository secret** and add each secret listed below.
 
-### Database Secrets
+### Neon DB Secrets (ephemeral E2E branches)
 
 | Secret | Description | Where to Find |
 |---|---|---|
-| `DATABASE_URL` | PostgreSQL connection string (used by E2E seed step) | Neon Tech → Project → Connection Details |
+| `NEON_PROJECT_ID` | Neon project ID for creating ephemeral E2E branches | Neon Tech → Project → Settings → General |
+| `NEON_API_KEY` | Neon API key for creating/deleting branches | Neon Tech → Account → API Keys |
+
+> **Note:** The `DATABASE_URL` secret is **no longer used** by the E2E workflow. Each run provisions an ephemeral Neon DB branch automatically. You may remove `DATABASE_URL` from repository secrets if no other workflow references it.
 
 ### E2E Test Account Secrets
 
@@ -160,7 +163,8 @@ After completing setup (or when verifying an existing configuration), confirm ev
 
 | Setting | Expected State | How to Verify |
 |---|---|---|
-| `DATABASE_URL` secret | Set, non-empty | Settings → Secrets → Actions |
+| `NEON_PROJECT_ID` secret | Set, non-empty | Settings → Secrets → Actions |
+| `NEON_API_KEY` secret | Set, non-empty | Settings → Secrets → Actions |
 | `E2E_ADMIN_EMAIL` secret | Set, non-empty | Settings → Secrets → Actions |
 | `E2E_ADMIN_PASSWORD` secret | Set, non-empty | Settings → Secrets → Actions |
 | `E2E_ADMIN_UID` secret | Set, non-empty | Settings → Secrets → Actions |
@@ -190,8 +194,9 @@ After completing setup (or when verifying an existing configuration), confirm ev
 Use this checklist when setting up a new repository or verifying an existing one:
 
 - [ ] **Old rules cleaned up** — No stale branch protections or rulesets from previous configurations (§1)
-- [ ] **Secrets (CI/E2E)** — All 10 CI/E2E secrets are set (§2)
-  - [ ] `DATABASE_URL`
+- [ ] **Secrets (CI/E2E)** — All 11 CI/E2E secrets are set (§2)
+  - [ ] `NEON_PROJECT_ID`
+  - [ ] `NEON_API_KEY`
   - [ ] `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` / `E2E_ADMIN_UID`
   - [ ] `E2E_USER_EMAIL` / `E2E_USER_PASSWORD` / `E2E_USER_UID`
   - [ ] `E2E_SUPER_ADMIN_EMAIL` / `E2E_SUPER_ADMIN_PASSWORD` / `E2E_SUPER_ADMIN_UID`

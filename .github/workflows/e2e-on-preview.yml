@@ -11,9 +11,12 @@
 #   Custom domains:
 #     - staging-client.ichnos-protocol.com → client deployment → run E2E
 #     - staging-api.ichnos-protocol.com → server deployment → skip E2E
-#   Auto-preview URLs (feature-branch deployments):
-#     - ichnos-protocol-git-* (excluding ichnos-protocol-server-git-*) → client → run E2E
-#     - ichnos-protocol-server-git-* → server → skip E2E
+#   Auto-preview URLs — git-branch pattern:
+#     - ichnos-protocol-git-* (excluding server variants) → client → run E2E
+#     - ichnos-protocol-server-git-* OR ichnos-protocolserver-git-* → server → skip E2E
+#   Auto-preview URLs — hash-based pattern:
+#     - ichnos-protocol-*-khorolevs-projects.vercel.app (excluding ichnos-protocolserver-*) → client → run E2E
+#     - ichnos-protocolserver-*-khorolevs-projects.vercel.app → server → skip E2E
 #   Production domains (*.vercel.app, ichnos-protocol.com):
 #     - Skipped — production deployments do not trigger E2E in this workflow
 #   Unknown hostname → fail fast
@@ -37,7 +40,7 @@ jobs:
     # preview routing decisions are handled inside "Validate deployment target".
     if: github.event.deployment_status.state == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     steps:
       - name: Validate deployment target
@@ -56,11 +59,17 @@ jobs:
           elif [[ "$HOSTNAME" == "staging-api.ichnos-protocol.com" ]]; then
             echo "Server deployment detected (custom domain); E2E intentionally skipped."
             echo "is_client=false" >> "$GITHUB_OUTPUT"
-          elif [[ "$HOSTNAME" == ichnos-protocol-server-git-* ]]; then
+          elif [[ "$HOSTNAME" == ichnos-protocol-server-git-* ]] || [[ "$HOSTNAME" == ichnos-protocolserver-git-* ]]; then
             echo "Server deployment detected (auto-preview URL: $HOSTNAME); E2E intentionally skipped."
             echo "is_client=false" >> "$GITHUB_OUTPUT"
           elif [[ "$HOSTNAME" == ichnos-protocol-git-* ]]; then
             echo "Client deployment detected (auto-preview URL: $HOSTNAME). Running E2E tests."
+            echo "is_client=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$HOSTNAME" == ichnos-protocolserver-*-khorolevs-projects.vercel.app ]]; then
+            echo "Server deployment detected (hash-based preview URL: $HOSTNAME); E2E intentionally skipped."
+            echo "is_client=false" >> "$GITHUB_OUTPUT"
+          elif [[ "$HOSTNAME" == ichnos-protocol-*-khorolevs-projects.vercel.app ]]; then
+            echo "Client deployment detected (hash-based preview URL: $HOSTNAME). Running E2E tests."
             echo "is_client=true" >> "$GITHUB_OUTPUT"
           elif [[ "$HOSTNAME" == *.vercel.app ]] || [[ "$HOSTNAME" == ichnos-protocol.com ]] || [[ "$HOSTNAME" == *.ichnos-protocol.com ]]; then
             echo "Production deployment detected ($HOSTNAME); E2E intentionally skipped."
@@ -94,20 +103,39 @@ jobs:
         working-directory: e2e
         run: npx playwright install --with-deps chromium firefox webkit
 
+      - name: Create Neon DB branch
+        id: neon
+        if: steps.check.outputs.is_client == 'true'
+        uses: neondatabase/create-branch-action@v6
+        with:
+          project_id: ${{ secrets.NEON_PROJECT_ID }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          branch_name: e2e-${{ github.run_id }}
+
+      - name: Install server dependencies
+        if: steps.check.outputs.is_client == 'true'
+        working-directory: server
+        run: npm ci --omit=dev
+
+      - name: Run migrations
+        if: steps.check.outputs.is_client == 'true'
+        working-directory: server
+        env:
+          DATABASE_URL: ${{ steps.neon.outputs.db_url }}
+        run: node scripts/runMigrations.js
+
       - name: Seed E2E test data
         if: steps.check.outputs.is_client == 'true'
         working-directory: server
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL: ${{ steps.neon.outputs.db_url }}
           E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
           E2E_ADMIN_UID: ${{ secrets.E2E_ADMIN_UID }}
           E2E_USER_UID: ${{ secrets.E2E_USER_UID }}
           E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
           E2E_SUPER_ADMIN_UID: ${{ secrets.E2E_SUPER_ADMIN_UID }}
           E2E_SUPER_ADMIN_EMAIL: ${{ secrets.E2E_SUPER_ADMIN_EMAIL }}
-        run: |
-          npm ci --omit=dev
-          node scripts/seedE2EData.js
+        run: node scripts/seedE2EData.js
 
       - name: Run Playwright tests
         id: playwright
@@ -131,6 +159,14 @@ jobs:
           name: playwright-report
           path: e2e/playwright-report/
           retention-days: 14
+
+      - name: Delete Neon DB branch
+        if: always() && steps.check.outputs.is_client == 'true'
+        uses: neondatabase/delete-branch-action@v3
+        with:
+          project_id: ${{ secrets.NEON_PROJECT_ID }}
+          api_key: ${{ secrets.NEON_API_KEY }}
+          branch: ${{ steps.neon.outputs.branch_id }}
 
       - name: Job summary
         if: always()

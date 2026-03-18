@@ -91,6 +91,9 @@ try {
   }
 
   console.log("E2E seed complete");
+} catch (err) {
+  console.error(err.message);
+  process.exit(1);
 } finally {
   await pool.end();
 }

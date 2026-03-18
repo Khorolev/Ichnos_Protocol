@@ -7,7 +7,7 @@ export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
   forbidOnly: IS_CI,
-  retries: IS_CI ? 2 : 0,
+  retries: IS_CI ? 1 : 0,
   workers: IS_CI ? 1 : undefined,
   reporter: IS_CI ? 'html' : 'list',
   timeout: 30_000,
