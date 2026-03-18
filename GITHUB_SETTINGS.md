@@ -13,7 +13,7 @@ The GitHub repository requires the following settings to support the 2-branch de
 | Area                      | What                                                                                    | Why                                                                                                                         |
 | ------------------------- | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | **Repository Secrets**    | 10 secrets for CI/E2E + 4 additional secrets for production promotion (14 total)        | CI/E2E workflows need Neon DB access and test accounts; production promotion workflows need Vercel API access               |
-| **Repository Variables**  | 1 variable for CI/E2E (`NEON_PROJECT_ID`)                                               | E2E workflows reference `vars.NEON_PROJECT_ID` for Neon branch operations                                                   |
+| **Repository Variables**  | 1 variable for CI/E2E (`NEON_PROJECT_ID`)                                               | E2E workflows reference `vars.NEON_PROJECT_ID` for Neon-managed preview branch lookup                                       |
 | **Environments**          | `production` environment with required reviewers                                        | Production promotion workflow pauses for human approval before deploying                                                    |
 | **Branch Protections**    | `main` (5 required checks + PR required) and `release` (1 required check + PR required) | Enforces the CI → Preview → E2E → merge pipeline and the `main`-only release policy                                         |
 | **Old Rule Cleanup**      | Remove stale branch protections and rulesets from previous configurations               | Stale rules (e.g., for `staging`, `e2e-testing`, or different check names) can block merges or silently bypass the pipeline |
@@ -55,15 +55,15 @@ If this repository was previously configured with different branch protections (
 
 Navigate to **Settings → Secrets and variables → Actions → New repository secret** and add each secret listed below.
 
-### Neon DB Secrets (ephemeral E2E branches)
+### Neon DB Secrets (Neon-managed preview branch lookup)
 
-| Secret         | Description                                 | Where to Find                  |
-| -------------- | ------------------------------------------- | ------------------------------ |
-| `NEON_API_KEY` | Neon API key for creating/deleting branches | Neon Tech → Account → API Keys |
+| Secret         | Description                                                    | Where to Find                  |
+| -------------- | -------------------------------------------------------------- | ------------------------------ |
+| `NEON_API_KEY` | Neon API key for Neon-managed preview branch connection lookup | Neon Tech → Account → API Keys |
 
-> **Note:** The `DATABASE_URL` secret is **no longer used** by the E2E workflow. Each run provisions an ephemeral Neon DB branch automatically. You may remove `DATABASE_URL` from repository secrets if no other workflow references it.
+> **Note:** The `DATABASE_URL` secret is **no longer used** by the E2E workflow. The workflow resolves `effective_db_url` from the Neon-managed preview branch (`preview/<deployment ref>`) via Neon REST API.
 
-> **Repository variable required:** `NEON_PROJECT_ID` must be configured as a repository variable (not a secret) and is referenced in workflows via `vars.NEON_PROJECT_ID`. Both `NEON_API_KEY` and `NEON_PROJECT_ID` are auto-provisioned by the Neon GitHub Integration, so no manual setup is required.
+> **Repository variable required:** `NEON_PROJECT_ID` must be configured as a repository variable (not a secret) and is referenced in workflows via `vars.NEON_PROJECT_ID`. Together with `NEON_API_KEY`, it is used to resolve the Neon-managed preview branch connection URI for E2E migration/seeding.
 
 ### E2E Test Account Secrets
 

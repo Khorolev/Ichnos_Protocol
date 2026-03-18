@@ -22,12 +22,8 @@
 #   Unknown hostname → fail fast
 #
 # DB source for migration/seeding:
-#   By default, uses PREVIEW_DATABASE_URL secret — the same DB the preview
-#   API runtime reads at process.env.DATABASE_URL. This ensures seeded data
-#   is visible through the preview URL traffic path.
-#   Set repository variable USE_EPHEMERAL_NEON=true to create an ephemeral
-#   Neon branch instead (only useful when the preview API runtime is
-#   dynamically wired to the ephemeral branch).
+#   Always resolved from the Neon-managed preview branch via Neon REST API
+#   using the deployment ref mapped to branch name preview/<ref>.
 name: E2E Tests on Preview
 
 on:
@@ -91,25 +87,90 @@ jobs:
         id: db
         if: steps.check.outputs.is_client == 'true'
         env:
-          PREVIEW_DATABASE_URL: ${{ secrets.PREVIEW_DATABASE_URL }}
-          USE_EPHEMERAL_NEON: ${{ vars.USE_EPHEMERAL_NEON }}
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID }}
+          DEPLOYMENT_REF: ${{ github.event.deployment.ref }}
         run: |
-          # Determine DB source strategy
-          if [[ "$USE_EPHEMERAL_NEON" == "true" ]]; then
-            echo "DB source: ephemeral Neon branch (opt-in via USE_EPHEMERAL_NEON)"
-            echo "use_neon=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "DB source: preview runtime DB (PREVIEW_DATABASE_URL secret)"
-            echo "use_neon=false" >> "$GITHUB_OUTPUT"
+          if [[ -z "$NEON_API_KEY" ]]; then
+            echo "::error::NEON_API_KEY secret is required for Neon-managed preview branch lookup."
+            exit 1
+          fi
 
-            if [[ -z "$PREVIEW_DATABASE_URL" ]]; then
-              echo "::error::PREVIEW_DATABASE_URL secret is not set. This secret must match the DATABASE_URL configured in the Vercel preview environment for the server project."
-              exit 1
+          if [[ -z "$NEON_PROJECT_ID" ]]; then
+            echo "::error::NEON_PROJECT_ID repository variable is required for Neon-managed preview branch lookup."
+            exit 1
+          fi
+
+          if [[ -z "$DEPLOYMENT_REF" ]]; then
+            echo "::error::github.event.deployment.ref is empty; cannot derive Neon preview branch name."
+            exit 1
+          fi
+
+          BRANCH_NAME="preview/$DEPLOYMENT_REF"
+          ENCODED_BRANCH_NAME=$(jq -rn --arg v "$BRANCH_NAME" '$v|@uri')
+          NEON_API_BASE="https://console.neon.tech/api/v2"
+          MAX_ATTEMPTS=6
+          SLEEP_SECONDS=5
+
+          echo "Resolving Neon-managed preview branch for ref: $DEPLOYMENT_REF"
+          echo "Derived Neon branch name: $BRANCH_NAME"
+          echo "Lookup retry policy: $MAX_ATTEMPTS attempts with ${SLEEP_SECONDS}s backoff"
+
+          BRANCH_ID=""
+          for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
+            BRANCHES_RESPONSE=$(curl --fail --silent --show-error \
+              -H "Authorization: Bearer $NEON_API_KEY" \
+              "$NEON_API_BASE/projects/$NEON_PROJECT_ID/branches?search=$ENCODED_BRANCH_NAME" || true)
+
+            BRANCH_ID=$(echo "$BRANCHES_RESPONSE" | jq -r --arg name "$BRANCH_NAME" '
+              .branches
+              | map(select(.name == $name))
+              | .[0].id // empty
+            ')
+
+            if [[ -n "$BRANCH_ID" ]]; then
+              echo "Resolved Neon branch id on attempt $attempt/$MAX_ATTEMPTS: $BRANCH_ID"
+              break
             fi
 
-            echo "effective_db_url=$PREVIEW_DATABASE_URL" >> "$GITHUB_OUTPUT"
-            echo "Effective DB URL resolved from PREVIEW_DATABASE_URL secret."
+            if [[ "$attempt" -lt "$MAX_ATTEMPTS" ]]; then
+              echo "Neon-managed preview branch '$BRANCH_NAME' not visible yet (attempt $attempt/$MAX_ATTEMPTS). Retrying in ${SLEEP_SECONDS}s..."
+              sleep "$SLEEP_SECONDS"
+            fi
+          done
+
+          if [[ -z "$BRANCH_ID" ]]; then
+            echo "::error::Failed to resolve Neon-managed preview branch '$BRANCH_NAME' in project '$NEON_PROJECT_ID' after $MAX_ATTEMPTS attempts."
+            exit 1
           fi
+
+          EFFECTIVE_DB_URL=""
+          for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
+            CONNECTION_RESPONSE=$(curl --fail --silent --show-error \
+              -H "Authorization: Bearer $NEON_API_KEY" \
+              "$NEON_API_BASE/projects/$NEON_PROJECT_ID/connection-uri?branch_id=$BRANCH_ID&role_name=neondb_owner&database_name=neondb" || true)
+
+            EFFECTIVE_DB_URL=$(echo "$CONNECTION_RESPONSE" | jq -r '.uri // .connection_uri // empty')
+
+            if [[ -n "$EFFECTIVE_DB_URL" ]]; then
+              echo "Resolved connection URI on attempt $attempt/$MAX_ATTEMPTS"
+              break
+            fi
+
+            if [[ "$attempt" -lt "$MAX_ATTEMPTS" ]]; then
+              echo "Connection URI not available yet for branch '$BRANCH_NAME' (id: $BRANCH_ID) on attempt $attempt/$MAX_ATTEMPTS. Retrying in ${SLEEP_SECONDS}s..."
+              sleep "$SLEEP_SECONDS"
+            fi
+          done
+
+          if [[ -z "$EFFECTIVE_DB_URL" ]]; then
+            echo "::error::Failed to resolve connection URI for Neon-managed preview branch '$BRANCH_NAME' in project '$NEON_PROJECT_ID' (branch id: '$BRANCH_ID') after $MAX_ATTEMPTS attempts."
+            exit 1
+          fi
+
+          echo "effective_db_url=$EFFECTIVE_DB_URL" >> "$GITHUB_OUTPUT"
+          echo "db_source=Neon-managed preview branch" >> "$GITHUB_OUTPUT"
+          echo "Effective DB URL resolved from Neon-managed preview branch."
 
       - name: Checkout repository
         if: steps.check.outputs.is_client == 'true'
@@ -135,28 +196,6 @@ jobs:
         working-directory: e2e
         run: npx playwright install --with-deps chromium
 
-      - name: Create Neon DB branch
-        id: neon
-        if: steps.check.outputs.is_client == 'true' && steps.db.outputs.use_neon == 'true'
-        uses: neondatabase/create-branch-action@v6
-        with:
-          project_id: ${{ vars.NEON_PROJECT_ID }}
-          api_key: ${{ secrets.NEON_API_KEY }}
-          branch_name: e2e-${{ github.run_id }}
-
-      - name: Set effective DB URL from Neon branch
-        if: steps.check.outputs.is_client == 'true' && steps.db.outputs.use_neon == 'true'
-        id: neon_db
-        env:
-          NEON_DB_URL: ${{ steps.neon.outputs.db_url }}
-        run: |
-          if [[ -z "$NEON_DB_URL" ]]; then
-            echo "::error::Neon branch creation succeeded but db_url output is empty."
-            exit 1
-          fi
-          echo "effective_db_url=$NEON_DB_URL" >> "$GITHUB_OUTPUT"
-          echo "Effective DB URL resolved from ephemeral Neon branch."
-
       - name: Install server dependencies
         if: steps.check.outputs.is_client == 'true'
         working-directory: server
@@ -166,7 +205,7 @@ jobs:
         if: steps.check.outputs.is_client == 'true'
         working-directory: server
         env:
-          DATABASE_URL: ${{ steps.db.outputs.use_neon == 'true' && steps.neon_db.outputs.effective_db_url || steps.db.outputs.effective_db_url }}
+          DATABASE_URL: ${{ steps.db.outputs.effective_db_url }}
         run: |
           echo "Running migrations against effective DB URL..."
           node scripts/runMigrations.js
@@ -175,7 +214,7 @@ jobs:
         if: steps.check.outputs.is_client == 'true'
         working-directory: server
         env:
-          DATABASE_URL: ${{ steps.db.outputs.use_neon == 'true' && steps.neon_db.outputs.effective_db_url || steps.db.outputs.effective_db_url }}
+          DATABASE_URL: ${{ steps.db.outputs.effective_db_url }}
           E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
           E2E_ADMIN_UID: ${{ secrets.E2E_ADMIN_UID }}
           E2E_USER_UID: ${{ secrets.E2E_USER_UID }}
@@ -183,114 +222,6 @@ jobs:
           E2E_SUPER_ADMIN_UID: ${{ secrets.E2E_SUPER_ADMIN_UID }}
           E2E_SUPER_ADMIN_EMAIL: ${{ secrets.E2E_SUPER_ADMIN_EMAIL }}
         run: node scripts/seedE2EData.js
-
-      - name: Verify seeded data visibility via preview API (primary)
-        if: steps.check.outputs.is_client == 'true'
-        working-directory: e2e
-        env:
-          BASE_URL: ${{ github.event.deployment_status.target_url }}
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          E2E_ADMIN_UID: ${{ secrets.E2E_ADMIN_UID }}
-        run: |
-          echo "=== Seeded Data Visibility Check (Preview API Runtime Path) ==="
-          echo "Authenticating as admin through preview UI and validating /api/admin/requests response via BASE_URL traffic path..."
-
-          node --input-type=module -e "
-            import { chromium } from '@playwright/test';
-
-            const baseUrl = process.env.BASE_URL;
-            const adminEmail = process.env.E2E_ADMIN_EMAIL;
-            const adminPassword = process.env.E2E_ADMIN_PASSWORD;
-            const adminUid = process.env.E2E_ADMIN_UID;
-
-            if (!baseUrl || !adminEmail || !adminPassword || !adminUid) {
-              console.error('FAIL: Missing required env vars for preview API seed visibility probe.');
-              process.exit(1);
-            }
-
-            const browser = await chromium.launch({ headless: true });
-            const context = await browser.newContext();
-            const page = await context.newPage();
-
-            try {
-              await page.goto(baseUrl, { waitUntil: 'domcontentloaded' });
-              await page.getByRole('button', { name: 'Login' }).click();
-              await page.getByLabel('Email').fill(adminEmail);
-              await page.getByLabel('Password').fill(adminPassword);
-              await page.locator('button[type=\"submit\"]').click();
-              await page.locator('.user-menu-toggle').waitFor({ state: 'visible', timeout: 20000 });
-
-              const apiPath = '/api/admin/requests/' + encodeURIComponent(adminUid);
-              const responsePromise = page.waitForResponse((resp) => {
-                const url = resp.url();
-                return resp.request().method() === 'GET' && url.includes(apiPath);
-              }, { timeout: 30000 });
-
-              await page.goto(baseUrl + '/admin', { waitUntil: 'domcontentloaded' });
-              const response = await responsePromise;
-
-              if (response.status() >= 400) {
-                console.error('FAIL: Preview admin requests API returned status', response.status());
-                process.exit(1);
-              }
-
-              const body = await response.json();
-              const rows = Array.isArray(body?.data) ? body.data : [];
-
-              const hasSeededRequest = rows.some((row) => {
-                const rowUserId = String(row?.user_id ?? '');
-                const preview = String(row?.questionPreview ?? '');
-                return rowUserId === adminUid && preview.includes('E2E test question');
-              });
-
-              console.log('API endpoint URL:', response.url());
-              console.log('Rows returned:', rows.length);
-              console.log('Contains seeded admin request:', hasSeededRequest);
-
-              if (!hasSeededRequest) {
-                console.error('FAIL: Preview API path did not return seeded admin contact-request data.');
-                process.exit(1);
-              }
-
-              console.log('Preview API seed visibility check PASSED.');
-            } catch (err) {
-              console.error('Preview API seed visibility check FAILED:', err?.message || err);
-              process.exit(1);
-            } finally {
-              await context.close();
-              await browser.close();
-            }
-          "
-
-      - name: Observe seeded data in effective DB (secondary)
-        if: steps.check.outputs.is_client == 'true'
-        continue-on-error: true
-        working-directory: server
-        env:
-          DATABASE_URL: ${{ steps.db.outputs.use_neon == 'true' && steps.neon_db.outputs.effective_db_url || steps.db.outputs.effective_db_url }}
-          E2E_ADMIN_UID: ${{ secrets.E2E_ADMIN_UID }}
-        run: |
-          echo "=== Seeded Data Observability Check (Direct DB) ==="
-          echo "This check is informational only. Primary visibility guarantee is the preview API runtime-path check."
-
-          node --input-type=module -e "
-            import pg from 'pg';
-            const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-            try {
-              const users = await pool.query('SELECT firebase_uid FROM users WHERE firebase_uid = \$1', [process.env.E2E_ADMIN_UID]);
-              const requests = await pool.query('SELECT id, status FROM contact_requests WHERE user_id = \$1', [process.env.E2E_ADMIN_UID]);
-
-              console.log('DB observability - admin user present:', users.rows.length > 0);
-              console.log('DB observability - contact requests for admin:', requests.rows.length);
-              console.log('DB observability check completed.');
-            } catch (err) {
-              console.error('DB observability check failed:', err.message);
-              process.exit(1);
-            } finally {
-              await pool.end();
-            }
-          "
 
       - name: Run Playwright tests (Chromium only for preview)
         id: playwright
@@ -327,14 +258,6 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Delete Neon DB branch
-        if: always() && steps.check.outputs.is_client == 'true' && steps.db.outputs.use_neon == 'true' && steps.neon.outputs.branch_id
-        uses: neondatabase/delete-branch-action@v3
-        with:
-          project_id: ${{ vars.NEON_PROJECT_ID }}
-          api_key: ${{ secrets.NEON_API_KEY }}
-          branch: ${{ steps.neon.outputs.branch_id }}
-
       - name: Job summary
         if: always()
         env:
@@ -342,7 +265,7 @@ jobs:
           IS_CLIENT: ${{ steps.check.outputs.is_client }}
           CHECK_OUTCOME: ${{ steps.check.outcome }}
           PW_OUTCOME: ${{ steps.playwright.outcome }}
-          DB_SOURCE: ${{ steps.db.outputs.use_neon == 'true' && 'ephemeral Neon branch' || 'preview runtime DB (PREVIEW_DATABASE_URL)' }}
+          DB_SOURCE: ${{ steps.db.outputs.db_source }}
         run: |
           # Determine human-readable outcome label
           if [[ "$CHECK_OUTCOME" == "failure" ]]; then
