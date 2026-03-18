@@ -144,7 +144,7 @@ cd server && vercel --prod   # deploy backend
   - Unknown hostnames fail fast (`exit 1`). Hostname routing is the source of truth for E2E target classification. Both client and server events emit the `E2E Tests (Playwright)` check context.
 - A standalone `e2e.yml` workflow exists for **manual/ad-hoc** runs via `workflow_dispatch` (requires a `base_url` input).
 - Browsers: Chromium, Firefox, WebKit in CI; Chromium-only locally.
-- E2E tests run on every PR and after merges to `main`. Merge to `main` is blocked until E2E passes (required status check: `Vercel Preview / E2E Tests (Playwright)`).
+- E2E tests run on every PR and after merges to `main`. Merge to `main` is blocked until E2E passes (required status check: `E2E Tests (Playwright)`).
 
 ## Git conventions
 
@@ -196,9 +196,10 @@ cd server && vercel --prod   # deploy backend
 - Deployed on **Vercel** as two projects from the same repo.
 - **Frontend** (`client/`): Vite static build → `dist/`. SPA rewrites to `index.html`.
 - **Backend** (`server/`): Express app wrapped as a Vercel serverless function via `server/api/index.js` using `@vercel/node`.
-- **Vercel Git auto-deploy is disabled** via `git.deploymentEnabled: false` in both `client/vercel.json` and `server/vercel.json`. All deployments are workflow-driven.
-- **Enforced pipeline order**: CI → Vercel Preview → E2E (Playwright) → manual production promotion.
-- CI success on any branch triggers **preview** deployments (via `Vercel Preview` workflow). Production promotion is always manual (via `Promote to Production` workflow with approval gate).
+- **Vercel Git integration handles preview deployments** automatically on every branch push and PR — no GitHub Actions workflow is involved in creating previews.
+- **Enforced pipeline order**: CI → Vercel Preview (native) → E2E (Playwright via `deployment_status`) → manual production promotion.
+- `deployment_status` events from Vercel trigger `e2e-on-preview.yml`, which classifies the target URL by hostname to decide whether to run Playwright tests.
+- Production promotion is always manual (via `Promote to Production` workflow with approval gate).
 - Environment variables set in Vercel project settings, never committed.
 - `server/api/index.js` only re-exports the Express app. All setup stays in `server/src/app.js`.
 
@@ -224,11 +225,11 @@ cd server && vercel --prod   # deploy backend
 - Add a `build` step to `lint-and-test-client` or as a separate `build-client` job in `ci.yml`.
 
 ### Preview-first deployment model
-- CI success on any branch produces **preview** deployments (via `vercel-preview-on-main.yml`).
-- Production promotion is always **manual** (via `vercel-promote-production.yml` with `workflow_dispatch`).
+- **Vercel's native Git integration** creates preview deployments automatically on every branch push and PR — no GitHub Actions workflow is involved.
+- Production promotion is always **manual** (via `Promote to Production` workflow with approval gate, or `vercel-promote-production.yml` for emergency/manual promotion).
 - This allows reviewing every deployment on preview before it reaches users.
 - Production environment should have an approval gate configured in GitHub → Settings → Environments.
-- **Fork PR trust boundary**: Preview deployments only run when the triggering CI run originates from the same repository (`head_repository.full_name == github.repository`). Fork PRs do not get preview deployments to prevent secret exfiltration via attacker-controlled code.
+- **Fork PR trust boundary**: Vercel's Git integration does not expose environment variables to builds from forks by default, preventing secret exfiltration via attacker-controlled code.
 - See `DEPLOYMENT_GITHUB_ACTIONS.md` for setup instructions.
 
 ### E2E URL targeting in GitHub Actions
