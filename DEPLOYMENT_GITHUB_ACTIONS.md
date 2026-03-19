@@ -107,14 +107,10 @@ Kept here for quick reference. [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md) is the
 
 | Secret                                                                       | Purpose                                                                               |
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `NEON_API_KEY`                                                               | Neon API key — used to resolve Neon-managed preview branch connection details for E2E |
+| `E2E_SEED_TOKEN`                                                             | Bearer token for POST /api/e2e/seed on the preview server (Preview scope only in Vercel; repo secret in GitHub) |
 | `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` / `E2E_ADMIN_UID`                   | Admin test account                                                                    |
 | `E2E_USER_EMAIL` / `E2E_USER_PASSWORD` / `E2E_USER_UID`                      | Regular user test account                                                             |
 | `E2E_SUPER_ADMIN_EMAIL` / `E2E_SUPER_ADMIN_PASSWORD` / `E2E_SUPER_ADMIN_UID` | Super-admin test account                                                              |
-
-> **Repository variable:** `NEON_PROJECT_ID` is a repository **variable** (not a secret), referenced as `vars.NEON_PROJECT_ID` in workflows. Together, `NEON_API_KEY` and `NEON_PROJECT_ID` are used to look up the Neon-managed preview branch and resolve the effective connection URI for migrations/seeding in E2E.
-
-> **Note:** The E2E workflow always resolves `effective_db_url` from the Neon-managed preview branch through Neon REST API lookup (`preview/<deployment ref>`). The legacy `DATABASE_URL` secret can be removed from repository settings if no other workflow uses it.
 
 These secrets are sufficient for CI, E2E, and preview deployments. Preview deployments are handled entirely by Vercel's native Git integration — no Vercel API tokens or project IDs are needed.
 

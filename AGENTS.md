@@ -235,10 +235,11 @@ cd server && vercel --prod   # deploy backend
 
 ### Neon preview branches for E2E
 - Vercel's native Neon integration automatically creates a Neon preview branch for each Vercel preview deployment — no GitHub Actions step provisions or deletes branches.
-- The E2E workflow resolves the correct branch's `DATABASE_URL` at runtime via the Neon API: it derives the branch name from `client_payload.git.ref` or the deployment URL hostname, then calls the Neon branches API to look up the branch ID and fetch the connection URI.
-- If the Neon API lookup fails or credentials are absent, the workflow falls back to the `DATABASE_URL` secret.
-- Required credentials: `NEON_API_KEY` (repository secret) and `NEON_PROJECT_ID` (repository variable **or** secret — the workflow accepts either via `vars.NEON_PROJECT_ID || secrets.NEON_PROJECT_ID`). Both are auto-created by the Neon GitHub Integration.
-- For `workflow_dispatch` manual runs, seeding uses the `DATABASE_URL` secret directly; if absent, a warning is printed and seeding is skipped (non-fatal).
+- E2E seeding is done via HTTP POST to `/api/e2e/seed` on the deployed preview server. The preview server uses its own `DATABASE_URL` injected by the Neon-Vercel integration — GitHub Actions does not resolve or hold the database password.
+- The `e2e.yml` workflow derives the server preview URL from the client preview URL by hostname substitution, then POSTs the seed payload with a Bearer token.
+- Required secret: `E2E_SEED_TOKEN` — must be set as a GitHub repository secret **and** as a Vercel server environment variable scoped to **Preview** only.
+- For `workflow_dispatch` manual runs: same HTTP seed; if `E2E_SEED_TOKEN` is absent, a warning is printed and seeding is skipped (non-fatal).
+- `NEON_API_KEY` and `NEON_PROJECT_ID` are no longer required for E2E seeding.
 
 ### E2E URL targeting in GitHub Actions
 - E2E tests are triggered by `repository_dispatch (vercel.deployment.success)` events via `e2e.yml`, not as a dependent job inside another workflow.
