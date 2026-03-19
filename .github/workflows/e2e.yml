@@ -23,11 +23,6 @@ on:
         description: "Base URL to run Playwright tests against"
         required: true
         type: string
-      server_url:
-        description: "Server base URL for seeding (auto-derived from base_url if omitted)"
-        required: false
-        default: ""
-        type: string
 
 permissions:
   contents: read
@@ -150,152 +145,7 @@ jobs:
           echo "base_url=$BASE_URL" >> "$GITHUB_OUTPUT"
           echo "Resolved BASE_URL: $BASE_URL"
 
-      - name: Seed E2E test data via preview server
-        if: github.event_name == 'repository_dispatch' && steps.filter.outputs.should_run == 'true'
-        env:
-          E2E_SEED_TOKEN: ${{ secrets.E2E_SEED_TOKEN }}
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_UID: ${{ secrets.E2E_ADMIN_UID }}
-          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
-          E2E_USER_UID: ${{ secrets.E2E_USER_UID }}
-          E2E_SUPER_ADMIN_EMAIL: ${{ secrets.E2E_SUPER_ADMIN_EMAIL }}
-          E2E_SUPER_ADMIN_UID: ${{ secrets.E2E_SUPER_ADMIN_UID }}
-        run: |
-          CLIENT_URL="${{ steps.url.outputs.base_url }}"
-          HOSTNAME=$(echo "$CLIENT_URL" | sed -E 's|https?://([^/]+).*|\1|')
-
-          # Derive server URL from client URL
-          if [[ "$HOSTNAME" == ichnos-protocol-git-* ]]; then
-            SERVER_HOST=$(echo "$HOSTNAME" | sed 's/^ichnos-protocol-git-/ichnos-protocolserver-git-/')
-          elif [[ "$HOSTNAME" == ichnos-protocol-*-khorolevs-projects.vercel.app ]]; then
-            SERVER_HOST=$(echo "$HOSTNAME" | sed 's/^ichnos-protocol-/ichnos-protocolserver-/')
-          elif [[ "$HOSTNAME" == staging-client.ichnos-protocol.com ]]; then
-            SERVER_HOST="staging-api.ichnos-protocol.com"
-          else
-            echo "::warning::Could not derive server URL from hostname '$HOSTNAME'. Skipping seed."
-            exit 0
-          fi
-
-          SERVER_URL="https://$SERVER_HOST"
-          echo "Derived server URL: $SERVER_URL"
-
-          # Build accounts array from secrets (omit entries with missing uid/email)
-          ACCOUNTS=$(jq -n \
-            --arg user_uid "$E2E_USER_UID" \
-            --arg user_email "$E2E_USER_EMAIL" \
-            --arg admin_uid "$E2E_ADMIN_UID" \
-            --arg admin_email "$E2E_ADMIN_EMAIL" \
-            --arg sa_uid "$E2E_SUPER_ADMIN_UID" \
-            --arg sa_email "$E2E_SUPER_ADMIN_EMAIL" \
-            '[
-              (if ($user_uid | length > 0) and ($user_email | length > 0)
-               then { uid: $user_uid, firstName: "E2E", lastName: "User", email: $user_email, seedContactRequest: false }
-               else empty end),
-              (if ($admin_uid | length > 0) and ($admin_email | length > 0)
-               then { uid: $admin_uid, firstName: "E2E", lastName: "Admin", email: $admin_email, seedContactRequest: true }
-               else empty end),
-              (if ($sa_uid | length > 0) and ($sa_email | length > 0)
-               then { uid: $sa_uid, firstName: "E2E", lastName: "SuperAdmin", email: $sa_email, seedContactRequest: true }
-               else empty end)
-            ]')
-
-          BODY=$(jq -n --argjson accounts "$ACCOUNTS" '{ accounts: $accounts }')
-          echo "Seeding ${#ACCOUNTS} account(s) via $SERVER_URL/api/e2e/seed"
-
-          HTTP_CODE=$(curl -s -X POST "$SERVER_URL/api/e2e/seed" \
-            -H "Authorization: Bearer $E2E_SEED_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "$BODY" \
-            --output /tmp/seed_response.json \
-            --write-out "%{http_code}")
-
-          if [[ "$HTTP_CODE" != "200" ]]; then
-            echo "::error::Seed request failed with HTTP $HTTP_CODE"
-            cat /tmp/seed_response.json
-            exit 1
-          fi
-
-          echo "Seed successful (HTTP $HTTP_CODE):"
-          cat /tmp/seed_response.json
-
-      - name: Seed E2E test data via preview server (manual run)
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          E2E_SEED_TOKEN: ${{ secrets.E2E_SEED_TOKEN }}
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_UID: ${{ secrets.E2E_ADMIN_UID }}
-          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
-          E2E_USER_UID: ${{ secrets.E2E_USER_UID }}
-          E2E_SUPER_ADMIN_EMAIL: ${{ secrets.E2E_SUPER_ADMIN_EMAIL }}
-          E2E_SUPER_ADMIN_UID: ${{ secrets.E2E_SUPER_ADMIN_UID }}
-        run: |
-          if [[ -z "$E2E_SEED_TOKEN" ]]; then
-            echo "::warning::E2E_SEED_TOKEN not set — skipping seed"
-            exit 0
-          fi
-
-          # Use explicit server_url input if provided, otherwise derive from base_url
-          if [[ -n "${{ inputs.server_url }}" ]]; then
-            SERVER_URL="${{ inputs.server_url }}"
-          else
-            CLIENT_URL="${{ steps.url.outputs.base_url }}"
-            HOSTNAME=$(echo "$CLIENT_URL" | sed -E 's|https?://([^/]+).*|\1|')
-
-            if [[ "$HOSTNAME" == ichnos-protocol-git-* ]]; then
-              SERVER_HOST=$(echo "$HOSTNAME" | sed 's/^ichnos-protocol-git-/ichnos-protocolserver-git-/')
-            elif [[ "$HOSTNAME" == ichnos-protocol-*-khorolevs-projects.vercel.app ]]; then
-              SERVER_HOST=$(echo "$HOSTNAME" | sed 's/^ichnos-protocol-/ichnos-protocolserver-/')
-            elif [[ "$HOSTNAME" == staging-client.ichnos-protocol.com ]]; then
-              SERVER_HOST="staging-api.ichnos-protocol.com"
-            else
-              echo "::warning::Could not derive server URL from hostname '$HOSTNAME'. Skipping seed."
-              exit 0
-            fi
-
-            SERVER_URL="https://$SERVER_HOST"
-          fi
-
-          echo "Server URL: $SERVER_URL"
-
-          # Build accounts array from secrets (omit entries with missing uid/email)
-          ACCOUNTS=$(jq -n \
-            --arg user_uid "$E2E_USER_UID" \
-            --arg user_email "$E2E_USER_EMAIL" \
-            --arg admin_uid "$E2E_ADMIN_UID" \
-            --arg admin_email "$E2E_ADMIN_EMAIL" \
-            --arg sa_uid "$E2E_SUPER_ADMIN_UID" \
-            --arg sa_email "$E2E_SUPER_ADMIN_EMAIL" \
-            '[
-              (if ($user_uid | length > 0) and ($user_email | length > 0)
-               then { uid: $user_uid, firstName: "E2E", lastName: "User", email: $user_email, seedContactRequest: false }
-               else empty end),
-              (if ($admin_uid | length > 0) and ($admin_email | length > 0)
-               then { uid: $admin_uid, firstName: "E2E", lastName: "Admin", email: $admin_email, seedContactRequest: true }
-               else empty end),
-              (if ($sa_uid | length > 0) and ($sa_email | length > 0)
-               then { uid: $sa_uid, firstName: "E2E", lastName: "SuperAdmin", email: $sa_email, seedContactRequest: true }
-               else empty end)
-            ]')
-
-          BODY=$(jq -n --argjson accounts "$ACCOUNTS" '{ accounts: $accounts }')
-          echo "Seeding via $SERVER_URL/api/e2e/seed"
-
-          HTTP_CODE=$(curl -s -X POST "$SERVER_URL/api/e2e/seed" \
-            -H "Authorization: Bearer $E2E_SEED_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d "$BODY" \
-            --output /tmp/seed_response.json \
-            --write-out "%{http_code}")
-
-          if [[ "$HTTP_CODE" != "200" ]]; then
-            echo "::error::Seed request failed with HTTP $HTTP_CODE"
-            cat /tmp/seed_response.json
-            exit 1
-          fi
-
-          echo "Seed successful (HTTP $HTTP_CODE):"
-          cat /tmp/seed_response.json
-
+      # No seeding step — server auto-seeds E2E data on preview startup
       - name: Run Playwright tests
         if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.should_run == 'true'
         working-directory: e2e
@@ -305,7 +155,6 @@ jobs:
           E2E_WORKERS: "1"
           E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
           E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          E2E_ADMIN_UID: ${{ secrets.E2E_ADMIN_UID }}
           E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
           E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
           E2E_SUPER_ADMIN_EMAIL: ${{ secrets.E2E_SUPER_ADMIN_EMAIL }}
