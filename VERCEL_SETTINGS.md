@@ -69,6 +69,14 @@ Set in **Vercel Dashboard → ichnos-server → Settings → Environment Variabl
 | `CONTACT_CONSENT_VERSION` | Production, Preview | GDPR consent version string (default: `v1`) |
 | `CONTACT_CONSENT_TEXT` | Production, Preview | GDPR consent text shown to users (optional) |
 | `PRIVACY_POLICY_URL` | Production, Preview | Link to privacy policy page (optional) |
+| `E2E_ADMIN_EMAIL` | Preview | Admin test account email (required for auto-seed on startup) |
+| `E2E_ADMIN_UID` | Preview | Admin test account Firebase UID (required for auto-seed on startup) |
+| `E2E_USER_EMAIL` | Preview | Regular user test account email (optional auto-seed) |
+| `E2E_USER_UID` | Preview | Regular user test account Firebase UID (optional auto-seed) |
+| `E2E_SUPER_ADMIN_EMAIL` | Preview | Super-admin test account email (optional auto-seed) |
+| `E2E_SUPER_ADMIN_UID` | Preview | Super-admin test account Firebase UID (optional auto-seed) |
+
+> These vars are read by `server/scripts/seedE2EOnPreview.js` at server startup when `VERCEL_ENV === 'preview'`.
 
 ### `ichnos-client` Environment Variables
 
@@ -128,5 +136,6 @@ Use this checklist when setting up new Vercel projects or verifying existing one
 - [ ] **CORS_ORIGIN** — Production value matches the frontend production URL; preview value is configured for preview URLs (§2)
 - [ ] **VITE_API_BASE_URL** — Production value matches the backend production URL; preview value matches the backend preview URL (§2)
 - [ ] **Repository Dispatch Events** — Enabled on `ichnos-client` in Vercel Git settings; optionally enabled on `ichnos-server` (§1)
+- [ ] **E2E auto-seed env vars** — Set on ichnos-server, Preview scope only: `E2E_ADMIN_EMAIL`, `E2E_ADMIN_UID`, and optionally `E2E_USER_*`, `E2E_SUPER_ADMIN_*` (§2)
 - [ ] **Old aliases** — Removed if previously configured (§3)
 - [ ] **Vercel IDs** — All four IDs (`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID_CLIENT`, `VERCEL_PROJECT_ID_SERVER`) are set as GitHub repository secrets (§4)

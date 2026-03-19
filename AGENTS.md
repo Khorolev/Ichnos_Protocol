@@ -235,10 +235,10 @@ cd server && vercel --prod   # deploy backend
 
 ### Neon preview branches for E2E
 - Vercel's native Neon integration automatically creates a Neon preview branch for each Vercel preview deployment — no GitHub Actions step provisions or deletes branches.
-- The E2E workflow resolves the correct branch's `DATABASE_URL` at runtime via the Neon API: it derives the branch name from `client_payload.git.ref` or the deployment URL hostname, then calls the Neon branches API to look up the branch ID and fetch the connection URI.
-- If the Neon API lookup fails or credentials are absent, the workflow falls back to the `DATABASE_URL` secret.
-- Required credentials: `NEON_API_KEY` (repository secret) and `NEON_PROJECT_ID` (repository variable **or** secret — the workflow accepts either via `vars.NEON_PROJECT_ID || secrets.NEON_PROJECT_ID`). Both are auto-created by the Neon GitHub Integration.
-- For `workflow_dispatch` manual runs, seeding uses the `DATABASE_URL` secret directly; if absent, a warning is printed and seeding is skipped (non-fatal).
+- E2E test data is seeded automatically by the server on preview startup. When `VERCEL_ENV === 'preview'` and E2E account env vars are present (`E2E_ADMIN_EMAIL`, `E2E_ADMIN_UID`), the server runs idempotent seed queries using its own `DATABASE_URL` (injected by the Neon-Vercel integration).
+- GitHub Actions does not interact with the database at all — no Neon API calls, no direct DB connections, no seed tokens.
+- E2E account env vars (`E2E_ADMIN_EMAIL`, `E2E_ADMIN_UID`, etc.) must be set as Vercel server environment variables scoped to **Preview** only.
+- For local/manual seeding outside Vercel, use `node server/scripts/seedE2EData.js`.
 
 ### E2E URL targeting in GitHub Actions
 - E2E tests are triggered by `repository_dispatch (vercel.deployment.success)` events via `e2e.yml`, not as a dependent job inside another workflow.

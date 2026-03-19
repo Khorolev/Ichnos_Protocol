@@ -5,6 +5,7 @@
  * Optional env vars: E2E_USER_EMAIL, E2E_USER_UID,
  *                    E2E_SUPER_ADMIN_EMAIL, E2E_SUPER_ADMIN_UID.
  * If required vars are missing the script exits silently (exit 0).
+ * Note: In Vercel preview environments, seeding is done automatically via seedE2EOnPreview.js on server startup.
  */
 import pg from "pg";
 

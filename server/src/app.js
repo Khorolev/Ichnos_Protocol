@@ -15,6 +15,7 @@ import chatRoutes from "./routes/chatRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import gdprRoutes from "./routes/gdprRoutes.js";
 import buildStatusPage from "./helpers/buildStatusPage.js";
+import { seedE2EOnPreview } from "../scripts/seedE2EOnPreview.js";
 
 const app = express();
 
@@ -69,6 +70,9 @@ app.use("/api/contact", contactRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/gdpr", gdprRoutes);
+
+// Auto-seed E2E data on preview startup — fire-and-forget, does not block request handling
+seedE2EOnPreview();
 
 // 404 handler for undefined routes
 app.use((_req, res) => {
