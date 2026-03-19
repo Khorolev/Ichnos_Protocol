@@ -12,8 +12,7 @@ The GitHub repository requires the following settings to support the 2-branch de
 
 | Area                      | What                                                                                    | Why                                                                                                                         |
 | ------------------------- | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| **Repository Secrets**    | 10 secrets for CI/E2E + 4 additional secrets for production promotion (14 total)        | CI/E2E workflows need Neon DB access and test accounts; production promotion workflows need Vercel API access               |
-| **Repository Variables**  | 1 variable for CI/E2E (`NEON_PROJECT_ID`)                                               | E2E workflows reference `vars.NEON_PROJECT_ID` for Neon-managed preview branch lookup                                       |
+| **Repository Secrets**    | 11 secrets for CI/E2E + 4 additional secrets for production promotion (15 total)        | CI/E2E workflows need Neon DB access and test accounts; production promotion workflows need Vercel API access               |
 | **Environments**          | `production` environment with required reviewers                                        | Production promotion workflow pauses for human approval before deploying                                                    |
 | **Branch Protections**    | `main` (5 required checks + PR required) and `release` (1 required check + PR required) | Enforces the CI → Preview → E2E → merge pipeline and the `main`-only release policy                                         |
 | **Old Rule Cleanup**      | Remove stale branch protections and rulesets from previous configurations               | Stale rules (e.g., for `staging`, `e2e-testing`, or different check names) can block merges or silently bypass the pipeline |
@@ -57,13 +56,12 @@ Navigate to **Settings → Secrets and variables → Actions → New repository 
 
 ### Neon DB Secrets (Neon-managed preview branch lookup)
 
-| Secret         | Description                                                    | Where to Find                  |
-| -------------- | -------------------------------------------------------------- | ------------------------------ |
-| `NEON_API_KEY` | Neon API key for Neon-managed preview branch connection lookup | Neon Tech → Account → API Keys |
+| Secret            | Description                                                    | Where to Find                  |
+| ----------------- | -------------------------------------------------------------- | ------------------------------ |
+| `NEON_API_KEY`    | Neon API key for Neon-managed preview branch connection lookup | Neon Tech → Account → API Keys |
+| `NEON_PROJECT_ID` | Neon project ID for preview branch lookup                      | Neon Tech → Project → Settings |
 
-> **Note:** The `DATABASE_URL` secret is **no longer used** by the E2E workflow. The workflow resolves `effective_db_url` from the Neon-managed preview branch (`preview/<deployment ref>`) via Neon REST API.
-
-> **Repository variable required:** `NEON_PROJECT_ID` must be configured as a repository variable (not a secret) and is referenced in workflows via `vars.NEON_PROJECT_ID`. Together with `NEON_API_KEY`, it is used to resolve the Neon-managed preview branch connection URI for E2E migration/seeding.
+> **Note:** The `DATABASE_URL` secret serves as an optional fallback in `e2e.yml` when dynamic Neon branch resolution fails. It is not required if the Neon API lookup succeeds.
 
 ### E2E Test Account Secrets
 
@@ -83,7 +81,7 @@ Three test accounts are required for Playwright E2E tests. Each account must be 
 
 ### Production Promotion Secrets
 
-These 4 secrets are **required** for the production promotion workflows (`promote-to-production.yml` and `vercel-promote-production.yml`). They are not needed for preview deployments (handled by Vercel's native Git integration) or for CI/E2E workflows.
+These 4 secrets are **required** for the production promotion workflow (`promote-to-production.yml`). They are not needed for preview deployments (handled by Vercel's native Git integration) or for CI/E2E workflows.
 
 | Secret                     | Description                             | Where to Find                                    |
 | -------------------------- | --------------------------------------- | ------------------------------------------------ |
@@ -105,7 +103,7 @@ These 4 secrets are **required** for the production promotion workflows (`promot
 3. Under **Deployment protection rules**, enable **Required reviewers** and add at least one reviewer.
 4. Save.
 
-> Both `promote-to-production.yml` and `vercel-promote-production.yml` target `environment: production`. Without this environment configured, promotions run without approval — which defeats the purpose of the gate.
+> `promote-to-production.yml` targets `environment: production`. Without this environment configured, promotions run without approval — which defeats the purpose of the gate.
 
 ---
 
@@ -126,7 +124,7 @@ Configure branch protection rules in **Settings → Branches** (or **Settings �
 >
 > - **`Client — Lint & Test`** and **`Server — Lint & Test`**: Produced by `ci.yml`. Run linting, unit tests, and client build verification.
 > - **Vercel deployment checks** (e.g., `Vercel – ichnos-protocol` and `Vercel – ichnos-protocol-server`): Produced by Vercel's native Git integration. These checks confirm that preview deployments build and deploy successfully. **The exact check names are determined by your Vercel project names and may differ from the examples shown here.** To find the correct names: open a recent PR, scroll to the status checks section, and copy the exact Vercel check context strings. Use those exact strings when configuring required status checks — a mismatch will block all merges.
-> - **`E2E Tests (Playwright)`**: Produced by `e2e-on-preview.yml`. Triggered by `deployment_status` events after Vercel completes a preview deployment. For client deployments, Playwright tests execute. For server deployments, the job succeeds immediately without running tests — this is intentional so the required status check is satisfied for both deployment events. See [`DEPLOYMENT_GITHUB_ACTIONS.md`](DEPLOYMENT_GITHUB_ACTIONS.md) §3 for full hostname-based routing details.
+> - **`E2E Tests (Playwright)`**: Produced by `e2e.yml`, triggered by `repository_dispatch: vercel.deployment.success` events after Vercel completes a preview deployment. For client deployments, Playwright tests execute. For server deployments, the job exits early without running tests. See [`DEPLOYMENT_GITHUB_ACTIONS.md`](DEPLOYMENT_GITHUB_ACTIONS.md) §3 for full detection details.
 
 ### `release` branch
 
@@ -136,7 +134,7 @@ Configure branch protection rules in **Settings → Branches** (or **Settings �
 | Required status checks                | `Release Policy Check` |
 | Include administrators                | Recommended            |
 
-> **Important:** GitHub Actions check names are frozen in workflow file headers (the `name:` field of each job). Do not rename jobs in workflow YAML without updating the corresponding branch protection rules here. `E2E Tests (Playwright)` is produced by `e2e-on-preview.yml`. Vercel check names are determined by your Vercel project names — always copy the exact context string from a recent PR's checks tab before configuring branch protection rules.
+> **Important:** GitHub Actions check names are frozen in workflow file headers (the `name:` field of each job). Do not rename jobs in workflow YAML without updating the corresponding branch protection rules here. `E2E Tests (Playwright)` is produced by `e2e.yml`. Vercel check names are determined by your Vercel project names — always copy the exact context string from a recent PR's checks tab before configuring branch protection rules.
 
 ---
 
@@ -166,8 +164,8 @@ After completing setup (or when verifying an existing configuration), confirm ev
 
 | Setting                                                  | Expected State                                     | How to Verify                                          |
 | -------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------ |
-| `NEON_PROJECT_ID` variable                               | Set, non-empty                                     | Settings → Secrets and variables → Actions → Variables |
 | `NEON_API_KEY` secret                                    | Set, non-empty                                     | Settings → Secrets → Actions                           |
+| `NEON_PROJECT_ID` secret                                 | Set, non-empty                                     | Settings → Secrets → Actions                           |
 | `E2E_ADMIN_EMAIL` secret                                 | Set, non-empty                                     | Settings → Secrets → Actions                           |
 | `E2E_ADMIN_PASSWORD` secret                              | Set, non-empty                                     | Settings → Secrets → Actions                           |
 | `E2E_ADMIN_UID` secret                                   | Set, non-empty                                     | Settings → Secrets → Actions                           |
@@ -197,13 +195,13 @@ After completing setup (or when verifying an existing configuration), confirm ev
 Use this checklist when setting up a new repository or verifying an existing one:
 
 - [ ] **Old rules cleaned up** — No stale branch protections or rulesets from previous configurations (§1)
-- [ ] **Secrets (CI/E2E)** — All 10 CI/E2E secrets are set (§2)
+- [ ] **Secrets (CI/E2E)** — All 11 CI/E2E secrets are set (§2)
   - [ ] `NEON_API_KEY`
+  - [ ] `NEON_PROJECT_ID`
   - [ ] `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD` / `E2E_ADMIN_UID`
   - [ ] `E2E_USER_EMAIL` / `E2E_USER_PASSWORD` / `E2E_USER_UID`
   - [ ] `E2E_SUPER_ADMIN_EMAIL` / `E2E_SUPER_ADMIN_PASSWORD` / `E2E_SUPER_ADMIN_UID`
-- [ ] **Repository variable (CI/E2E)** — `NEON_PROJECT_ID` is set in repository variables and referenced as `vars.NEON_PROJECT_ID` (§2)
-- [ ] **Secrets (production promotion)** — All 4 Vercel secrets are set if using `promote-to-production.yml` or `vercel-promote-production.yml` (§2)
+- [ ] **Secrets (production promotion)** — All 4 Vercel secrets are set if using `promote-to-production.yml` (§2)
   - [ ] `VERCEL_TOKEN`
   - [ ] `VERCEL_ORG_ID`
   - [ ] `VERCEL_PROJECT_ID_CLIENT`

@@ -110,8 +110,10 @@ Ichnos_Protocol/
 │   └── package.json              # Playwright dependencies
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml                # GitHub Actions: Lint + unit tests on every PR
-│       └── e2e.yml               # GitHub Actions: Playwright vs Vercel previews
+│       ├── ci.yml                        # Lint + unit tests on every PR
+│       ├── e2e.yml                       # Playwright E2E — repository_dispatch + workflow_dispatch
+│       ├── promote-to-production.yml     # Approval-gated production promotion on push to release
+│       └── release-policy-check.yml     # Enforces release branch policy
 ├── assets/                       # Brand assets (logo, images)
 ├── CLAUDE.md                     # This file
 ├── AGENTS.md                     # Shared agent conventions
@@ -526,13 +528,7 @@ cd e2e && npx playwright show-report
 
 #### CI Workflow: Playwright Against Vercel Preview Deployments
 
-E2E tests run in GitHub Actions **after** Vercel deploys a preview for the pull request. This tests the real deployed infrastructure (serverless functions, CDN, rewrites) rather than a localhost simulation.
-
-```
-PR Push → Vercel Preview Deploy → GitHub Action Triggered → Playwright runs against preview URL → Results posted to PR
-```
-
-The GitHub Actions workflow (`.github/workflows/e2e.yml`) uses `vercel-preview-url` to wait for and retrieve the preview deployment URL, then passes it to Playwright as `BASE_URL`.
+E2E tests run in GitHub Actions via two triggers. **Primary**: `repository_dispatch` (`vercel.deployment.success`) — Vercel emits this event after each successful preview deployment when Repository Dispatch Events are enabled in the Vercel project's Git settings. The workflow classifies the deployment URL by hostname (three detection families: custom domains, `-git-` auto-preview URLs, hash-based auto-preview URLs) to decide whether to run Playwright. Chromium only is used for this path. **Secondary**: `workflow_dispatch` — manual/ad-hoc runs against any `base_url` input; full browser suite is used.
 
 #### E2E Test Rules
 
@@ -632,8 +628,8 @@ GitHub Repository (Ichnos_Protocol)
 
 ### Deployment Rules
 
-- **Automatic deployments**: Merges to `main` trigger production deployments for both projects.
-- **Preview deployments**: Pull requests get preview URLs automatically.
+- **Preview deployments**: Vercel's native Git integration creates preview deployments automatically on every branch push and PR — no GitHub Actions workflow is involved in creating previews. Merges to `main` produce a validated preview, not a production deploy.
+- **Production promotion**: Triggered automatically on push/merge to `release` via `promote-to-production.yml`. The workflow pauses for human approval via the GitHub `production` environment before promoting the latest validated `main` preview to production — no rebuild occurs.
 - **Environment separation**: Use Vercel's environment scoping (Production, Preview, Development) to manage secrets per environment.
 - **CORS**: The server's `CORS_ORIGIN` must match the frontend's Vercel deployment URL (or use the `VERCEL_URL` environment variable for preview deployments).
 - **Domain**: Configure custom domains in Vercel project settings, not in code.

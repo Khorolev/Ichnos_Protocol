@@ -41,26 +41,16 @@ See `client/.env.example` for the full list of required variables. For productio
 ## 3. Database Setup
 
 1. Create a Neon PostgreSQL database and copy the connection string.
-2. Set `DATABASE_URL` in your environment.
-3. Run all migration files **in numerical order**:
+2. Set `DATABASE_URL` in your environment (locally in `server/.env`; in Vercel project settings for deployed environments).
+3. Run all migrations using the migration runner:
 
 ```bash
-psql $DATABASE_URL -f server/migrations/000_20260215_create_helpers.sql
-psql $DATABASE_URL -f server/migrations/001_20260215_create_users.sql
-psql $DATABASE_URL -f server/migrations/002_20260215_create_user_profiles.sql
-psql $DATABASE_URL -f server/migrations/003_20260215_create_contact_requests.sql
-psql $DATABASE_URL -f server/migrations/004_20260215_create_questions.sql
-psql $DATABASE_URL -f server/migrations/005_20260215_create_question_topics.sql
+cd server && npm run migrate
 ```
 
-4. After each migration, insert the filename into `schema_migrations`:
+This executes `server/scripts/runMigrations.js`, which applies all pending `.sql` files in `server/migrations/` in numerical order and records each applied migration in the `schema_migrations` table automatically.
 
-```sql
-INSERT INTO schema_migrations (filename) VALUES ('000_20260215_create_helpers.sql');
--- Repeat for each migration file
-```
-
-5. Verify all migrations are tracked:
+4. Verify all migrations are tracked:
 
 ```sql
 SELECT * FROM schema_migrations ORDER BY id;
@@ -112,8 +102,6 @@ node server/scripts/seedKnowledgeBase.js
 2. Create a second Vercel project named `ichnos-client`.
    - Set the **root directory** to `client/`.
    - Add all client environment variables in Vercel project settings.
-3. Disable Vercel Git auto-deploy (`"git": { "deploymentEnabled": false }` in both `vercel.json` files).
-
 For detailed Vercel settings including environment variable tables, production branch configuration, and staging alias cleanup, see [`VERCEL_SETTINGS.md`](VERCEL_SETTINGS.md).
 
 ### Production Deployments (Default Path)
@@ -122,13 +110,13 @@ All production deployments are driven exclusively by GitHub Actions workflows. D
 
 1. Create a `feature/<name>` branch from `main` and open a PR targeting `main`.
 2. CI, preview deployments, and E2E tests run automatically.
-3. After all 6 required checks pass, merge the PR into `main`.
+3. After all required checks pass, merge the PR into `main`.
 4. Open a PR from `main` to `release`. The `Release Policy Check` must pass.
-5. Merge into `release`. The `Promote to Production` workflow triggers and requires human approval via the GitHub `production` environment. After approval, the latest validated `main` preview is promoted to production.
+5. Merge into `release`. The `Promote to Production` workflow auto-triggers on this push and pauses for human approval via the GitHub `production` environment. After approval, the latest validated `main` preview is promoted to production — no rebuild occurs.
 
 See [`DEPLOYMENT_GITHUB_ACTIONS.md`](DEPLOYMENT_GITHUB_ACTIONS.md) for the full pipeline setup and details. For GitHub repository settings (secrets, environments, branch protections), see [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md). For Vercel project settings, see [`VERCEL_SETTINGS.md`](VERCEL_SETTINGS.md).
 
-### Emergency Manual Fallback (CLI)
+### Emergency CLI Fallback (Bypass Path)
 
 > **Use only when GitHub Actions is unavailable or broken.** These commands bypass CI, E2E, and approval gates — any change deployed this way has not been validated by the standard pipeline.
 
@@ -271,8 +259,7 @@ Do once before first deploy:
 
 - [ ] GitHub `production` environment exists with at least one required reviewer configured
 - [ ] All required repository secrets are set (see [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md) for the full list)
-- [ ] GitHub rulesets/branch protections are configured for `main` (6 frozen required checks) and `release` (`Release Policy Check` + PR requirement) — see [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md) §3
-- [ ] Vercel Git auto-deploy is disabled (`"git": { "deploymentEnabled": false }` in both `vercel.json` files)
+- [ ] GitHub rulesets/branch protections are configured for `main` (required checks as listed in [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md) §3) and `release` (`Release Policy Check` + PR requirement)
 - [ ] Vercel production branch is set to `release` on both `ichnos-client` and `ichnos-server`
 - [ ] Production environment variables are set in Vercel project settings for both `ichnos-client` and `ichnos-server` (never committed to the repo)
 
@@ -281,14 +268,11 @@ Do once before first deploy:
 After each deployment cycle:
 
 - [ ] **CI checks**: `Client — Lint & Test` and `Server — Lint & Test` are green on the PR
-- [ ] **Preflight check**: `Preflight — Secret Validation` is green (confirms all secrets are present and PR is not from a fork)
-- [ ] **Preview deployments**: `Deploy Client Preview` and `Deploy Server Preview` completed successfully; preview URLs are accessible
-- [ ] **E2E gate**: `E2E Tests (Playwright)` passed on the PR
+- [ ] **Preview deployments**: Vercel native preview deployments completed successfully for both client and server; preview URLs are accessible in the Vercel dashboard
+- [ ] **E2E trigger**: `repository_dispatch (vercel.deployment.success)` event fired and `E2E Tests (Playwright)` check is green on the PR
 - [ ] **Production approval**: After merging to `release`, confirm the `Promote to Production` workflow is waiting for approval in GitHub → Actions → Environments → production
 - [ ] **Production deploy**: After approving, confirm both client and server production deployments completed successfully in the workflow summary
 - [ ] **App smoke test**: Auth (sign up, log in, log out), Chat (send message, receive AI response), Contact form (submit inquiry, verify it appears in admin dashboard), Admin dashboard (update a request status), Cron jobs (visible in Vercel Dashboard → Cron Jobs tab)
-
-> ⚠️ **Fail-fast secret policy**: On PRs targeting `main`, missing secrets cause an immediate pipeline failure via `Preflight — Secret Validation`. If `Preflight — Secret Validation` fails, check that all secrets listed in [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md) §1 are set in **Settings → Secrets and variables → Actions**.
 
 ---
 

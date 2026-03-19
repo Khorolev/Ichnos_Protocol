@@ -37,6 +37,10 @@ The `"git": { "deploymentEnabled": false }` key has been removed from both `clie
 
 > **Do not re-add** `"git": { "deploymentEnabled": false }` to either `vercel.json` file. Doing so would disable preview deployments and break the E2E pipeline, which depends on Vercel creating a preview URL automatically when a PR is opened.
 
+### Repository Dispatch Events
+
+**Repository Dispatch Events** must be enabled on the **`ichnos-client`** project to trigger `e2e.yml` automatically after a client preview deployment. To enable: Vercel Dashboard → `ichnos-client` → Settings → Git → enable "Repository Dispatch Events". This causes Vercel to emit a `repository_dispatch` event with type `vercel.deployment.success` to GitHub after each successful deployment. Enabling this on the server project (`ichnos-server`) is optional — the `e2e.yml` workflow filters for client deployments and will skip server events.
+
 ---
 
 ## 2. Environment Variables
@@ -123,5 +127,6 @@ Use this checklist when setting up new Vercel projects or verifying existing one
 - [ ] **Client environment variables** — All variables set with correct environment scoping (§2)
 - [ ] **CORS_ORIGIN** — Production value matches the frontend production URL; preview value is configured for preview URLs (§2)
 - [ ] **VITE_API_BASE_URL** — Production value matches the backend production URL; preview value matches the backend preview URL (§2)
+- [ ] **Repository Dispatch Events** — Enabled on `ichnos-client` in Vercel Git settings; optionally enabled on `ichnos-server` (§1)
 - [ ] **Old aliases** — Removed if previously configured (§3)
 - [ ] **Vercel IDs** — All four IDs (`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID_CLIENT`, `VERCEL_PROJECT_ID_SERVER`) are set as GitHub repository secrets (§4)

@@ -10,10 +10,9 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
 
 concurrency:
-  group: ci-${{ github.event.pull_request.number }}-${{ github.event.pull_request.head.sha }}
+  group: ci-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 defaults:
@@ -24,6 +23,7 @@ jobs:
   lint-and-test-client:
     name: Client — Lint & Test
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     defaults:
       run:
         working-directory: client
@@ -39,12 +39,6 @@ jobs:
           cache: npm
           cache-dependency-path: client/package-lock.json
 
-      - name: Verify shell and Node/npm
-        run: |
-          which sh
-          node -v
-          npm -v
-
       - name: Install dependencies
         run: npm ci
 
@@ -52,7 +46,7 @@ jobs:
         run: npm run lint
 
       - name: Run tests
-        run: npm test -- --run
+        run: npm test
 
       - name: Build
         env:
@@ -69,6 +63,7 @@ jobs:
   lint-and-test-server:
     name: Server — Lint & Test
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     defaults:
       run:
         working-directory: server
@@ -84,12 +79,6 @@ jobs:
           cache: npm
           cache-dependency-path: server/package-lock.json
 
-      - name: Verify shell and Node/npm
-        run: |
-          which sh
-          node -v
-          npm -v
-
       - name: Install dependencies
         run: npm ci
 
@@ -97,4 +86,4 @@ jobs:
         run: npm run lint
 
       - name: Run tests
-        run: npm test -- --run
+        run: npm test
