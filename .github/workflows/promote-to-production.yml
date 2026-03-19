@@ -27,12 +27,6 @@ jobs:
         with:
           node-version: 20
 
-      - name: Verify shell and Node/npm
-        run: |
-          which sh
-          node -v
-          npm -v
-
       - name: Discover latest client preview deployment
         id: discover-client
         env:

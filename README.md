@@ -8,10 +8,10 @@
 
 ## Workflows
 
-[![Vercel Preview (main PRs)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/vercel-preview-on-main.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/vercel-preview-on-main.yml)
+[![CI](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/ci.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/ci.yml)
+[![E2E Tests (Playwright)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/e2e.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/e2e.yml)
 [![Promote to Production](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/promote-to-production.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/promote-to-production.yml)
 [![Release Policy Check](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/release-policy-check.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/release-policy-check.yml)
-[![Promote Vercel Preview to Production](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/vercel-promote-production.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/vercel-promote-production.yml)
 
 ---
 
@@ -435,11 +435,10 @@ Ichnos_Protocol/
 │   └── package.json               # Playwright dependencies
 ├── .github/
 │   └── workflows/
-│       ├── vercel-preview-on-main.yml       # Unified PR gate: CI + preview deploy + E2E (PRs to main)
+│       ├── ci.yml                           # Lint + unit tests + client build verification (PRs to main)
+│       ├── e2e.yml                          # E2E Tests (Playwright) — repository_dispatch + workflow_dispatch
 │       ├── promote-to-production.yml        # Production promotion on push to release (approval-gated)
-│       ├── release-policy-check.yml         # Policy gate: confirms PR head is main before release merge
-│       ├── vercel-promote-production.yml    # Emergency manual production promotion
-│       └── e2e.yml                          # Manual/ad-hoc Playwright run via workflow_dispatch
+│       └── release-policy-check.yml         # Policy gate: confirms PR head is main before release merge
 ├── assets/                        # Brand assets (logo, images)
 ├── CLAUDE.md                      # Claude AI coding instructions
 ├── AGENTS.md                      # Shared agent conventions
@@ -490,12 +489,12 @@ The project is deployed on **Vercel** as a monorepo with two separate Vercel pro
 The project follows a **2-branch deployment model**:
 
 ```
-feature/* → main (PR-gated: CI + Deploy + E2E)
+feature/* → main (PR-gated: CI + Vercel Preview + E2E)
     → release (PR from main only, Release Policy Check required)
         → production (environment approval required, promote-only model)
 ```
 
-- **Preview deployments**: PRs targeting `main` get unique preview URLs for both frontend and backend, used by the E2E gate.
+- **Preview deployments**: PRs targeting `main` get unique Vercel preview URLs for both frontend and backend; E2E tests run against the client preview URL via `repository_dispatch` (`vercel.deployment.success`).
 - **Production deployments**: Merges to `release` trigger `promote-to-production.yml`, which discovers the latest READY `main` preview and promotes it — no rebuild. Requires human approval via the GitHub `production` environment.
 - **Environment variables**: Configured in each Vercel project's settings dashboard (Production, Preview, Development scopes). Never committed to the repository.
 

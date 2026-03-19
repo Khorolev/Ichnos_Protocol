@@ -1,31 +1,49 @@
+# Required check name: "E2E Tests (Playwright)"
+# This name is registered as a required status check in GitHub rulesets
+# for main. Do not rename without updating rulesets.
+#
+# Primary trigger: repository_dispatch (vercel.deployment.success) — emitted
+# by Vercel after each successful deployment when Repository Dispatch Events
+# are enabled in the Vercel project's Git settings.
+#
+# Secondary trigger: workflow_dispatch — for manual/ad-hoc runs against any URL.
+#
+# Client detection (repository_dispatch path):
+#   1. client_payload.project / projectId — match known client identifiers
+#   2. Fallback: hostname pattern matching on client_payload.url
+#   3. Ambiguous → fail open (run tests)
 name: E2E Tests (Playwright)
 
 on:
+  repository_dispatch:
+    types: [vercel.deployment.success]
   workflow_dispatch:
     inputs:
       base_url:
         description: "Base URL to run Playwright tests against"
         required: true
         type: string
-      ref:
-        description: "Git ref to checkout (branch, tag, or SHA). Defaults to current ref if empty."
-        required: false
-        default: ""
-        type: string
 
 permissions:
   contents: read
 
+concurrency:
+  group: e2e-${{ github.event.client_payload.url || inputs.base_url || github.run_id }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
   e2e:
+    name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.ref != '' && inputs.ref || github.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -34,21 +52,264 @@ jobs:
           cache: npm
           cache-dependency-path: e2e/package-lock.json
 
-      - name: Verify shell and Node/npm
-        run: |
-          which sh
-          node -v
-          npm -v
-
       - name: Install E2E dependencies
         working-directory: e2e
         run: npm ci
 
-      - name: Install Playwright browsers
-        working-directory: e2e
-        run: npx playwright install --with-deps chromium firefox webkit
+      - name: Cache Playwright binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('e2e/package-lock.json') }}
 
-      - name: Seed E2E test data
+      - name: Client deployment filter
+        id: filter
+        if: github.event_name == 'repository_dispatch'
+        env:
+          PAYLOAD_PROJECT: ${{ github.event.client_payload.project }}
+          PAYLOAD_PROJECT_ID: ${{ github.event.client_payload.projectId }}
+          PAYLOAD_URL: ${{ github.event.client_payload.url }}
+        run: |
+          echo "=== Client deployment filter ==="
+          echo "client_payload.project: $PAYLOAD_PROJECT"
+          echo "client_payload.projectId: $PAYLOAD_PROJECT_ID"
+          echo "client_payload.url: $PAYLOAD_URL"
+
+          # Strategy 1: Check project/projectId fields for client identifier
+          if [[ -n "$PAYLOAD_PROJECT" ]]; then
+            if echo "$PAYLOAD_PROJECT" | grep -qi "server"; then
+              echo "Server project detected via client_payload.project ('$PAYLOAD_PROJECT'). Skipping E2E."
+              echo "should_run=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            elif echo "$PAYLOAD_PROJECT" | grep -qi "client"; then
+              echo "Client project detected via client_payload.project ('$PAYLOAD_PROJECT'). Running E2E."
+              echo "should_run=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+
+          if [[ -n "$PAYLOAD_PROJECT_ID" ]]; then
+            if echo "$PAYLOAD_PROJECT_ID" | grep -qi "server"; then
+              echo "Server project detected via client_payload.projectId ('$PAYLOAD_PROJECT_ID'). Skipping E2E."
+              echo "should_run=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            elif echo "$PAYLOAD_PROJECT_ID" | grep -qi "client"; then
+              echo "Client project detected via client_payload.projectId ('$PAYLOAD_PROJECT_ID'). Running E2E."
+              echo "should_run=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+
+          # Strategy 2: Fallback to URL hostname pattern matching
+          if [[ -n "$PAYLOAD_URL" ]]; then
+            HOSTNAME=$(echo "$PAYLOAD_URL" | sed -E 's|https?://([^/]+).*|\1|')
+            echo "Fallback: extracted hostname: $HOSTNAME"
+
+            if [[ "$HOSTNAME" == "staging-client.ichnos-protocol.com" ]]; then
+              echo "Client deployment detected (custom domain). Running E2E."
+              echo "should_run=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            elif [[ "$HOSTNAME" == "staging-api.ichnos-protocol.com" ]]; then
+              echo "Server deployment detected (custom domain). Skipping E2E."
+              echo "should_run=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            elif [[ "$HOSTNAME" == ichnos-protocol-server-git-* ]] || [[ "$HOSTNAME" == ichnos-protocolserver-git-* ]]; then
+              echo "Server deployment detected (auto-preview URL: $HOSTNAME). Skipping E2E."
+              echo "should_run=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            elif [[ "$HOSTNAME" == ichnos-protocol-git-* ]]; then
+              echo "Client deployment detected (auto-preview URL: $HOSTNAME). Running E2E."
+              echo "should_run=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            elif [[ "$HOSTNAME" == ichnos-protocolserver-*-khorolevs-projects.vercel.app ]]; then
+              echo "Server deployment detected (hash-based preview URL: $HOSTNAME). Skipping E2E."
+              echo "should_run=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            elif [[ "$HOSTNAME" == ichnos-protocol-*-khorolevs-projects.vercel.app ]]; then
+              echo "Client deployment detected (hash-based preview URL: $HOSTNAME). Running E2E."
+              echo "should_run=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
+
+          # Strategy 3: Ambiguous — fail open (run tests)
+          echo "::warning::Could not determine project type from payload fields or URL hostname. Failing open — running E2E tests."
+          echo "should_run=true" >> "$GITHUB_OUTPUT"
+
+      - name: Install Playwright browsers (Chromium only for preview)
+        if: github.event_name == 'repository_dispatch' && steps.filter.outputs.should_run == 'true'
+        working-directory: e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright browsers (full suite for manual)
+        if: github.event_name == 'workflow_dispatch'
+        working-directory: e2e
+        run: npx playwright install --with-deps
+
+      - name: Resolve BASE_URL
+        id: url
+        run: |
+          BASE_URL="${{ inputs.base_url || github.event.client_payload.url }}"
+          if [[ -z "$BASE_URL" ]]; then
+            echo "::error::No BASE_URL resolved from inputs.base_url or client_payload.url"
+            exit 1
+          fi
+          echo "base_url=$BASE_URL" >> "$GITHUB_OUTPUT"
+          echo "Resolved BASE_URL: $BASE_URL"
+
+      - name: Resolve DATABASE_URL (Neon API)
+        id: db
+        if: github.event_name == 'repository_dispatch' && steps.filter.outputs.should_run == 'true'
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ vars.NEON_PROJECT_ID || secrets.NEON_PROJECT_ID }}
+          PAYLOAD_URL: ${{ github.event.client_payload.url }}
+          PAYLOAD_GIT_REF: ${{ github.event.client_payload.git.ref }}
+          FALLBACK_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          NEON_API_BASE="https://console.neon.tech/api/v2"
+          MAX_ATTEMPTS=6
+          SLEEP_SECONDS=5
+
+          echo "=== Neon preview branch resolution ==="
+          echo "client_payload.git.ref: $PAYLOAD_GIT_REF"
+          echo "client_payload.url: $PAYLOAD_URL"
+
+          # Step 1: Resolve branch name
+          BRANCH_REF=""
+
+          # Priority 1: client_payload.git.ref (strip refs/heads/ prefix)
+          if [[ -n "$PAYLOAD_GIT_REF" ]]; then
+            BRANCH_REF=$(echo "$PAYLOAD_GIT_REF" | sed -E 's#^refs/heads/##')
+            echo "Branch from client_payload.git.ref: $BRANCH_REF"
+          fi
+
+          # Priority 2: Extract from URL hostname pattern
+          if [[ -z "$BRANCH_REF" && -n "$PAYLOAD_URL" ]]; then
+            URL_HOSTNAME=$(echo "$PAYLOAD_URL" | sed -E 's|https?://([^/]+).*|\1|')
+            BRANCH_REF=$(echo "$URL_HOSTNAME" | sed -nE 's/^ichnos-protocol-git-(.+)-[a-z0-9]+-khorolevs-projects\.vercel\.app$/\1/p')
+            if [[ -n "$BRANCH_REF" ]]; then
+              echo "Branch from URL hostname: $BRANCH_REF"
+            fi
+          fi
+
+          # Priority 3: Fallback to DATABASE_URL secret
+          if [[ -z "$BRANCH_REF" ]]; then
+            if [[ -n "$FALLBACK_DATABASE_URL" ]]; then
+              echo "::warning::Could not resolve branch name for Neon lookup. Falling back to DATABASE_URL secret."
+              echo "effective_db_url=$FALLBACK_DATABASE_URL" >> "$GITHUB_OUTPUT"
+              echo "db_source=fallback DATABASE_URL secret" >> "$GITHUB_OUTPUT"
+              exit 0
+            else
+              echo "::error::Could not resolve branch name and no DATABASE_URL fallback secret is available."
+              exit 1
+            fi
+          fi
+
+          # Validate Neon credentials
+          if [[ -z "$NEON_API_KEY" ]]; then
+            if [[ -n "$FALLBACK_DATABASE_URL" ]]; then
+              echo "::warning::NEON_API_KEY not set. Falling back to DATABASE_URL secret."
+              echo "effective_db_url=$FALLBACK_DATABASE_URL" >> "$GITHUB_OUTPUT"
+              echo "db_source=fallback DATABASE_URL secret (NEON_API_KEY missing)" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "::error::NEON_API_KEY secret is required for Neon-managed preview branch lookup."
+            exit 1
+          fi
+
+          if [[ -z "$NEON_PROJECT_ID" ]]; then
+            if [[ -n "$FALLBACK_DATABASE_URL" ]]; then
+              echo "::warning::NEON_PROJECT_ID not set. Falling back to DATABASE_URL secret."
+              echo "effective_db_url=$FALLBACK_DATABASE_URL" >> "$GITHUB_OUTPUT"
+              echo "db_source=fallback DATABASE_URL secret (NEON_PROJECT_ID missing)" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "::error::NEON_PROJECT_ID secret is required for Neon-managed preview branch lookup."
+            exit 1
+          fi
+
+          # Step 2: Look up Neon preview branch
+          NEON_BRANCH_NAME="preview/$BRANCH_REF"
+          ENCODED_BRANCH_NAME=$(jq -rn --arg v "$NEON_BRANCH_NAME" '$v|@uri')
+          echo "Looking up Neon branch: $NEON_BRANCH_NAME"
+
+          BRANCH_ID=""
+          for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
+            BRANCHES_RESPONSE=$(curl --fail --silent --show-error \
+              -H "Authorization: Bearer $NEON_API_KEY" \
+              "$NEON_API_BASE/projects/$NEON_PROJECT_ID/branches?search=$ENCODED_BRANCH_NAME" || true)
+
+            BRANCH_ID=$(echo "$BRANCHES_RESPONSE" | jq -r --arg name "$NEON_BRANCH_NAME" '
+              .branches
+              | map(select(.name == $name))
+              | .[0].id // empty
+            ')
+
+            if [[ -n "$BRANCH_ID" ]]; then
+              echo "Resolved Neon branch '$NEON_BRANCH_NAME' on attempt $attempt/$MAX_ATTEMPTS: $BRANCH_ID"
+              break
+            fi
+
+            if [[ "$attempt" -lt "$MAX_ATTEMPTS" ]]; then
+              echo "Neon branch '$NEON_BRANCH_NAME' not visible yet (attempt $attempt/$MAX_ATTEMPTS). Retrying in ${SLEEP_SECONDS}s..."
+              sleep "$SLEEP_SECONDS"
+            fi
+          done
+
+          if [[ -z "$BRANCH_ID" ]]; then
+            if [[ -n "$FALLBACK_DATABASE_URL" ]]; then
+              echo "::warning::Neon branch '$NEON_BRANCH_NAME' not found after $MAX_ATTEMPTS attempts. Falling back to DATABASE_URL secret."
+              echo "effective_db_url=$FALLBACK_DATABASE_URL" >> "$GITHUB_OUTPUT"
+              echo "db_source=fallback DATABASE_URL secret (Neon branch not found)" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "::error::Failed to resolve Neon-managed preview branch '$NEON_BRANCH_NAME' in project '$NEON_PROJECT_ID' after $MAX_ATTEMPTS attempts."
+            exit 1
+          fi
+
+          # Step 3: Get connection URI
+          EFFECTIVE_DB_URL=""
+          for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
+            CONNECTION_RESPONSE=$(curl --fail --silent --show-error \
+              -H "Authorization: Bearer $NEON_API_KEY" \
+              "$NEON_API_BASE/projects/$NEON_PROJECT_ID/connection-uri?branch_id=$BRANCH_ID&role_name=neondb_owner&database_name=neondb" || true)
+
+            EFFECTIVE_DB_URL=$(echo "$CONNECTION_RESPONSE" | jq -r '.uri // .connection_uri // empty')
+
+            if [[ -n "$EFFECTIVE_DB_URL" ]]; then
+              echo "Resolved connection URI on attempt $attempt/$MAX_ATTEMPTS"
+              break
+            fi
+
+            if [[ "$attempt" -lt "$MAX_ATTEMPTS" ]]; then
+              echo "Connection URI not available yet (attempt $attempt/$MAX_ATTEMPTS). Retrying in ${SLEEP_SECONDS}s..."
+              sleep "$SLEEP_SECONDS"
+            fi
+          done
+
+          if [[ -z "$EFFECTIVE_DB_URL" ]]; then
+            if [[ -n "$FALLBACK_DATABASE_URL" ]]; then
+              echo "::warning::Failed to resolve connection URI for Neon branch '$NEON_BRANCH_NAME' (id: '$BRANCH_ID') after $MAX_ATTEMPTS attempts. Falling back to DATABASE_URL secret."
+              echo "effective_db_url=$FALLBACK_DATABASE_URL" >> "$GITHUB_OUTPUT"
+              echo "db_source=fallback DATABASE_URL secret (connection URI resolution failed)" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "::error::Failed to resolve connection URI for Neon branch '$NEON_BRANCH_NAME' (id: '$BRANCH_ID') after $MAX_ATTEMPTS attempts."
+            exit 1
+          fi
+
+          echo "effective_db_url=$EFFECTIVE_DB_URL" >> "$GITHUB_OUTPUT"
+          echo "db_source=Neon-managed preview branch ($NEON_BRANCH_NAME)" >> "$GITHUB_OUTPUT"
+          echo "Effective DB URL resolved from Neon-managed preview branch."
+
+      - name: Install server runtime deps (manual run)
+        if: github.event_name == 'workflow_dispatch'
+        working-directory: server
+        run: npm ci --omit=dev
+
+      - name: Seed E2E test data (manual run)
+        if: github.event_name == 'workflow_dispatch'
         working-directory: server
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -59,19 +320,37 @@ jobs:
           E2E_SUPER_ADMIN_UID: ${{ secrets.E2E_SUPER_ADMIN_UID }}
           E2E_SUPER_ADMIN_EMAIL: ${{ secrets.E2E_SUPER_ADMIN_EMAIL }}
         run: |
-          if [ -n "$E2E_ADMIN_EMAIL" ] && [ -n "$E2E_ADMIN_UID" ] && [ -n "$DATABASE_URL" ]; then
-            npm ci --omit=dev
+          if [ -n "$DATABASE_URL" ]; then
             node scripts/seedE2EData.js
           else
-            echo "Skipping E2E seed: required env vars not set"
+            echo "::warning::DATABASE_URL not set — skipping seed for manual run"
           fi
 
-      - name: Run Playwright tests (full cross-browser)
+      - name: Install server runtime deps
+        if: github.event_name == 'repository_dispatch' && steps.filter.outputs.should_run == 'true'
+        working-directory: server
+        run: npm ci --omit=dev
+
+      - name: Seed E2E test data
+        if: github.event_name == 'repository_dispatch' && steps.filter.outputs.should_run == 'true'
+        working-directory: server
+        env:
+          DATABASE_URL: ${{ steps.db.outputs.effective_db_url }}
+          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          E2E_ADMIN_UID: ${{ secrets.E2E_ADMIN_UID }}
+          E2E_USER_UID: ${{ secrets.E2E_USER_UID }}
+          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+          E2E_SUPER_ADMIN_UID: ${{ secrets.E2E_SUPER_ADMIN_UID }}
+          E2E_SUPER_ADMIN_EMAIL: ${{ secrets.E2E_SUPER_ADMIN_EMAIL }}
+        run: node scripts/seedE2EData.js
+
+      - name: Run Playwright tests
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.should_run == 'true'
         working-directory: e2e
         env:
-          BASE_URL: ${{ inputs.base_url }}
-          E2E_BROWSER_PROFILE: full
-          E2E_WORKERS: "2"
+          BASE_URL: ${{ steps.url.outputs.base_url }}
+          E2E_BROWSER_PROFILE: ${{ github.event_name == 'repository_dispatch' && 'chromium' || 'full' }}
+          E2E_WORKERS: "1"
           E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
           E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
           E2E_ADMIN_UID: ${{ secrets.E2E_ADMIN_UID }}
@@ -82,7 +361,7 @@ jobs:
         run: npx playwright test
 
       - name: Upload Playwright report
-        if: ${{ always() }}
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
@@ -90,8 +369,8 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Upload Playwright partial test results
-        if: ${{ always() }}
+      - name: Upload Playwright test results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-test-results
