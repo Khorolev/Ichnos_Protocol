@@ -66,35 +66,23 @@ jobs:
         id: filter
         if: github.event_name == 'repository_dispatch'
         env:
-          PAYLOAD_PROJECT: ${{ github.event.client_payload.project }}
-          PAYLOAD_PROJECT_ID: ${{ github.event.client_payload.projectId }}
+          PAYLOAD_PROJECT_NAME: ${{ github.event.client_payload.project.name }}
+          PAYLOAD_PROJECT_ID: ${{ github.event.client_payload.project.id }}
           PAYLOAD_URL: ${{ github.event.client_payload.url }}
         run: |
           echo "=== Client deployment filter ==="
-          echo "client_payload.project: $PAYLOAD_PROJECT"
-          echo "client_payload.projectId: $PAYLOAD_PROJECT_ID"
+          echo "client_payload.project.name: $PAYLOAD_PROJECT_NAME"
+          echo "client_payload.project.id: $PAYLOAD_PROJECT_ID"
           echo "client_payload.url: $PAYLOAD_URL"
 
-          # Strategy 1: Check project/projectId fields for client identifier
-          if [[ -n "$PAYLOAD_PROJECT" ]]; then
-            if echo "$PAYLOAD_PROJECT" | grep -qi "server"; then
-              echo "Server project detected via client_payload.project ('$PAYLOAD_PROJECT'). Skipping E2E."
+          # Strategy 1: Check project.name for client/server identifier
+          if [[ -n "$PAYLOAD_PROJECT_NAME" ]]; then
+            if echo "$PAYLOAD_PROJECT_NAME" | grep -qi "server"; then
+              echo "Server project detected via project.name ('$PAYLOAD_PROJECT_NAME'). Skipping E2E."
               echo "should_run=false" >> "$GITHUB_OUTPUT"
               exit 0
-            elif echo "$PAYLOAD_PROJECT" | grep -qi "client"; then
-              echo "Client project detected via client_payload.project ('$PAYLOAD_PROJECT'). Running E2E."
-              echo "should_run=true" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-          fi
-
-          if [[ -n "$PAYLOAD_PROJECT_ID" ]]; then
-            if echo "$PAYLOAD_PROJECT_ID" | grep -qi "server"; then
-              echo "Server project detected via client_payload.projectId ('$PAYLOAD_PROJECT_ID'). Skipping E2E."
-              echo "should_run=false" >> "$GITHUB_OUTPUT"
-              exit 0
-            elif echo "$PAYLOAD_PROJECT_ID" | grep -qi "client"; then
-              echo "Client project detected via client_payload.projectId ('$PAYLOAD_PROJECT_ID'). Running E2E."
+            else
+              echo "Client project detected via project.name ('$PAYLOAD_PROJECT_NAME'). Running E2E."
               echo "should_run=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi
