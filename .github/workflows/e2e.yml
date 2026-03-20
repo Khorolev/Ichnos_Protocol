@@ -68,7 +68,7 @@ jobs:
           if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
             # Use the stable staging domain — per-deployment hash URLs can
             # become stale if Vercel cancels/supersedes the deployment.
-            URL="https://staging-client.ichnos-protocol.com"
+            URL="${{ secrets.E2E_BASE_URL }}"
             SHA="${{ github.event.client_payload.deployment.meta.githubCommitSha || github.event.client_payload.commitSha || '' }}"
             REF="${{ github.event.client_payload.deployment.meta.githubCommitRef || github.event.client_payload.branch || '' }}"
             echo "base_url=$URL" >> "$GITHUB_OUTPUT"

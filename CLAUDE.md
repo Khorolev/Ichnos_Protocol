@@ -410,6 +410,23 @@ XAI_API_BASE_URL=
 CORS_ORIGIN=                     # Frontend URL
 ```
 
+### GitHub Actions Secrets
+
+These secrets are configured in **GitHub → Settings → Secrets and variables → Actions**. They are used by the E2E workflow (`e2e.yml`) and CI pipeline.
+
+```
+E2E_BASE_URL=                        # Stable staging client URL (e.g. https://staging-client.ichnos-protocol.com)
+E2E_API_BASE_URL=                    # Stable staging API URL (e.g. https://staging-api.ichnos-protocol.com)
+E2E_ADMIN_EMAIL=                     # Firebase admin test user email
+E2E_ADMIN_PASSWORD=                  # Firebase admin test user password
+E2E_USER_EMAIL=                      # Firebase regular test user email
+E2E_USER_PASSWORD=                   # Firebase regular test user password
+E2E_SUPER_ADMIN_EMAIL=               # Firebase super admin test user email
+E2E_SUPER_ADMIN_PASSWORD=            # Firebase super admin test user password
+FIREBASE_API_KEY=                    # Firebase API key (client-side, for E2E auth)
+VERCEL_AUTOMATION_BYPASS_SECRET=     # Vercel Deployment Protection bypass secret (from Vercel → Settings → Deployment Protection → Protection Bypass for Automation)
+```
+
 ---
 
 ## 13. Security
@@ -530,7 +547,7 @@ cd e2e && npx playwright show-report
 
 E2E tests run in a **separate workflow** (`e2e.yml`), not inside the CI workflow (`ci.yml`). This avoids wasting runner time polling for Vercel deployments.
 
-**Primary trigger**: `repository_dispatch` (`vercel.deployment.success`) — Vercel emits this event after each successful preview deployment when Repository Dispatch Events are enabled in the Vercel **client** project's Git settings. The workflow filters out server deployments via `project.name`. Tests run against the stable staging domain (`staging-client.ichnos-protocol.com`), not the per-deployment hash URLs (which can become stale if Vercel cancels/supersedes a deployment). Chromium only. One concurrent run per project — newer deployments cancel in-progress runs.
+**Primary trigger**: `repository_dispatch` (`vercel.deployment.success`) — Vercel emits this event after each successful preview deployment when Repository Dispatch Events are enabled in the Vercel **client** project's Git settings. The workflow filters out server deployments via `project.name`. Tests run against the stable staging domains configured via GitHub Actions secrets (`E2E_BASE_URL` for the client, `E2E_API_BASE_URL` for the API), not the per-deployment hash URLs (which can become stale if Vercel cancels/supersedes a deployment). Vercel Deployment Protection is bypassed using the `VERCEL_AUTOMATION_BYPASS_SECRET` secret. Chromium only. One concurrent run per project — newer deployments cancel in-progress runs.
 
 **Secondary trigger**: `workflow_dispatch` — manual/ad-hoc runs against any `base_url` input; full browser suite available.
 
