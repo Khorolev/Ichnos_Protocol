@@ -111,7 +111,7 @@ Ichnos_Protocol/
 ├── .github/
 │   └── workflows/
 │       ├── ci.yml                        # Lint + unit tests on every PR
-│       ├── e2e.yml                       # Playwright E2E — repository_dispatch + workflow_dispatch
+│       ├── e2e.yml                       # Playwright E2E — repository_dispatch (staging URL) + workflow_dispatch
 │       ├── promote-to-production.yml     # Approval-gated production promotion on push to release
 │       └── release-policy-check.yml     # Enforces release branch policy
 ├── assets/                       # Brand assets (logo, images)
@@ -528,7 +528,13 @@ cd e2e && npx playwright show-report
 
 #### CI Workflow: Playwright Against Vercel Preview Deployments
 
-E2E tests run in GitHub Actions via two triggers. **Primary**: `repository_dispatch` (`vercel.deployment.success`) — Vercel emits this event after each successful preview deployment when Repository Dispatch Events are enabled in the Vercel project's Git settings. The workflow classifies the deployment URL by hostname (three detection families: custom domains, `-git-` auto-preview URLs, hash-based auto-preview URLs) to decide whether to run Playwright. Chromium only is used for this path. **Secondary**: `workflow_dispatch` — manual/ad-hoc runs against any `base_url` input; full browser suite is used.
+E2E tests run in a **separate workflow** (`e2e.yml`), not inside the CI workflow (`ci.yml`). This avoids wasting runner time polling for Vercel deployments.
+
+**Primary trigger**: `repository_dispatch` (`vercel.deployment.success`) — Vercel emits this event after each successful preview deployment when Repository Dispatch Events are enabled in the Vercel **client** project's Git settings. The workflow filters out server deployments via `project.name`. Tests run against the stable staging domain (`staging-client.ichnos-protocol.com`), not the per-deployment hash URLs (which can become stale if Vercel cancels/supersedes a deployment). Chromium only. One concurrent run per project — newer deployments cancel in-progress runs.
+
+**Secondary trigger**: `workflow_dispatch` — manual/ad-hoc runs against any `base_url` input; full browser suite available.
+
+**Commit status**: The workflow posts a commit status (`E2E Tests (Playwright)`) to the PR so results are visible alongside CI checks, even though E2E runs in a separate workflow.
 
 #### E2E Test Rules
 
