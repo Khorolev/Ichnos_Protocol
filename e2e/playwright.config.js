@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:5173";
 const IS_CI = !!process.env.CI;
+const BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
 
 const VALID_BROWSER_PROFILES = ["chromium", "full"];
 const rawBrowserProfile = process.env.E2E_BROWSER_PROFILE;
@@ -74,6 +75,13 @@ export default defineConfig({
     screenshot: "only-on-failure",
     actionTimeout: IS_CI ? 15_000 : 10_000,
     navigationTimeout: IS_CI ? 30_000 : 15_000,
+    // Bypass Vercel Deployment Protection on preview URLs.
+    // No-op locally (header is omitted when the secret is unset).
+    ...(BYPASS_SECRET && {
+      extraHTTPHeaders: {
+        "x-vercel-protection-bypass": BYPASS_SECRET,
+      },
+    }),
   },
 
   projects: PROJECTS_BY_PROFILE[BROWSER_PROFILE],

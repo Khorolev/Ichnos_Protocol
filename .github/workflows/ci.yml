@@ -1,6 +1,9 @@
-# Required check names: "Client — Lint & Test", "Server — Lint & Test", "E2E Tests (Playwright)"
+# Required check names: "Client — Lint & Test", "Server — Lint & Test"
 # These names are registered as required status checks in GitHub rulesets
 # for main. Do not rename without updating rulesets.
+#
+# E2E tests run separately in e2e.yml, triggered by Vercel's
+# repository_dispatch after a successful preview deployment.
 name: CI
 
 on:
@@ -10,7 +13,6 @@ on:
 
 permissions:
   contents: read
-  deployments: read
 
 concurrency:
   group: ci-${{ github.event.pull_request.number }}
@@ -89,123 +91,3 @@ jobs:
       - name: Run tests
         run: npm test
 
-  e2e:
-    name: E2E Tests (Playwright)
-    needs: [lint-and-test-client, lint-and-test-server]
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: e2e/package-lock.json
-
-      - name: Install E2E dependencies
-        working-directory: e2e
-        run: npm ci
-
-      - name: Cache Playwright binaries
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('e2e/package-lock.json') }}
-
-      - name: Install Playwright browsers (Chromium only)
-        working-directory: e2e
-        run: npx playwright install --with-deps chromium
-
-      - name: Await Vercel preview URL
-        id: url
-        env:
-          GH_TOKEN: ${{ github.token }}
-          COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          # Poll the GitHub Deployments API until Vercel posts a successful
-          # deployment for this commit. Vercel's GitHub integration creates
-          # a deployment with a "success" status and the preview URL.
-          echo "Polling GitHub Deployments API for commit $COMMIT_SHA..."
-          ATTEMPTS=0
-          MAX_ATTEMPTS=60
-          while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
-            # Fetch deployments for this commit (newest first)
-            DEPLOYMENTS=$(gh api "repos/${{ github.repository }}/deployments?sha=${COMMIT_SHA}&per_page=10" 2>/dev/null || echo "[]")
-
-            # Iterate deployments, check statuses for a successful one with a target_url
-            for DEPLOY_ID in $(echo "$DEPLOYMENTS" | jq -r '.[].id'); do
-              STATUSES=$(gh api "repos/${{ github.repository }}/deployments/${DEPLOY_ID}/statuses" 2>/dev/null || echo "[]")
-              TARGET_URL=$(echo "$STATUSES" | jq -r '[.[] | select(.state == "success") | .target_url // .environment_url] | first // empty')
-
-              if [[ -n "$TARGET_URL" ]]; then
-                echo "Found Vercel preview URL: $TARGET_URL (deployment $DEPLOY_ID)"
-                echo "base_url=$TARGET_URL" >> "$GITHUB_OUTPUT"
-                exit 0
-              fi
-            done
-
-            ATTEMPTS=$((ATTEMPTS + 1))
-            echo "Attempt $ATTEMPTS/$MAX_ATTEMPTS: no successful deployment yet — retrying in 10s..."
-            sleep 10
-          done
-
-          echo "::error::No successful Vercel deployment found for commit $COMMIT_SHA within $((MAX_ATTEMPTS * 10))s."
-          exit 1
-
-      - name: Wait for deployment readiness
-        env:
-          BASE_URL: ${{ steps.url.outputs.base_url }}
-        run: |
-          echo "Waiting for $BASE_URL to respond with HTTP 200..."
-          ATTEMPTS=0
-          MAX_ATTEMPTS=24
-          while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL" || true)
-            if [ "$STATUS" = "200" ]; then
-              echo "Deployment is ready (HTTP $STATUS)."
-              exit 0
-            fi
-            ATTEMPTS=$((ATTEMPTS + 1))
-            echo "Attempt $ATTEMPTS/$MAX_ATTEMPTS: HTTP $STATUS — retrying in 5s..."
-            sleep 5
-          done
-          echo "::error::Deployment at $BASE_URL did not become ready within $((MAX_ATTEMPTS * 5))s."
-          exit 1
-
-      - name: Run Playwright tests
-        working-directory: e2e
-        env:
-          BASE_URL: ${{ steps.url.outputs.base_url }}
-          E2E_BROWSER_PROFILE: chromium
-          E2E_WORKERS: "1"
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
-          E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
-          E2E_SUPER_ADMIN_EMAIL: ${{ secrets.E2E_SUPER_ADMIN_EMAIL }}
-          E2E_SUPER_ADMIN_PASSWORD: ${{ secrets.E2E_SUPER_ADMIN_PASSWORD }}
-          E2E_API_BASE_URL: ${{ secrets.E2E_API_BASE_URL }}
-          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY || secrets.VITE_FIREBASE_API_KEY }}
-        run: npx playwright test
-
-      - name: Upload Playwright report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: e2e/playwright-report/
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Upload Playwright test results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-test-results
-          path: e2e/test-results/
-          if-no-files-found: warn
-          retention-days: 14

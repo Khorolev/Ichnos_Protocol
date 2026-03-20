@@ -1,10 +1,20 @@
-# Manual E2E test runner — for ad-hoc runs against any deployed URL.
+# E2E Tests — triggered by Vercel after a successful preview deployment.
 #
-# The primary E2E trigger is inside ci.yml (pull_request).
-# This workflow is kept for manual/ad-hoc runs only.
-name: E2E Tests (Manual)
+# Primary trigger: repository_dispatch (vercel.deployment.success)
+#   Vercel fires this event with the deployment URL in the payload.
+#   Enable "Repository Dispatch Events" in Vercel > Git settings.
+#
+# Secondary trigger: workflow_dispatch (manual/ad-hoc runs)
+#   Accepts any base_url input for on-demand testing.
+#
+# Deployment Protection: preview URLs require a bypass header.
+#   Generate a secret in Vercel > Deployment Protection > Protection Bypass
+#   for Automation, then store as VERCEL_AUTOMATION_BYPASS_SECRET in GitHub.
+name: E2E Tests (Playwright)
 
 on:
+  repository_dispatch:
+    types: [vercel.deployment.success]
   workflow_dispatch:
     inputs:
       base_url:
@@ -12,7 +22,7 @@ on:
         required: true
         type: string
       browser_profile:
-        description: "Browser profile: 'chromium' (default) or 'full' (Chromium + Firefox + WebKit)"
+        description: "Browser profile: 'chromium' (default) or 'full'"
         required: false
         default: chromium
         type: choice
@@ -22,9 +32,12 @@ on:
 
 permissions:
   contents: read
+  statuses: write
 
+# One E2E run per branch. If a new deployment arrives for the same branch,
+# cancel the in-progress run (the old deployment is stale anyway).
 concurrency:
-  group: e2e-manual-${{ inputs.base_url }}
+  group: e2e-${{ github.event.client_payload.deployment.meta.githubCommitRef || inputs.base_url || github.run_id }}
   cancel-in-progress: true
 
 defaults:
@@ -33,13 +46,55 @@ defaults:
 
 jobs:
   e2e:
-    name: E2E Tests (Manual)
+    name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
+    # For repository_dispatch: only run for client deployments (skip server).
+    # Strategy 1: project.name. Strategy 2: URL hostname. Strategy 3: fail open.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'repository_dispatch' &&
+        !contains(github.event.client_payload.project.name || '', 'server')
+      )
+
     steps:
+      - name: Extract deployment info
+        id: deploy
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            URL="${{ github.event.client_payload.url }}"
+            SHA="${{ github.event.client_payload.deployment.meta.githubCommitSha }}"
+            REF="${{ github.event.client_payload.deployment.meta.githubCommitRef }}"
+            echo "base_url=$URL" >> "$GITHUB_OUTPUT"
+            echo "commit_sha=$SHA" >> "$GITHUB_OUTPUT"
+            echo "commit_ref=$REF" >> "$GITHUB_OUTPUT"
+            echo "Deployment URL: $URL"
+            echo "Commit SHA: $SHA"
+            echo "Branch: $REF"
+          else
+            echo "base_url=${{ inputs.base_url }}" >> "$GITHUB_OUTPUT"
+            echo "commit_sha=" >> "$GITHUB_OUTPUT"
+            echo "commit_ref=" >> "$GITHUB_OUTPUT"
+            echo "Manual run against: ${{ inputs.base_url }}"
+          fi
+
+      - name: Set pending commit status
+        if: steps.deploy.outputs.commit_sha != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/statuses/${{ steps.deploy.outputs.commit_sha }}" \
+            -f state=pending \
+            -f context="E2E Tests (Playwright)" \
+            -f description="Running Playwright tests..." \
+            -f target_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.deploy.outputs.commit_sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -61,7 +116,8 @@ jobs:
       - name: Install Playwright browsers
         working-directory: e2e
         run: |
-          if [ "${{ inputs.browser_profile }}" = "full" ]; then
+          PROFILE="${{ inputs.browser_profile || 'chromium' }}"
+          if [ "$PROFILE" = "full" ]; then
             npx playwright install --with-deps
           else
             npx playwright install --with-deps chromium
@@ -69,13 +125,18 @@ jobs:
 
       - name: Wait for deployment readiness
         env:
-          BASE_URL: ${{ inputs.base_url }}
+          BASE_URL: ${{ steps.deploy.outputs.base_url }}
+          BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           echo "Waiting for $BASE_URL to respond with HTTP 200..."
           ATTEMPTS=0
-          MAX_ATTEMPTS=24
+          MAX_ATTEMPTS=36
+          HEADER=""
+          if [ -n "$BYPASS_SECRET" ]; then
+            HEADER="-H x-vercel-protection-bypass:${BYPASS_SECRET}"
+          fi
           while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL" || true)
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" $HEADER "$BASE_URL" || true)
             if [ "$STATUS" = "200" ]; then
               echo "Deployment is ready (HTTP $STATUS)."
               exit 0
@@ -90,8 +151,8 @@ jobs:
       - name: Run Playwright tests
         working-directory: e2e
         env:
-          BASE_URL: ${{ inputs.base_url }}
-          E2E_BROWSER_PROFILE: ${{ inputs.browser_profile }}
+          BASE_URL: ${{ steps.deploy.outputs.base_url }}
+          E2E_BROWSER_PROFILE: ${{ inputs.browser_profile || 'chromium' }}
           E2E_WORKERS: "1"
           E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
           E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
@@ -101,7 +162,26 @@ jobs:
           E2E_SUPER_ADMIN_PASSWORD: ${{ secrets.E2E_SUPER_ADMIN_PASSWORD }}
           E2E_API_BASE_URL: ${{ secrets.E2E_API_BASE_URL }}
           FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY || secrets.VITE_FIREBASE_API_KEY }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: npx playwright test
+
+      - name: Set final commit status
+        if: always() && steps.deploy.outputs.commit_sha != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            STATE="success"
+            DESC="Playwright tests passed"
+          else
+            STATE="failure"
+            DESC="Playwright tests failed"
+          fi
+          gh api "repos/${{ github.repository }}/statuses/${{ steps.deploy.outputs.commit_sha }}" \
+            -f state="$STATE" \
+            -f context="E2E Tests (Playwright)" \
+            -f description="$DESC" \
+            -f target_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       - name: Upload Playwright report
         if: always()
