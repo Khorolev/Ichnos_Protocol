@@ -15,12 +15,7 @@ const { Pool } = pg;
 
 const REQUIRED_VARS = ["DATABASE_URL", "E2E_ADMIN_EMAIL", "E2E_ADMIN_UID"];
 
-function shouldSeed() {
-  if (process.env.VERCEL_ENV !== "preview") return false;
-  return REQUIRED_VARS.every(
-    (key) => typeof process.env[key] === "string" && process.env[key].length > 0,
-  );
-}
+export const seedStatus = { seeded: false, error: null };
 
 async function upsertUser(pool, uid, firstName, lastName, email) {
   await pool.query(
@@ -97,7 +92,22 @@ async function closePool(pool) {
 }
 
 export async function seedE2EOnPreview() {
-  if (!shouldSeed()) return;
+  seedStatus.error = null;
+
+  if (process.env.VERCEL_ENV !== "preview") {
+    seedStatus.seeded = true;
+    return;
+  }
+
+  const missing = REQUIRED_VARS.filter(
+    (key) => typeof process.env[key] !== "string" || process.env[key].length === 0,
+  );
+  if (missing.length > 0) {
+    const msg = `Preview environment missing required seed vars: ${missing.join(", ")}`;
+    seedStatus.error = msg;
+    console.error(`[e2e-seed] ${msg}`);
+    return;
+  }
 
   console.log("[e2e-seed] Preview environment detected — seeding E2E data...");
   let pool;
@@ -107,8 +117,10 @@ export async function seedE2EOnPreview() {
     await seedOptionalUser(pool);
     await seedAdmin(pool);
     await seedOptionalSuperAdmin(pool);
+    seedStatus.seeded = true;
     console.log("[e2e-seed] E2E seed complete");
   } catch (err) {
+    seedStatus.error = err.message;
     console.error("[e2e-seed] E2E seed failed:", err.message);
   } finally {
     if (pool) await closePool(pool);

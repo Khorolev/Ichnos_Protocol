@@ -59,6 +59,7 @@ const PROJECTS_BY_PROFILE = {
 };
 
 export default defineConfig({
+  globalSetup: "./global-setup.js",
   testDir: "./tests",
   fullyParallel: true,
   forbidOnly: IS_CI,
