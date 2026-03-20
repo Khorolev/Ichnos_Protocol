@@ -152,6 +152,21 @@ jobs:
           echo "::error::Deployment at $BASE_URL did not become ready within $((MAX_ATTEMPTS * 5))s."
           exit 1
 
+      - name: Verify API server reachability
+        env:
+          API_URL: ${{ vars.E2E_API_BASE_URL }}
+          BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          echo "Testing API at: ${API_URL}/api/health"
+          STATUS=$(curl -sL -o /dev/null -w "%{http_code}" -H "x-vercel-protection-bypass: ${BYPASS_SECRET}" "${API_URL}/api/health" || true)
+          echo "API health check: HTTP $STATUS"
+          if [ "$STATUS" != "200" ]; then
+            echo "::warning::API server returned HTTP $STATUS — E2E tests may fail"
+            # Also try without bypass to compare
+            STATUS2=$(curl -sL -o /dev/null -w "%{http_code}" "${API_URL}/api/health" || true)
+            echo "API without bypass: HTTP $STATUS2"
+          fi
+
       - name: Run Playwright tests
         working-directory: e2e
         env:
