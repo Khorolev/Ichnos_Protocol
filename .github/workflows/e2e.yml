@@ -1,15 +1,13 @@
-# E2E Tests — triggered by Vercel after a successful preview deployment.
+# E2E Tests — triggered by Vercel after a successful client preview deployment.
 #
 # Primary trigger: repository_dispatch (vercel.deployment.success)
-#   Vercel fires this event with the deployment URL in the payload.
-#   Enable "Repository Dispatch Events" in Vercel > Git settings.
+#   Vercel fires this event after each successful deployment.
+#   Enable "Repository Dispatch Events" in Vercel > Git settings (client project only).
+#   Tests run against the stable staging domain (not the per-deployment hash URL,
+#   which can become stale if Vercel cancels/supersedes the deployment).
 #
 # Secondary trigger: workflow_dispatch (manual/ad-hoc runs)
 #   Accepts any base_url input for on-demand testing.
-#
-# Deployment Protection: preview URLs require a bypass header.
-#   Generate a secret in Vercel > Deployment Protection > Protection Bypass
-#   for Automation, then store as VERCEL_AUTOMATION_BYPASS_SECRET in GitHub.
 name: E2E Tests (Playwright)
 
 on:
@@ -52,7 +50,6 @@ jobs:
     timeout-minutes: 30
 
     # For repository_dispatch: only run for client deployments (skip server).
-    # Strategy 1: project.name. Strategy 2: URL hostname. Strategy 3: fail open.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (
@@ -65,24 +62,24 @@ jobs:
         if: github.event_name == 'repository_dispatch'
         run: echo '${{ toJSON(github.event.client_payload) }}' | jq '.' || true
 
-      - name: Extract deployment info
+      - name: Resolve BASE_URL
         id: deploy
         run: |
           if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-            URL="${{ github.event.client_payload.url }}"
-            # Vercel payload nesting varies — try multiple paths for SHA/ref
+            # Use the stable staging domain — per-deployment hash URLs can
+            # become stale if Vercel cancels/supersedes the deployment.
+            URL="https://staging-client.ichnos-protocol.com"
             SHA="${{ github.event.client_payload.deployment.meta.githubCommitSha || github.event.client_payload.commitSha || '' }}"
             REF="${{ github.event.client_payload.deployment.meta.githubCommitRef || github.event.client_payload.branch || '' }}"
             echo "base_url=$URL" >> "$GITHUB_OUTPUT"
             echo "commit_sha=$SHA" >> "$GITHUB_OUTPUT"
-            echo "commit_ref=$REF" >> "$GITHUB_OUTPUT"
-            echo "Deployment URL: $URL"
+            echo "Staging URL: $URL"
+            echo "Vercel payload URL: ${{ github.event.client_payload.url }}"
             echo "Commit SHA: $SHA"
             echo "Branch: $REF"
           else
             echo "base_url=${{ inputs.base_url }}" >> "$GITHUB_OUTPUT"
             echo "commit_sha=" >> "$GITHUB_OUTPUT"
-            echo "commit_ref=" >> "$GITHUB_OUTPUT"
             echo "Manual run against: ${{ inputs.base_url }}"
           fi
 
@@ -132,20 +129,12 @@ jobs:
       - name: Wait for deployment readiness
         env:
           BASE_URL: ${{ steps.deploy.outputs.base_url }}
-          BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           echo "Waiting for $BASE_URL to respond with HTTP 200..."
           ATTEMPTS=0
           MAX_ATTEMPTS=36
           while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
-            if [ -n "$BYPASS_SECRET" ]; then
-              STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-                -H "x-vercel-protection-bypass: ${BYPASS_SECRET}" \
-                -H "x-vercel-set-bypass-cookie: samesitenone" \
-                "$BASE_URL" || true)
-            else
-              STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL" || true)
-            fi
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL" || true)
             if [ "$STATUS" = "200" ]; then
               echo "Deployment is ready (HTTP $STATUS)."
               exit 0
