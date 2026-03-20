@@ -410,13 +410,20 @@ XAI_API_BASE_URL=
 CORS_ORIGIN=                     # Frontend URL
 ```
 
-### GitHub Actions Secrets
+### GitHub Actions Variables (visible, not masked)
 
-These secrets are configured in **GitHub → Settings → Secrets and variables → Actions**. They are used by the E2E workflow (`e2e.yml`) and CI pipeline.
+Configured in **GitHub → Settings → Secrets and variables → Actions → Variables tab**. These are non-sensitive values that should be visible in logs for debugging.
 
 ```
 E2E_BASE_URL=                        # Stable staging client URL (e.g. https://staging-client.ichnos-protocol.com)
 E2E_API_BASE_URL=                    # Stable staging API URL (e.g. https://staging-api.ichnos-protocol.com)
+```
+
+### GitHub Actions Secrets (masked, write-only)
+
+Configured in **GitHub → Settings → Secrets and variables → Actions → Secrets tab**. These are sensitive values that are masked in logs.
+
+```
 E2E_ADMIN_EMAIL=                     # Firebase admin test user email
 E2E_ADMIN_PASSWORD=                  # Firebase admin test user password
 E2E_USER_EMAIL=                      # Firebase regular test user email

@@ -68,7 +68,7 @@ jobs:
           if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
             # Use the stable staging domain — per-deployment hash URLs can
             # become stale if Vercel cancels/supersedes the deployment.
-            URL="${{ secrets.E2E_BASE_URL }}"
+            URL="${{ vars.E2E_BASE_URL }}"
             SHA="${{ github.event.client_payload.deployment.meta.githubCommitSha || github.event.client_payload.commitSha || '' }}"
             REF="${{ github.event.client_payload.deployment.meta.githubCommitRef || github.event.client_payload.branch || '' }}"
             echo "base_url=$URL" >> "$GITHUB_OUTPUT"
@@ -164,7 +164,7 @@ jobs:
           E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
           E2E_SUPER_ADMIN_EMAIL: ${{ secrets.E2E_SUPER_ADMIN_EMAIL }}
           E2E_SUPER_ADMIN_PASSWORD: ${{ secrets.E2E_SUPER_ADMIN_PASSWORD }}
-          E2E_API_BASE_URL: ${{ secrets.E2E_API_BASE_URL }}
+          E2E_API_BASE_URL: ${{ vars.E2E_API_BASE_URL }}
           FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY || secrets.VITE_FIREBASE_API_KEY }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: npx playwright test

@@ -202,12 +202,17 @@ Before committing any change to the E2E workflow:
 | Repository Dispatch Events     | Enabled        | Disabled       |
 | Protection Bypass for Automation | Configured   | Same secret    |
 
-### GitHub Actions Secrets
+### GitHub Actions Variables (visible, not masked)
 
-| Secret                            | Description                            |
+| Variable                          | Description                            |
 | --------------------------------- | -------------------------------------- |
 | `E2E_BASE_URL`                    | Stable staging client URL              |
 | `E2E_API_BASE_URL`                | Stable staging API URL                 |
+
+### GitHub Actions Secrets (masked, write-only)
+
+| Secret                            | Description                            |
+| --------------------------------- | -------------------------------------- |
 | `VERCEL_AUTOMATION_BYPASS_SECRET` | Shared bypass secret (both projects)   |
 | `E2E_ADMIN_EMAIL`                 | Firebase admin test user email         |
 | `E2E_ADMIN_PASSWORD`              | Firebase admin test user password      |
@@ -215,4 +220,5 @@ Before committing any change to the E2E workflow:
 | `E2E_USER_PASSWORD`               | Firebase regular test user password    |
 | `E2E_SUPER_ADMIN_EMAIL`           | Firebase super admin test user email   |
 | `E2E_SUPER_ADMIN_PASSWORD`        | Firebase super admin test user password|
+| `FIREBASE_API_KEY`                | Firebase API key for E2E auth flows    |
 | `FIREBASE_API_KEY`                | Firebase API key for E2E auth flows    |
