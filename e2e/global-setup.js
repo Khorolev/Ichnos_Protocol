@@ -40,12 +40,22 @@ function buildHealthUrl() {
   return url.toString();
 }
 
+function buildBypassHeaders() {
+  const secret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+  if (!secret) return {};
+  return {
+    "x-vercel-protection-bypass": secret,
+    "x-vercel-set-bypass-cookie": "samesitenone",
+  };
+}
+
 async function pollHealth(url) {
   const start = Date.now();
+  const headers = buildBypassHeaders();
 
   while (Date.now() - start < MAX_WAIT_MS) {
     try {
-      const res = await fetch(url);
+      const res = await fetch(url, { headers });
       if (res.ok) {
         const body = await res.json();
         if (body.seed?.error) {
