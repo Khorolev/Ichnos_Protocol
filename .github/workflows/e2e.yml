@@ -129,12 +129,18 @@ jobs:
       - name: Wait for deployment readiness
         env:
           BASE_URL: ${{ steps.deploy.outputs.base_url }}
+          BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           echo "Waiting for $BASE_URL to respond with HTTP 200..."
+          CURL_ARGS=("-sL" "-o" "/dev/null" "-w" "%{http_code}")
+          if [ -n "$BYPASS_SECRET" ]; then
+            CURL_ARGS+=("-H" "x-vercel-protection-bypass: ${BYPASS_SECRET}")
+            echo "Using Vercel protection bypass header."
+          fi
           ATTEMPTS=0
           MAX_ATTEMPTS=36
           while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL" || true)
+            STATUS=$(curl "${CURL_ARGS[@]}" "$BASE_URL" || true)
             if [ "$STATUS" = "200" ]; then
               echo "Deployment is ready (HTTP $STATUS)."
               exit 0
