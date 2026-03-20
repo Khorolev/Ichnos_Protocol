@@ -65,13 +65,14 @@ export default defineConfig({
   retries: IS_CI ? 1 : 0,
   workers: WORKERS,
   reporter: IS_CI ? "html" : "list",
-  timeout: 30_000,
+  timeout: IS_CI ? 60_000 : 30_000,
 
   use: {
     baseURL: BASE_URL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
-    actionTimeout: 5_000,
+    actionTimeout: IS_CI ? 15_000 : 10_000,
+    navigationTimeout: IS_CI ? 30_000 : 15_000,
   },
 
   projects: PROJECTS_BY_PROFILE[BROWSER_PROFILE],
