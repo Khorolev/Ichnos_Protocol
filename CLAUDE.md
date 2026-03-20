@@ -426,12 +426,29 @@ Configured in **GitHub → Settings → Secrets and variables → Actions → Se
 ```
 E2E_ADMIN_EMAIL=                     # Firebase admin test user email
 E2E_ADMIN_PASSWORD=                  # Firebase admin test user password
+E2E_ADMIN_UID=                       # Firebase UID of admin test user (also needed on Vercel server)
 E2E_USER_EMAIL=                      # Firebase regular test user email
 E2E_USER_PASSWORD=                   # Firebase regular test user password
 E2E_SUPER_ADMIN_EMAIL=               # Firebase super admin test user email
 E2E_SUPER_ADMIN_PASSWORD=            # Firebase super admin test user password
 FIREBASE_API_KEY=                    # Firebase API key (client-side, for E2E auth)
 VERCEL_AUTOMATION_BYPASS_SECRET=     # Vercel Deployment Protection bypass secret (from Vercel → Settings → Deployment Protection → Protection Bypass for Automation)
+```
+
+### Vercel Server Project — Environment Variables (Preview scope)
+
+The server's E2E seed script (`server/scripts/seedE2EOnPreview.js`) runs at cold start on Vercel preview deployments. It needs its own env vars set in **Vercel → Server project → Settings → Environment Variables**, scoped to **Preview** only. These are separate from GitHub Actions secrets — GitHub secrets are only available to the CI runner, not to the deployed Vercel server.
+
+```
+# Required — seed fails without these (DATABASE_URL and VERCEL_ENV are set automatically)
+E2E_ADMIN_EMAIL=                     # Must match the GitHub Actions secret value
+E2E_ADMIN_UID=                       # Firebase UID of admin test user (from Firebase Console → Authentication → Users)
+
+# Optional — seed skips these users if not set
+E2E_USER_UID=                        # Firebase UID of regular test user
+E2E_USER_EMAIL=                      # Must match the GitHub Actions secret value
+E2E_SUPER_ADMIN_UID=                 # Firebase UID of super-admin test user
+E2E_SUPER_ADMIN_EMAIL=               # Must match the GitHub Actions secret value
 ```
 
 ---
