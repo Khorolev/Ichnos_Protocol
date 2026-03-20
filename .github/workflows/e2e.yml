@@ -181,6 +181,7 @@ jobs:
           E2E_SUPER_ADMIN_EMAIL: ${{ secrets.E2E_SUPER_ADMIN_EMAIL }}
           E2E_SUPER_ADMIN_PASSWORD: ${{ secrets.E2E_SUPER_ADMIN_PASSWORD }}
           E2E_API_BASE_URL: ${{ secrets.E2E_API_BASE_URL }}
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
         run: npx playwright test
 
       - name: Upload Playwright report

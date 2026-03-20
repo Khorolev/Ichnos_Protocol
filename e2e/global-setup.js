@@ -1,12 +1,21 @@
 /**
- * Playwright global setup — blocks test execution until the deployment is ready.
+ * Playwright global setup — blocks test execution until the deployment is ready
+ * and validates that configured E2E Firebase accounts can sign in.
  *
  * In CI, polls the server's /api/health endpoint until:
  *   1. The endpoint returns HTTP 200.
  *   2. The seed object reports seeded === true (or an error).
  *
+ * Firebase credential validation:
+ *   When FIREBASE_API_KEY is set, each configured credential set (admin, user,
+ *   super-admin) is verified via the Firebase Auth REST signInWithPassword
+ *   endpoint. Failures produce a clear message instructing the operator to run
+ *   the provisioning script.
+ *
  * Skipped in local development (non-CI) where the server is assumed ready.
  */
+
+import { validateFirebaseCredentials } from "./tests/helpers/validate-firebase.js";
 
 const IS_CI = !!process.env.CI;
 const BASE_URL = process.env.BASE_URL || "http://localhost:5173";
@@ -60,10 +69,12 @@ async function pollHealth(url) {
 export default async function globalSetup() {
   if (!IS_CI) {
     console.log("[global-setup] Skipping health poll (non-CI environment).");
+    await validateFirebaseCredentials();
     return;
   }
 
   const healthUrl = buildHealthUrl();
   console.log(`[global-setup] Polling ${healthUrl} for readiness...`);
   await pollHealth(healthUrl);
+  await validateFirebaseCredentials();
 }
