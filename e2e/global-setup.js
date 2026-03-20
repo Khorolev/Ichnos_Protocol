@@ -40,24 +40,24 @@ function buildHealthUrl() {
   return url.toString();
 }
 
-function buildBypassHeaders() {
+function appendBypassParam(url) {
   const secret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
-  if (!secret) return {};
-  return {
-    "x-vercel-protection-bypass": secret,
-    "x-vercel-set-bypass-cookie": "samesitenone",
-  };
+  if (!secret) return url;
+  const u = new URL(url);
+  u.searchParams.set("x-vercel-protection-bypass", secret);
+  u.searchParams.set("x-vercel-set-bypass-cookie", "samesitenone");
+  return u.toString();
 }
 
 async function pollHealth(url) {
   const start = Date.now();
-  const headers = buildBypassHeaders();
-  const hasBypass = Object.keys(headers).length > 0;
-  console.log(`[global-setup] Bypass header configured: ${hasBypass}`);
+  const bypassUrl = appendBypassParam(url);
+  const hasBypass = bypassUrl !== url;
+  console.log(`[global-setup] Bypass configured: ${hasBypass}`);
 
   while (Date.now() - start < MAX_WAIT_MS) {
     try {
-      const res = await fetch(url, { headers, redirect: "follow" });
+      const res = await fetch(bypassUrl);
       if (res.ok) {
         const body = await res.json();
         if (body.seed?.error) {
