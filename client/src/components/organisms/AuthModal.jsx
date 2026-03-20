@@ -114,7 +114,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
   const isLogin = activeTab === 'login';
 
   return (
-    <Modal show={isOpen} onHide={handleClose} centered>
+    <Modal show={isOpen} onHide={handleClose} centered data-testid="auth-modal">
       <Modal.Header closeButton className="auth-modal-header">
         <Modal.Title className="auth-modal-title">
           {isLogin ? 'Welcome Back' : 'Create Account'}
@@ -154,7 +154,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }) {
             disabled={loading}
           >
             {loading && (
-              <Spinner size="sm" animation="border" className="me-2" />
+              <Spinner size="sm" animation="border" className="me-2" data-testid="auth-submit-spinner" />
             )}
             {isLogin ? 'Login' : 'Sign Up'}
           </Button>

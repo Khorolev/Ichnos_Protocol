@@ -15,7 +15,7 @@ import chatRoutes from "./routes/chatRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import gdprRoutes from "./routes/gdprRoutes.js";
 import buildStatusPage from "./helpers/buildStatusPage.js";
-import { seedE2EOnPreview } from "../scripts/seedE2EOnPreview.js";
+import { seedE2EOnPreview, seedStatus } from "../scripts/seedE2EOnPreview.js";
 
 const app = express();
 
@@ -61,6 +61,10 @@ app.get("/api/health", (_req, res) => {
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || "development",
     node: process.version,
+    seed: {
+      seeded: seedStatus.seeded,
+      error: seedStatus.error,
+    },
   });
 });
 

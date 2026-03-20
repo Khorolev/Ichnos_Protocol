@@ -26,7 +26,7 @@ const PERCENTAGE_PATTERN = /^(100|[1-9]?\d)%$/;
 // Invalid values fail fast with a clear message.
 let WORKERS;
 if (!rawWorkers) {
-  WORKERS = IS_CI ? 1 : undefined;
+  WORKERS = IS_CI ? 1 : 4;
 } else if (POSITIVE_INTEGER_PATTERN.test(rawWorkers)) {
   WORKERS = Number(rawWorkers);
 } else if (PERCENTAGE_PATTERN.test(rawWorkers)) {
@@ -59,19 +59,21 @@ const PROJECTS_BY_PROFILE = {
 };
 
 export default defineConfig({
+  globalSetup: "./global-setup.js",
   testDir: "./tests",
   fullyParallel: true,
   forbidOnly: IS_CI,
   retries: IS_CI ? 1 : 0,
   workers: WORKERS,
   reporter: IS_CI ? "html" : "list",
-  timeout: 30_000,
+  timeout: IS_CI ? 60_000 : 30_000,
 
   use: {
     baseURL: BASE_URL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
-    actionTimeout: 5_000,
+    actionTimeout: IS_CI ? 15_000 : 10_000,
+    navigationTimeout: IS_CI ? 30_000 : 15_000,
   },
 
   projects: PROJECTS_BY_PROFILE[BROWSER_PROFILE],

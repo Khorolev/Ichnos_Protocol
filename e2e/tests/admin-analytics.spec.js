@@ -1,17 +1,10 @@
 import { test, expect } from "@playwright/test";
-import { loginAs, loginAsAdmin } from "./helpers/auth.js";
-
-const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL;
-const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD;
-const SUPER_ADMIN_EMAIL = process.env.E2E_SUPER_ADMIN_EMAIL;
-const SUPER_ADMIN_PASSWORD = process.env.E2E_SUPER_ADMIN_PASSWORD;
+import { loginAsAdmin, loginAsSuperAdmin } from "./helpers/auth.js";
+import { ADMIN, SUPER_ADMIN, isConfigured } from "./helpers/credentials.js";
 
 test.describe("Admin Analytics - Topic Recompute Flow", () => {
   test.beforeEach(async ({ page }) => {
-    test.skip(
-      !ADMIN_EMAIL || !ADMIN_PASSWORD,
-      "Admin E2E credentials not configured",
-    );
+    test.skip(!isConfigured(ADMIN), "Admin E2E credentials not configured");
     await loginAsAdmin(page);
     await page.goto("/admin");
   });
@@ -93,10 +86,7 @@ test.describe("Admin Analytics - Topic Recompute Flow", () => {
 
 test.describe("Admin Analytics - CSV Export", () => {
   test.beforeEach(async ({ page }) => {
-    test.skip(
-      !ADMIN_EMAIL || !ADMIN_PASSWORD,
-      "Admin E2E credentials not configured",
-    );
+    test.skip(!isConfigured(ADMIN), "Admin E2E credentials not configured");
     await loginAsAdmin(page);
     await page.goto("/admin");
   });
@@ -158,10 +148,10 @@ test.describe("Admin Analytics - CSV Export", () => {
 test.describe("Admin Analytics - Super-Admin Management", () => {
   test.beforeEach(async ({ page }) => {
     test.skip(
-      !SUPER_ADMIN_EMAIL || !SUPER_ADMIN_PASSWORD,
+      !isConfigured(SUPER_ADMIN),
       "Super-admin E2E credentials not configured",
     );
-    await loginAs(page, SUPER_ADMIN_EMAIL, SUPER_ADMIN_PASSWORD);
+    await loginAsSuperAdmin(page);
     await page.goto("/admin");
   });
 
@@ -255,10 +245,7 @@ test.describe("Admin Analytics - Super-Admin Management", () => {
 
 test.describe("Admin Analytics - Settings Tab Visibility", () => {
   test("Settings tab is NOT visible for regular admin", async ({ page }) => {
-    test.skip(
-      !ADMIN_EMAIL || !ADMIN_PASSWORD,
-      "Admin E2E credentials not configured",
-    );
+    test.skip(!isConfigured(ADMIN), "Admin E2E credentials not configured");
     await loginAsAdmin(page);
     await page.goto("/admin");
 

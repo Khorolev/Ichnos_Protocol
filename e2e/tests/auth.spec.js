@@ -1,19 +1,20 @@
 import { test, expect } from '@playwright/test';
+import { waitForAppReady } from './helpers/app.js';
 
 test.describe('Authentication Flow', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await waitForAppReady(page);
   });
 
   test('shows Login button in navbar for unauthenticated users', async ({
     page,
   }) => {
-    const loginBtn = page.getByRole('button', { name: 'Login' });
+    const loginBtn = page.getByTestId('navbar').getByRole('button', { name: 'Login' });
     await expect(loginBtn).toBeVisible();
   });
 
   test('opens auth modal when Login button is clicked', async ({ page }) => {
-    await page.getByRole('button', { name: 'Login' }).click();
+    await page.getByTestId('navbar').getByRole('button', { name: 'Login' }).click();
 
     await expect(page.getByText('Welcome Back')).toBeVisible();
     await expect(page.getByLabel('Email')).toBeVisible();
@@ -21,27 +22,27 @@ test.describe('Authentication Flow', () => {
   });
 
   test('switches between Login and Sign Up tabs', async ({ page }) => {
-    await page.getByRole('button', { name: 'Login' }).click();
+    await page.getByTestId('navbar').getByRole('button', { name: 'Login' }).click();
 
     await page.getByText('Sign Up').click();
     await expect(page.getByText('Create Account')).toBeVisible();
-    await expect(page.getByLabel('Name')).toBeVisible();
+    await expect(page.getByLabel('Name', { exact: true })).toBeVisible();
     await expect(page.getByLabel('Surname')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Login' }).first().click();
+    await page.getByTestId('auth-modal').getByRole('button', { name: 'Login' }).click();
     await expect(page.getByText('Welcome Back')).toBeVisible();
   });
 
   test('closes auth modal when close button is clicked', async ({ page }) => {
-    await page.getByRole('button', { name: 'Login' }).click();
-    await expect(page.getByText('Welcome Back')).toBeVisible();
+    await page.getByTestId('navbar').getByRole('button', { name: 'Login' }).click();
+    await expect(page.getByTestId('auth-modal').getByText('Welcome Back')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Close' }).click();
-    await expect(page.getByText('Welcome Back')).not.toBeVisible();
+    await page.getByTestId('auth-modal').getByRole('button', { name: 'Close' }).click();
+    await expect(page.getByTestId('auth-modal').getByText('Welcome Back')).not.toBeVisible();
   });
 
   test('shows validation for required fields on login', async ({ page }) => {
-    await page.getByRole('button', { name: 'Login' }).click();
+    await page.getByTestId('navbar').getByRole('button', { name: 'Login' }).click();
 
     const submitBtn = page.locator('button[type="submit"]');
     await submitBtn.click();
@@ -51,10 +52,10 @@ test.describe('Authentication Flow', () => {
   });
 
   test('signup form has required and optional fields', async ({ page }) => {
-    await page.getByRole('button', { name: 'Login' }).click();
+    await page.getByTestId('navbar').getByRole('button', { name: 'Login' }).click();
     await page.getByText('Sign Up').click();
 
-    await expect(page.getByLabel('Name')).toBeVisible();
+    await expect(page.getByLabel('Name', { exact: true })).toBeVisible();
     await expect(page.getByLabel('Surname')).toBeVisible();
     await expect(page.getByLabel('Email')).toBeVisible();
     await expect(page.getByLabel('Password')).toBeVisible();
@@ -64,7 +65,7 @@ test.describe('Authentication Flow', () => {
   });
 
   test('shows privacy notice on signup tab', async ({ page }) => {
-    await page.getByRole('button', { name: 'Login' }).click();
+    await page.getByTestId('navbar').getByRole('button', { name: 'Login' }).click();
     await page.getByText('Sign Up').click();
 
     await expect(
@@ -75,18 +76,18 @@ test.describe('Authentication Flow', () => {
 
 test.describe('Cookie Consent', () => {
   test('shows cookie consent banner on first visit', async ({ page }) => {
-    await page.goto('/');
+    await waitForAppReady(page);
 
     await expect(
       page.getByText(/we use cookies to improve your experience/i),
     ).toBeVisible();
-    await expect(page.getByText('Accept')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Accept cookies' })).toBeVisible();
   });
 
   test('hides cookie consent banner after accepting', async ({ page }) => {
-    await page.goto('/');
+    await waitForAppReady(page);
 
-    await page.getByText('Accept').click();
+    await page.getByRole('button', { name: 'Accept cookies' }).click();
 
     await expect(
       page.getByText(/we use cookies to improve your experience/i),
@@ -97,11 +98,11 @@ test.describe('Cookie Consent', () => {
     page,
     context,
   }) => {
-    await page.goto('/');
-    await page.getByText('Accept').click();
+    await waitForAppReady(page);
+    await page.getByRole('button', { name: 'Accept cookies' }).click();
 
     const newPage = await context.newPage();
-    await newPage.goto('/');
+    await waitForAppReady(newPage);
 
     await expect(
       newPage.getByText(/we use cookies to improve your experience/i),
@@ -109,17 +110,17 @@ test.describe('Cookie Consent', () => {
   });
 
   test('cookie consent has privacy policy link', async ({ page }) => {
-    await page.goto('/');
+    await waitForAppReady(page);
 
-    const link = page.locator('.cookie-consent-link');
+    const link = page.getByTestId('cookie-consent-link');
     await expect(link).toHaveAttribute('href', '/privacy');
   });
 });
 
 test.describe('Navigation - Contact Link', () => {
   test('shows Contact link in navigation', async ({ page }) => {
-    await page.goto('/');
+    await waitForAppReady(page);
 
-    await expect(page.getByRole('link', { name: 'Contact' })).toBeVisible();
+    await expect(page.getByTestId('navbar').getByRole('link', { name: 'Contact' })).toBeVisible();
   });
 });

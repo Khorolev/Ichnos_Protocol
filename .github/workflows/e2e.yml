@@ -146,6 +146,27 @@ jobs:
           echo "Resolved BASE_URL: $BASE_URL"
 
       # No seeding step — server auto-seeds E2E data on preview startup
+      - name: Wait for deployment readiness
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.should_run == 'true'
+        env:
+          BASE_URL: ${{ steps.url.outputs.base_url }}
+        run: |
+          echo "Waiting for $BASE_URL to respond with HTTP 200..."
+          ATTEMPTS=0
+          MAX_ATTEMPTS=24
+          while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL" || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "Deployment is ready (HTTP $STATUS)."
+              exit 0
+            fi
+            ATTEMPTS=$((ATTEMPTS + 1))
+            echo "Attempt $ATTEMPTS/$MAX_ATTEMPTS: HTTP $STATUS — retrying in 5s..."
+            sleep 5
+          done
+          echo "::error::Deployment at $BASE_URL did not become ready within $((MAX_ATTEMPTS * 5))s."
+          exit 1
+
       - name: Run Playwright tests
         if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.should_run == 'true'
         working-directory: e2e
@@ -159,6 +180,8 @@ jobs:
           E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
           E2E_SUPER_ADMIN_EMAIL: ${{ secrets.E2E_SUPER_ADMIN_EMAIL }}
           E2E_SUPER_ADMIN_PASSWORD: ${{ secrets.E2E_SUPER_ADMIN_PASSWORD }}
+          E2E_API_BASE_URL: ${{ secrets.E2E_API_BASE_URL }}
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY || secrets.VITE_FIREBASE_API_KEY }}
         run: npx playwright test
 
       - name: Upload Playwright report

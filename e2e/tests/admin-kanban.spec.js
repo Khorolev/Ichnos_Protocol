@@ -1,15 +1,10 @@
 import { test, expect } from "@playwright/test";
 import { loginAsAdmin } from "./helpers/auth.js";
-
-const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL;
-const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD;
+import { ADMIN, isConfigured } from "./helpers/credentials.js";
 
 test.describe("Admin Kanban - Basic Flow", () => {
   test.beforeEach(async ({ page }) => {
-    test.skip(
-      !ADMIN_EMAIL || !ADMIN_PASSWORD,
-      "Admin E2E credentials not configured",
-    );
+    test.skip(!isConfigured(ADMIN), "Admin E2E credentials not configured");
     await loginAsAdmin(page);
     await page.goto("/admin");
   });
@@ -47,10 +42,7 @@ test.describe("Admin Kanban - Basic Flow", () => {
 
 test.describe("Admin Kanban - Request Edit Flow", () => {
   test.beforeEach(async ({ page }) => {
-    test.skip(
-      !ADMIN_EMAIL || !ADMIN_PASSWORD,
-      "Admin E2E credentials not configured",
-    );
+    test.skip(!isConfigured(ADMIN), "Admin E2E credentials not configured");
     await loginAsAdmin(page);
     await page.goto("/admin");
   });
@@ -62,15 +54,15 @@ test.describe("Admin Kanban - Request Edit Flow", () => {
     await expect(laneRow).toBeVisible({ timeout: 10_000 });
     await laneRow.click();
 
-    await expect(page.locator(".offcanvas.show")).toBeVisible({
+    await expect(page.getByTestId("timeline-drawer")).toBeVisible({
       timeout: 5_000,
     });
 
-    const listItems = page.locator(".list-group-item");
+    const listItems = page.getByTestId("timeline-drawer").getByRole("listitem");
     const hasItems = (await listItems.count()) > 0;
 
     if (!hasItems) {
-      await expect(page.locator(".offcanvas.show")).toBeVisible();
+      await expect(page.getByTestId("timeline-drawer")).toBeVisible();
       return;
     }
 
@@ -106,10 +98,7 @@ test.describe("Admin Kanban - Request Edit Flow", () => {
 
 test.describe("Admin Kanban - Chat-only Leads", () => {
   test.beforeEach(async ({ page }) => {
-    test.skip(
-      !ADMIN_EMAIL || !ADMIN_PASSWORD,
-      "Admin E2E credentials not configured",
-    );
+    test.skip(!isConfigured(ADMIN), "Admin E2E credentials not configured");
     await loginAsAdmin(page);
     await page.goto("/admin");
   });
@@ -148,7 +137,7 @@ test.describe("Admin Kanban - Chat-only Leads", () => {
     await expect(page.getByText("Chat History")).toBeVisible({
       timeout: 5_000,
     });
-    await expect(page.locator(".offcanvas.show")).toBeVisible();
+    await expect(page.getByTestId("chat-drawer")).toBeVisible();
 
     const qaPrefix = page.getByText(/^Q:/);
     await expect(qaPrefix.first()).toBeVisible({ timeout: 5_000 });
@@ -157,10 +146,7 @@ test.describe("Admin Kanban - Chat-only Leads", () => {
 
 test.describe("Admin - Topic Analytics", () => {
   test.beforeEach(async ({ page }) => {
-    test.skip(
-      !ADMIN_EMAIL || !ADMIN_PASSWORD,
-      "Admin E2E credentials not configured",
-    );
+    test.skip(!isConfigured(ADMIN), "Admin E2E credentials not configured");
     await loginAsAdmin(page);
     await page.goto("/admin");
   });
@@ -196,10 +182,7 @@ test.describe("Admin - Topic Analytics", () => {
 
 test.describe("Admin - CSV Export", () => {
   test.beforeEach(async ({ page }) => {
-    test.skip(
-      !ADMIN_EMAIL || !ADMIN_PASSWORD,
-      "Admin E2E credentials not configured",
-    );
+    test.skip(!isConfigured(ADMIN), "Admin E2E credentials not configured");
     await loginAsAdmin(page);
     await page.goto("/admin");
   });
@@ -216,10 +199,7 @@ test.describe("Admin - CSV Export", () => {
 
 test.describe("Admin Kanban - Request Delete Flow", () => {
   test.beforeEach(async ({ page }) => {
-    test.skip(
-      !ADMIN_EMAIL || !ADMIN_PASSWORD,
-      "Admin E2E credentials not configured",
-    );
+    test.skip(!isConfigured(ADMIN), "Admin E2E credentials not configured");
     await loginAsAdmin(page);
     await page.goto("/admin");
   });
@@ -231,15 +211,15 @@ test.describe("Admin Kanban - Request Delete Flow", () => {
     await expect(laneRow).toBeVisible({ timeout: 10_000 });
     await laneRow.click();
 
-    await expect(page.locator(".offcanvas.show")).toBeVisible({
+    await expect(page.getByTestId("timeline-drawer")).toBeVisible({
       timeout: 5_000,
     });
 
-    const listItems = page.locator(".list-group-item");
+    const listItems = page.getByTestId("timeline-drawer").getByRole("listitem");
     const hasItems = (await listItems.count()) > 0;
 
     if (!hasItems) {
-      await expect(page.locator(".offcanvas.show")).toBeVisible();
+      await expect(page.getByTestId("timeline-drawer")).toBeVisible();
       return;
     }
 
