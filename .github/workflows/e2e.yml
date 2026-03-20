@@ -34,10 +34,11 @@ permissions:
   contents: read
   statuses: write
 
-# One E2E run per branch. If a new deployment arrives for the same branch,
-# cancel the in-progress run (the old deployment is stale anyway).
+# One E2E run per project. If a new deployment arrives for the same
+# Vercel project, cancel the in-progress run (the old deployment is stale).
+# Falls back to base_url for manual runs.
 concurrency:
-  group: e2e-${{ github.event.client_payload.deployment.meta.githubCommitRef || inputs.base_url || github.run_id }}
+  group: e2e-${{ github.event.client_payload.project.name || inputs.base_url || github.run_id }}
   cancel-in-progress: true
 
 defaults:
@@ -60,13 +61,18 @@ jobs:
       )
 
     steps:
+      - name: Dump Vercel payload (debug)
+        if: github.event_name == 'repository_dispatch'
+        run: echo '${{ toJSON(github.event.client_payload) }}' | jq '.' || true
+
       - name: Extract deployment info
         id: deploy
         run: |
           if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
             URL="${{ github.event.client_payload.url }}"
-            SHA="${{ github.event.client_payload.deployment.meta.githubCommitSha }}"
-            REF="${{ github.event.client_payload.deployment.meta.githubCommitRef }}"
+            # Vercel payload nesting varies — try multiple paths for SHA/ref
+            SHA="${{ github.event.client_payload.deployment.meta.githubCommitSha || github.event.client_payload.commitSha || '' }}"
+            REF="${{ github.event.client_payload.deployment.meta.githubCommitRef || github.event.client_payload.branch || '' }}"
             echo "base_url=$URL" >> "$GITHUB_OUTPUT"
             echo "commit_sha=$SHA" >> "$GITHUB_OUTPUT"
             echo "commit_ref=$REF" >> "$GITHUB_OUTPUT"
@@ -131,12 +137,15 @@ jobs:
           echo "Waiting for $BASE_URL to respond with HTTP 200..."
           ATTEMPTS=0
           MAX_ATTEMPTS=36
-          HEADER=""
-          if [ -n "$BYPASS_SECRET" ]; then
-            HEADER="-H x-vercel-protection-bypass:${BYPASS_SECRET}"
-          fi
           while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" $HEADER "$BASE_URL" || true)
+            if [ -n "$BYPASS_SECRET" ]; then
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+                -H "x-vercel-protection-bypass: ${BYPASS_SECRET}" \
+                -H "x-vercel-set-bypass-cookie: samesitenone" \
+                "$BASE_URL" || true)
+            else
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL" || true)
+            fi
             if [ "$STATUS" = "200" ]; then
               echo "Deployment is ready (HTTP $STATUS)."
               exit 0
