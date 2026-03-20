@@ -1,26 +1,23 @@
 import { test, expect } from '@playwright/test';
-
-const LOGIN_DATA = {
-  email: 'testuser@example.com',
-  password: 'TestPass123!',
-};
+import { USER, isConfigured } from './helpers/credentials.js';
 
 test.describe('Login Flow', () => {
   test.beforeEach(async ({ page }) => {
+    test.skip(!isConfigured(USER), 'User E2E credentials not configured');
     await page.goto('/');
     await page.getByRole('button', { name: 'Login' }).click();
     await expect(page.getByText('Welcome Back')).toBeVisible();
   });
 
   test('fills login form and submits', async ({ page }) => {
-    await page.getByLabel('Email').fill(LOGIN_DATA.email);
-    await page.getByLabel('Password').fill(LOGIN_DATA.password);
+    await page.getByLabel('Email').fill(USER.email);
+    await page.getByLabel('Password').fill(USER.password);
 
     const submitBtn = page.locator('button[type="submit"]');
     await submitBtn.click();
 
     await expect(
-      submitBtn.locator('.spinner-border').or(page.getByRole('alert')),
+      page.getByTestId('auth-submit-spinner').or(page.getByRole('alert')),
     ).toBeVisible({ timeout: 10_000 });
   });
 
@@ -34,8 +31,8 @@ test.describe('Login Flow', () => {
   });
 
   test('submit button disables during login attempt', async ({ page }) => {
-    await page.getByLabel('Email').fill(LOGIN_DATA.email);
-    await page.getByLabel('Password').fill(LOGIN_DATA.password);
+    await page.getByLabel('Email').fill(USER.email);
+    await page.getByLabel('Password').fill(USER.password);
 
     const submitBtn = page.locator('button[type="submit"]');
     await submitBtn.click();

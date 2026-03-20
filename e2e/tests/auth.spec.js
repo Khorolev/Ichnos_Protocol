@@ -111,7 +111,7 @@ test.describe('Cookie Consent', () => {
   test('cookie consent has privacy policy link', async ({ page }) => {
     await page.goto('/');
 
-    const link = page.locator('.cookie-consent-link');
+    const link = page.getByTestId('cookie-consent-link');
     await expect(link).toHaveAttribute('href', '/privacy');
   });
 });

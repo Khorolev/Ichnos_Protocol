@@ -1,17 +1,6 @@
 import { test, expect } from '@playwright/test';
-
-const USER_EMAIL = process.env.E2E_USER_EMAIL;
-const USER_PASSWORD = process.env.E2E_USER_PASSWORD;
-
-async function loginAsUser(page) {
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Login' }).click();
-  await expect(page.getByText('Welcome Back')).toBeVisible();
-  await page.getByLabel('Email').fill(USER_EMAIL);
-  await page.getByLabel('Password').fill(USER_PASSWORD);
-  await page.locator('button[type="submit"]').click();
-  await expect(page.locator('.user-menu-toggle')).toBeVisible({ timeout: 15_000 });
-}
+import { loginAsUser } from './helpers/auth.js';
+import { USER, isConfigured } from './helpers/credentials.js';
 
 test.describe('Contact Page - Public Access', () => {
   test.beforeEach(async ({ page }) => {
@@ -28,7 +17,7 @@ test.describe('Contact Page - Public Access', () => {
 
 test.describe('Contact Page - Submit Inquiry', () => {
   test.beforeEach(async ({ page }) => {
-    test.skip(!USER_EMAIL || !USER_PASSWORD, 'User E2E credentials not configured');
+    test.skip(!isConfigured(USER), 'User E2E credentials not configured');
     await loginAsUser(page);
     await page.goto('/contact');
   });
@@ -48,7 +37,7 @@ test.describe('Contact Page - Submit Inquiry', () => {
       }),
     );
 
-    const modal = page.locator('.modal.show');
+    const modal = page.getByTestId('contact-modal');
     await modal.getByRole('button', { name: 'Submit Inquiry' }).click();
 
     await expect(page.getByText(/inquiry submitted/i)).toBeVisible();
@@ -72,7 +61,7 @@ test.describe('Contact Page - Auth-interrupted Submission', () => {
 
 test.describe('Contact Page - Returning User Flow', () => {
   test.beforeEach(async ({ page }) => {
-    test.skip(!USER_EMAIL || !USER_PASSWORD, 'User E2E credentials not configured');
+    test.skip(!isConfigured(USER), 'User E2E credentials not configured');
     await loginAsUser(page);
 
     await page.route('**/api/contact/my-requests', (route) =>
@@ -98,9 +87,9 @@ test.describe('Contact Page - Returning User Flow', () => {
   test('shows inquiry status list for returning user', async ({ page }) => {
     await expect(page.getByRole('heading', { name: 'My Inquiries' })).toBeVisible();
 
-    const inquiryRow = page.locator('.list-group-item', { hasText: 'Existing inquiry question' });
+    const inquiryRow = page.getByRole('listitem').filter({ hasText: 'Existing inquiry question' });
     await expect(inquiryRow).toBeVisible();
-    await expect(inquiryRow.locator('.badge')).toHaveText('New');
+    await expect(inquiryRow.getByText('New')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Add question' })).toBeVisible();
   });
 
@@ -119,7 +108,7 @@ test.describe('Contact Page - Returning User Flow', () => {
       }),
     );
 
-    const modal = page.locator('.modal.show');
+    const modal = page.getByTestId('contact-modal');
     await modal.getByRole('button', { name: 'Add Question' }).click();
 
     await expect(page.getByText(/inquiry submitted/i)).toBeVisible();

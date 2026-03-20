@@ -36,7 +36,7 @@ test.describe('Signup Flow', () => {
     await submitBtn.click();
 
     await expect(
-      submitBtn.locator('.spinner-border').or(page.getByRole('alert')),
+      page.getByTestId('auth-submit-spinner').or(page.getByRole('alert')),
     ).toBeVisible({ timeout: 10_000 });
   });
 
@@ -53,7 +53,7 @@ test.describe('Signup Flow', () => {
     await submitBtn.click();
 
     await expect(
-      submitBtn.locator('.spinner-border').or(page.getByRole('alert')),
+      page.getByTestId('auth-submit-spinner').or(page.getByRole('alert')),
     ).toBeVisible({ timeout: 10_000 });
   });
 
