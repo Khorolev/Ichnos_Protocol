@@ -76,10 +76,13 @@ export default defineConfig({
     actionTimeout: IS_CI ? 15_000 : 10_000,
     navigationTimeout: IS_CI ? 30_000 : 15_000,
     // Bypass Vercel Deployment Protection on preview URLs.
-    // No-op locally (header is omitted when the secret is unset).
+    // The set-bypass-cookie header ensures the browser receives a cookie
+    // for subsequent navigations (asset loads, client-side routing).
+    // No-op locally (headers are omitted when the secret is unset).
     ...(BYPASS_SECRET && {
       extraHTTPHeaders: {
         "x-vercel-protection-bypass": BYPASS_SECRET,
+        "x-vercel-set-bypass-cookie": "samesitenone",
       },
     }),
   },

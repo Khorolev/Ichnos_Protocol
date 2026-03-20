@@ -137,12 +137,15 @@ jobs:
           echo "Waiting for $BASE_URL to respond with HTTP 200..."
           ATTEMPTS=0
           MAX_ATTEMPTS=36
-          HEADER=""
-          if [ -n "$BYPASS_SECRET" ]; then
-            HEADER="-H x-vercel-protection-bypass:${BYPASS_SECRET}"
-          fi
           while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" $HEADER "$BASE_URL" || true)
+            if [ -n "$BYPASS_SECRET" ]; then
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+                -H "x-vercel-protection-bypass: ${BYPASS_SECRET}" \
+                -H "x-vercel-set-bypass-cookie: samesitenone" \
+                "$BASE_URL" || true)
+            else
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$BASE_URL" || true)
+            fi
             if [ "$STATUS" = "200" ]; then
               echo "Deployment is ready (HTTP $STATUS)."
               exit 0
