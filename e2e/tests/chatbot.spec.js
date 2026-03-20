@@ -3,27 +3,24 @@ import { waitForAppReady } from './helpers/app.js';
 
 test.describe('Chatbot - Unauthenticated Flow', () => {
   test.beforeEach(async ({ page }) => {
-    await waitForAppReady(page);
+    await waitForAppReady(page, '/contact');
   });
 
   test('opens auth modal when chat is opened by unauthenticated user', async ({
     page,
   }) => {
-    const chatBtn = page.getByRole('button', { name: /chat/i });
-    if (await chatBtn.isVisible()) {
-      await chatBtn.click();
-    }
+    await page.getByRole('button', { name: 'Start Chat' }).click();
 
-    await expect(page.getByText('Welcome Back')).toBeVisible();
+    await expect(page.getByTestId('auth-modal')).toBeVisible();
+    await expect(
+      page.getByTestId('auth-modal').getByLabel('Email'),
+    ).toBeVisible();
   });
 
   test('chat modal shows correct daily limit denominator', async ({
     page,
   }) => {
-    const chatBtn = page.getByRole('button', { name: /chat/i });
-    if (await chatBtn.isVisible()) {
-      await chatBtn.click();
-    }
+    await page.getByRole('button', { name: 'Start Chat' }).click();
 
     const badge = page.getByText(/Messages today:.*\/\s*3/);
     await expect(badge).toBeVisible();

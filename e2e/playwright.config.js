@@ -26,7 +26,7 @@ const PERCENTAGE_PATTERN = /^(100|[1-9]?\d)%$/;
 // Invalid values fail fast with a clear message.
 let WORKERS;
 if (!rawWorkers) {
-  WORKERS = IS_CI ? 1 : undefined;
+  WORKERS = IS_CI ? 1 : 4;
 } else if (POSITIVE_INTEGER_PATTERN.test(rawWorkers)) {
   WORKERS = Number(rawWorkers);
 } else if (PERCENTAGE_PATTERN.test(rawWorkers)) {

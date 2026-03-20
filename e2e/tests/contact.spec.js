@@ -53,10 +53,19 @@ test.describe('Contact Page - Auth-interrupted Submission', () => {
 
   test('shows auth modal for unauthenticated user', async ({ page }) => {
     await page.getByRole('button', { name: 'Submit Inquiry' }).click();
-    await expect(page.getByText('Welcome Back')).toBeVisible();
+    await expect(page.getByTestId('contact-modal')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Close' }).click();
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Get in Touch');
+    await page.getByTestId('contact-modal').getByLabel('Question 1').fill('Test question');
+    await page.getByTestId('contact-modal').getByRole('checkbox').click();
+    await page.getByTestId('contact-modal').getByRole('button', { name: 'Submit Inquiry' }).click();
+
+    await expect(page.getByTestId('auth-modal')).toBeVisible();
+    await expect(
+      page.getByTestId('auth-modal').getByLabel('Email'),
+    ).toBeVisible();
+
+    await page.getByTestId('auth-modal').getByRole('button', { name: 'Close' }).click();
+    await expect(page.getByTestId('auth-modal')).not.toBeVisible();
   });
 });
 

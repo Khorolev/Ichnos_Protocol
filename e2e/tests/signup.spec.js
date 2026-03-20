@@ -13,7 +13,7 @@ const SIGNUP_DATA = {
 
 function openSignupTab(page) {
   return async () => {
-    await page.getByRole('button', { name: 'Login' }).click();
+    await page.getByTestId('navbar').getByRole('button', { name: 'Login' }).click();
     await page.getByText('Sign Up').click();
     await expect(page.getByText('Create Account')).toBeVisible();
   };
@@ -28,7 +28,7 @@ test.describe('Signup Flow', () => {
   test('fills all required fields and submits signup form', async ({
     page,
   }) => {
-    await page.getByLabel('Name').fill(SIGNUP_DATA.name);
+    await page.getByLabel('Name', { exact: true }).fill(SIGNUP_DATA.name);
     await page.getByLabel('Surname').fill(SIGNUP_DATA.surname);
     await page.getByLabel('Email').fill(SIGNUP_DATA.email);
     await page.getByLabel('Password').fill(SIGNUP_DATA.password);
@@ -42,7 +42,7 @@ test.describe('Signup Flow', () => {
   });
 
   test('fills all fields including optional and submits', async ({ page }) => {
-    await page.getByLabel('Name').fill(SIGNUP_DATA.name);
+    await page.getByLabel('Name', { exact: true }).fill(SIGNUP_DATA.name);
     await page.getByLabel('Surname').fill(SIGNUP_DATA.surname);
     await page.getByLabel('Email').fill(SIGNUP_DATA.email);
     await page.getByLabel('Password').fill(SIGNUP_DATA.password);
@@ -59,7 +59,7 @@ test.describe('Signup Flow', () => {
   });
 
   test('shows error for weak password on signup', async ({ page }) => {
-    await page.getByLabel('Name').fill(SIGNUP_DATA.name);
+    await page.getByLabel('Name', { exact: true }).fill(SIGNUP_DATA.name);
     await page.getByLabel('Surname').fill(SIGNUP_DATA.surname);
     await page.getByLabel('Email').fill(SIGNUP_DATA.email);
     await page.getByLabel('Password').fill('123');
@@ -70,7 +70,7 @@ test.describe('Signup Flow', () => {
   });
 
   test('shows error for invalid email on signup', async ({ page }) => {
-    await page.getByLabel('Name').fill(SIGNUP_DATA.name);
+    await page.getByLabel('Name', { exact: true }).fill(SIGNUP_DATA.name);
     await page.getByLabel('Surname').fill(SIGNUP_DATA.surname);
     await page.getByLabel('Email').fill('not-an-email');
     await page.getByLabel('Password').fill(SIGNUP_DATA.password);
@@ -84,7 +84,7 @@ test.describe('Signup Flow', () => {
   test('submit button shows loading spinner during signup', async ({
     page,
   }) => {
-    await page.getByLabel('Name').fill(SIGNUP_DATA.name);
+    await page.getByLabel('Name', { exact: true }).fill(SIGNUP_DATA.name);
     await page.getByLabel('Surname').fill(SIGNUP_DATA.surname);
     await page.getByLabel('Email').fill(SIGNUP_DATA.email);
     await page.getByLabel('Password').fill(SIGNUP_DATA.password);
