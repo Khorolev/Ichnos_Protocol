@@ -1,34 +1,30 @@
-# Required check name: "E2E Tests (Playwright)"
-# This name is registered as a required status check in GitHub rulesets
-# for main. Do not rename without updating rulesets.
+# Manual E2E test runner — for ad-hoc runs against any deployed URL.
 #
-# Primary trigger: repository_dispatch (vercel.deployment.success) — emitted
-# by Vercel after each successful deployment when Repository Dispatch Events
-# are enabled in the Vercel project's Git settings.
-#
-# Secondary trigger: workflow_dispatch — for manual/ad-hoc runs against any URL.
-#
-# Client detection (repository_dispatch path):
-#   1. client_payload.project / projectId — match known client identifiers
-#   2. Fallback: hostname pattern matching on client_payload.url
-#   3. Ambiguous → fail open (run tests)
-name: E2E Tests (Playwright)
+# The primary E2E trigger is inside ci.yml (pull_request).
+# This workflow is kept for manual/ad-hoc runs only.
+name: E2E Tests (Manual)
 
 on:
-  repository_dispatch:
-    types: [vercel.deployment.success]
   workflow_dispatch:
     inputs:
       base_url:
         description: "Base URL to run Playwright tests against"
         required: true
         type: string
+      browser_profile:
+        description: "Browser profile: 'chromium' (default) or 'full' (Chromium + Firefox + WebKit)"
+        required: false
+        default: chromium
+        type: choice
+        options:
+          - chromium
+          - full
 
 permissions:
   contents: read
 
 concurrency:
-  group: e2e-${{ github.event.client_payload.url || inputs.base_url || github.run_id }}
+  group: e2e-manual-${{ inputs.base_url }}
   cancel-in-progress: true
 
 defaults:
@@ -37,7 +33,7 @@ defaults:
 
 jobs:
   e2e:
-    name: E2E Tests (Playwright)
+    name: E2E Tests (Manual)
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -62,94 +58,18 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('e2e/package-lock.json') }}
 
-      - name: Client deployment filter
-        id: filter
-        if: github.event_name == 'repository_dispatch'
-        env:
-          PAYLOAD_PROJECT_NAME: ${{ github.event.client_payload.project.name }}
-          PAYLOAD_PROJECT_ID: ${{ github.event.client_payload.project.id }}
-          PAYLOAD_URL: ${{ github.event.client_payload.url }}
-        run: |
-          echo "=== Client deployment filter ==="
-          echo "client_payload.project.name: $PAYLOAD_PROJECT_NAME"
-          echo "client_payload.project.id: $PAYLOAD_PROJECT_ID"
-          echo "client_payload.url: $PAYLOAD_URL"
-
-          # Strategy 1: Check project.name for client/server identifier
-          if [[ -n "$PAYLOAD_PROJECT_NAME" ]]; then
-            if echo "$PAYLOAD_PROJECT_NAME" | grep -qi "server"; then
-              echo "Server project detected via project.name ('$PAYLOAD_PROJECT_NAME'). Skipping E2E."
-              echo "should_run=false" >> "$GITHUB_OUTPUT"
-              exit 0
-            else
-              echo "Client project detected via project.name ('$PAYLOAD_PROJECT_NAME'). Running E2E."
-              echo "should_run=true" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-          fi
-
-          # Strategy 2: Fallback to URL hostname pattern matching
-          if [[ -n "$PAYLOAD_URL" ]]; then
-            HOSTNAME=$(echo "$PAYLOAD_URL" | sed -E 's|https?://([^/]+).*|\1|')
-            echo "Fallback: extracted hostname: $HOSTNAME"
-
-            if [[ "$HOSTNAME" == "staging-client.ichnos-protocol.com" ]]; then
-              echo "Client deployment detected (custom domain). Running E2E."
-              echo "should_run=true" >> "$GITHUB_OUTPUT"
-              exit 0
-            elif [[ "$HOSTNAME" == "staging-api.ichnos-protocol.com" ]]; then
-              echo "Server deployment detected (custom domain). Skipping E2E."
-              echo "should_run=false" >> "$GITHUB_OUTPUT"
-              exit 0
-            elif [[ "$HOSTNAME" == ichnos-protocol-server-git-* ]] || [[ "$HOSTNAME" == ichnos-protocolserver-git-* ]]; then
-              echo "Server deployment detected (auto-preview URL: $HOSTNAME). Skipping E2E."
-              echo "should_run=false" >> "$GITHUB_OUTPUT"
-              exit 0
-            elif [[ "$HOSTNAME" == ichnos-protocol-git-* ]]; then
-              echo "Client deployment detected (auto-preview URL: $HOSTNAME). Running E2E."
-              echo "should_run=true" >> "$GITHUB_OUTPUT"
-              exit 0
-            elif [[ "$HOSTNAME" == ichnos-protocolserver-*-khorolevs-projects.vercel.app ]]; then
-              echo "Server deployment detected (hash-based preview URL: $HOSTNAME). Skipping E2E."
-              echo "should_run=false" >> "$GITHUB_OUTPUT"
-              exit 0
-            elif [[ "$HOSTNAME" == ichnos-protocol-*-khorolevs-projects.vercel.app ]]; then
-              echo "Client deployment detected (hash-based preview URL: $HOSTNAME). Running E2E."
-              echo "should_run=true" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-          fi
-
-          # Strategy 3: Ambiguous — fail open (run tests)
-          echo "::warning::Could not determine project type from payload fields or URL hostname. Failing open — running E2E tests."
-          echo "should_run=true" >> "$GITHUB_OUTPUT"
-
-      - name: Install Playwright browsers (Chromium only for preview)
-        if: github.event_name == 'repository_dispatch' && steps.filter.outputs.should_run == 'true'
+      - name: Install Playwright browsers
         working-directory: e2e
-        run: npx playwright install --with-deps chromium
-
-      - name: Install Playwright browsers (full suite for manual)
-        if: github.event_name == 'workflow_dispatch'
-        working-directory: e2e
-        run: npx playwright install --with-deps
-
-      - name: Resolve BASE_URL
-        id: url
         run: |
-          BASE_URL="${{ inputs.base_url || github.event.client_payload.url }}"
-          if [[ -z "$BASE_URL" ]]; then
-            echo "::error::No BASE_URL resolved from inputs.base_url or client_payload.url"
-            exit 1
+          if [ "${{ inputs.browser_profile }}" = "full" ]; then
+            npx playwright install --with-deps
+          else
+            npx playwright install --with-deps chromium
           fi
-          echo "base_url=$BASE_URL" >> "$GITHUB_OUTPUT"
-          echo "Resolved BASE_URL: $BASE_URL"
 
-      # No seeding step — server auto-seeds E2E data on preview startup
       - name: Wait for deployment readiness
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.should_run == 'true'
         env:
-          BASE_URL: ${{ steps.url.outputs.base_url }}
+          BASE_URL: ${{ inputs.base_url }}
         run: |
           echo "Waiting for $BASE_URL to respond with HTTP 200..."
           ATTEMPTS=0
@@ -168,11 +88,10 @@ jobs:
           exit 1
 
       - name: Run Playwright tests
-        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.should_run == 'true'
         working-directory: e2e
         env:
-          BASE_URL: ${{ steps.url.outputs.base_url }}
-          E2E_BROWSER_PROFILE: ${{ github.event_name == 'repository_dispatch' && 'chromium' || 'full' }}
+          BASE_URL: ${{ inputs.base_url }}
+          E2E_BROWSER_PROFILE: ${{ inputs.browser_profile }}
           E2E_WORKERS: "1"
           E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
           E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
