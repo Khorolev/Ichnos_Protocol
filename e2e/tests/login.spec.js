@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { waitForAppReady } from './helpers/app.js';
 import { USER, isConfigured } from './helpers/credentials.js';
 
 test.describe('Login Flow', () => {
   test.beforeEach(async ({ page }) => {
     test.skip(!isConfigured(USER), 'User E2E credentials not configured');
-    await page.goto('/');
+    await waitForAppReady(page);
     await page.getByRole('button', { name: 'Login' }).click();
     await expect(page.getByText('Welcome Back')).toBeVisible();
   });
@@ -16,9 +17,9 @@ test.describe('Login Flow', () => {
     const submitBtn = page.locator('button[type="submit"]');
     await submitBtn.click();
 
-    await expect(
-      page.getByTestId('auth-submit-spinner').or(page.getByRole('alert')),
-    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('user-menu-toggle')).toBeVisible({
+      timeout: 15_000,
+    });
   });
 
   test('shows error for invalid credentials', async ({ page }) => {

@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { waitForAppReady } from './helpers/app.js';
 
 test.describe('Authentication Flow', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await waitForAppReady(page);
   });
 
   test('shows Login button in navbar for unauthenticated users', async ({
@@ -75,7 +76,7 @@ test.describe('Authentication Flow', () => {
 
 test.describe('Cookie Consent', () => {
   test('shows cookie consent banner on first visit', async ({ page }) => {
-    await page.goto('/');
+    await waitForAppReady(page);
 
     await expect(
       page.getByText(/we use cookies to improve your experience/i),
@@ -84,7 +85,7 @@ test.describe('Cookie Consent', () => {
   });
 
   test('hides cookie consent banner after accepting', async ({ page }) => {
-    await page.goto('/');
+    await waitForAppReady(page);
 
     await page.getByText('Accept').click();
 
@@ -97,11 +98,11 @@ test.describe('Cookie Consent', () => {
     page,
     context,
   }) => {
-    await page.goto('/');
+    await waitForAppReady(page);
     await page.getByText('Accept').click();
 
     const newPage = await context.newPage();
-    await newPage.goto('/');
+    await waitForAppReady(newPage);
 
     await expect(
       newPage.getByText(/we use cookies to improve your experience/i),
@@ -109,7 +110,7 @@ test.describe('Cookie Consent', () => {
   });
 
   test('cookie consent has privacy policy link', async ({ page }) => {
-    await page.goto('/');
+    await waitForAppReady(page);
 
     const link = page.getByTestId('cookie-consent-link');
     await expect(link).toHaveAttribute('href', '/privacy');
@@ -118,7 +119,7 @@ test.describe('Cookie Consent', () => {
 
 test.describe('Navigation - Contact Link', () => {
   test('shows Contact link in navigation', async ({ page }) => {
-    await page.goto('/');
+    await waitForAppReady(page);
 
     await expect(page.getByRole('link', { name: 'Contact' })).toBeVisible();
   });

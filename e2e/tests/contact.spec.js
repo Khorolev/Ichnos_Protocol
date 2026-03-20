@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { waitForAppReady } from './helpers/app.js';
 import { loginAsUser } from './helpers/auth.js';
 import { USER, isConfigured } from './helpers/credentials.js';
 
 test.describe('Contact Page - Public Access', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/contact');
+    await waitForAppReady(page, '/contact');
   });
 
   test('displays all contact options', async ({ page }) => {
@@ -19,7 +20,7 @@ test.describe('Contact Page - Submit Inquiry', () => {
   test.beforeEach(async ({ page }) => {
     test.skip(!isConfigured(USER), 'User E2E credentials not configured');
     await loginAsUser(page);
-    await page.goto('/contact');
+    await waitForAppReady(page, '/contact');
   });
 
   test('submit an inquiry successfully', async ({ page }) => {
@@ -47,7 +48,7 @@ test.describe('Contact Page - Submit Inquiry', () => {
 
 test.describe('Contact Page - Auth-interrupted Submission', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/contact');
+    await waitForAppReady(page, '/contact');
   });
 
   test('shows auth modal for unauthenticated user', async ({ page }) => {
@@ -81,7 +82,7 @@ test.describe('Contact Page - Returning User Flow', () => {
       }),
     );
 
-    await page.goto('/contact');
+    await waitForAppReady(page, '/contact');
   });
 
   test('shows inquiry status list for returning user', async ({ page }) => {

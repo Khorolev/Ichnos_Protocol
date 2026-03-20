@@ -27,6 +27,13 @@ function buildHealthUrl() {
   const apiBase = process.env.E2E_API_BASE_URL;
   if (apiBase) return `${apiBase.replace(/\/+$/, "")}/api/health`;
 
+  if (IS_CI) {
+    console.warn(
+      '[global-setup] WARNING: E2E_API_BASE_URL is not set. Falling back to BASE_URL host + E2E_API_PORT. ' +
+      'This may be incorrect for Vercel host-split deployments where the API URL differs from the client URL.',
+    );
+  }
+
   const url = new URL(BASE_URL);
   url.port = process.env.E2E_API_PORT || "3000";
   url.pathname = "/api/health";

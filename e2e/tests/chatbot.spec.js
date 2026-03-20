@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
+import { waitForAppReady } from './helpers/app.js';
 
 test.describe('Chatbot - Unauthenticated Flow', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await waitForAppReady(page);
   });
 
   test('opens auth modal when chat is opened by unauthenticated user', async ({
@@ -33,7 +34,7 @@ test.describe('Chatbot - Rate Limit Behavior', () => {
   test('displays rate limit warning when daily limit exceeded', async ({
     page,
   }) => {
-    await page.goto('/');
+    await waitForAppReady(page);
 
     await page.route('**/api/chat/message', (route) =>
       route.fulfill({
@@ -63,7 +64,7 @@ test.describe('Chatbot - AI Unavailable Fallback', () => {
   test('shows fallback CTA when AI is unavailable (503)', async ({
     page,
   }) => {
-    await page.goto('/');
+    await waitForAppReady(page);
 
     await page.route('**/api/chat/message', (route) =>
       route.fulfill({

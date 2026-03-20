@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { waitForAppReady } from './helpers/app.js';
 
 const SIGNUP_DATA = {
   name: 'Test',
@@ -20,7 +21,7 @@ function openSignupTab(page) {
 
 test.describe('Signup Flow', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await waitForAppReady(page);
     await openSignupTab(page)();
   });
 
