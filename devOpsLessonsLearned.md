@@ -17,11 +17,15 @@ bypass secret on **both** projects.
 
 **Where the bypass must be sent**:
 
-| Caller                  | How to send                                                  |
-| ----------------------- | ------------------------------------------------------------ |
-| curl (readiness check)  | `-H "x-vercel-protection-bypass: $SECRET"`                   |
-| Playwright (browser)    | `extraHTTPHeaders` in `playwright.config.js`                 |
-| global-setup (fetch)    | `headers` option in `fetch()` call                           |
+| Caller                         | How to send                                                  |
+| ------------------------------ | ------------------------------------------------------------ |
+| curl (workflow readiness poll) | `-H "x-vercel-protection-bypass: $SECRET"`                   |
+| Playwright (browser)           | `extraHTTPHeaders` in `playwright.config.js`                 |
+
+**Do NOT use Node.js `fetch()` for bypass**: The Fetch spec strips custom headers on
+cross-origin redirects. Vercel's Deployment Protection redirects to `vercel.com/sso-api`,
+causing the bypass header to be lost. Query params also fail. Use `curl` in the workflow
+instead — it preserves headers across redirects.
 
 **Key detail**: Playwright also needs `x-vercel-set-bypass-cookie: samesitenone`
 so subsequent navigations (asset loads, client-side routing) inherit the bypass
@@ -117,24 +121,38 @@ protection?" Then ensure the bypass is configured on every relevant project.
 
 ---
 
-## 6. global-setup vs. Workflow Readiness Checks
+## 6. Keep All Vercel Bypass Logic in curl, Not Node.js fetch()
 
-**Problem**: We had a `curl` readiness check in the workflow AND a `pollHealth`
-in Playwright's `global-setup.js`. Both needed the bypass header, but they
-check different services (client vs. API server).
+**Problem**: We originally had a `pollHealth` function in Playwright's
+`global-setup.js` that used Node.js `fetch()` to poll the API health endpoint.
+This failed in three different ways:
 
-**Architecture**:
+1. **Headers approach**: `fetch()` strips custom headers on cross-origin redirects
+   (per the Fetch spec). Vercel redirects to `vercel.com/sso-api`, losing the bypass
+   header → infinite redirect loop.
+2. **Query params approach**: Vercel's server project returned 401 even with bypass
+   query parameters — the mechanism is not reliable across all project types.
+3. **Both approaches**: Fundamentally incompatible with Vercel's redirect-based
+   Deployment Protection flow.
+
+**Solution**: Move **all** readiness polling (including seed status checks) into
+the workflow as `curl`-based steps. `curl -L` preserves headers across redirects.
+Simplify `global-setup.js` to only validate Firebase credentials.
+
+**Architecture (final)**:
 
 ```
-Workflow step: curl → staging-client URL (client Vercel project)
+Workflow step 1: curl → staging-client URL (HTTP 200 check)
     ↓ passes
-Playwright global-setup: fetch → staging-api URL (server Vercel project)
+Workflow step 2: curl → staging-api /api/health (JSON parsed, seed.seeded === true)
+    ↓ passes
+Playwright global-setup: Firebase credential validation only
     ↓ passes
 Playwright tests run
 ```
 
-**Lesson**: When you have multiple readiness checks, document which service
-each one targets and ensure each has the correct credentials.
+**Lesson**: Never use Node.js `fetch()` to bypass Vercel Deployment Protection.
+Use `curl` in the workflow for all server readiness checks.
 
 ---
 
@@ -187,7 +205,44 @@ adding a new secret or variable dependency, update the docs in the same commit.
 
 ---
 
-## 10. Pre-Flight Checklist for E2E Pipeline Changes
+## 10. GitHub Actions Secrets ≠ Vercel Environment Variables
+
+**Problem**: The server's seed script (`seedE2EOnPreview.js`) runs at cold start
+**on the Vercel server**, not in GitHub Actions. Setting `E2E_ADMIN_UID` as a
+GitHub Actions secret does nothing for the Vercel runtime — GitHub secrets are
+only available to the CI runner process.
+
+**Symptom**: The curl health check returns `200` with a JSON body containing
+`seed.error: "Preview environment missing required seed vars: E2E_ADMIN_UID"`.
+The secret exists in GitHub but the Vercel server has no access to it.
+
+**Lesson**: There are **three separate environments** that need credentials:
+
+| Environment                  | Where to configure                                    | Who uses it                              |
+| ---------------------------- | ----------------------------------------------------- | ---------------------------------------- |
+| **GitHub Actions runner**    | GitHub → Settings → Secrets and variables → Actions   | Workflow steps, Playwright test process  |
+| **Vercel client project**    | Vercel → Client project → Settings → Env Variables    | Client-side code (`VITE_*` vars)         |
+| **Vercel server project**    | Vercel → Server project → Settings → Env Variables    | Server code at runtime (seed script, API)|
+
+For E2E seeding, the server needs these in Vercel (Preview scope only):
+
+| Variable (required)    | Source                                |
+| ---------------------- | ------------------------------------- |
+| `E2E_ADMIN_EMAIL`      | Same value as GitHub Actions secret   |
+| `E2E_ADMIN_UID`        | Firebase Console → Authentication     |
+
+| Variable (optional)         | Source                                |
+| --------------------------- | ------------------------------------- |
+| `E2E_USER_UID`              | Firebase Console → Authentication     |
+| `E2E_USER_EMAIL`            | Same value as GitHub Actions secret   |
+| `E2E_SUPER_ADMIN_UID`       | Firebase Console → Authentication     |
+| `E2E_SUPER_ADMIN_EMAIL`     | Same value as GitHub Actions secret   |
+
+`DATABASE_URL` and `VERCEL_ENV` are set automatically by Vercel/Neon.
+
+---
+
+## 11. Pre-Flight Checklist for E2E Pipeline Changes
 
 Before committing any change to the E2E workflow:
 
@@ -227,9 +282,28 @@ Before committing any change to the E2E workflow:
 | `VERCEL_AUTOMATION_BYPASS_SECRET` | Shared bypass secret (both projects)   |
 | `E2E_ADMIN_EMAIL`                 | Firebase admin test user email         |
 | `E2E_ADMIN_PASSWORD`              | Firebase admin test user password      |
+| `E2E_ADMIN_UID`                   | Firebase UID of admin test user        |
 | `E2E_USER_EMAIL`                  | Firebase regular test user email       |
 | `E2E_USER_PASSWORD`               | Firebase regular test user password    |
 | `E2E_SUPER_ADMIN_EMAIL`           | Firebase super admin test user email   |
 | `E2E_SUPER_ADMIN_PASSWORD`        | Firebase super admin test user password|
 | `FIREBASE_API_KEY`                | Firebase API key for E2E auth flows    |
-| `FIREBASE_API_KEY`                | Firebase API key for E2E auth flows    |
+
+### Vercel Server Project — Environment Variables (Preview scope)
+
+These must be set in **Vercel → Server project → Settings → Environment Variables**,
+scoped to Preview. They are used by the seed script at server cold start.
+
+| Variable (required)        | Description                                 |
+| -------------------------- | ------------------------------------------- |
+| `E2E_ADMIN_EMAIL`          | Same value as GitHub Actions secret         |
+| `E2E_ADMIN_UID`            | Firebase UID (from Firebase Console → Auth) |
+
+| Variable (optional)        | Description                                 |
+| -------------------------- | ------------------------------------------- |
+| `E2E_USER_UID`             | Firebase UID of regular test user           |
+| `E2E_USER_EMAIL`           | Same value as GitHub Actions secret         |
+| `E2E_SUPER_ADMIN_UID`      | Firebase UID of super-admin test user       |
+| `E2E_SUPER_ADMIN_EMAIL`    | Same value as GitHub Actions secret         |
+
+Note: `DATABASE_URL` and `VERCEL_ENV` are set automatically by Vercel/Neon.
