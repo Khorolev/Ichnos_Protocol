@@ -52,10 +52,12 @@ function buildBypassHeaders() {
 async function pollHealth(url) {
   const start = Date.now();
   const headers = buildBypassHeaders();
+  const hasBypass = Object.keys(headers).length > 0;
+  console.log(`[global-setup] Bypass header configured: ${hasBypass}`);
 
   while (Date.now() - start < MAX_WAIT_MS) {
     try {
-      const res = await fetch(url, { headers });
+      const res = await fetch(url, { headers, redirect: "follow" });
       if (res.ok) {
         const body = await res.json();
         if (body.seed?.error) {
@@ -68,6 +70,8 @@ async function pollHealth(url) {
           return;
         }
         console.log("[global-setup] Server healthy but seed in progress...");
+      } else {
+        console.log(`[global-setup] HTTP ${res.status} from ${res.url}`);
       }
     } catch (err) {
       if (err.message.includes("Seed failed")) throw err;
