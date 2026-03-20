@@ -75,7 +75,8 @@ async function pollHealth(url) {
       }
     } catch (err) {
       if (err.message.includes("Seed failed")) throw err;
-      console.log(`[global-setup] Waiting for ${url} ... (${err.message})`);
+      const cause = err.cause ? ` | cause: ${err.cause.message || err.cause.code || JSON.stringify(err.cause)}` : '';
+      console.log(`[global-setup] Waiting for ${url} ... (${err.message}${cause})`);
     }
 
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
