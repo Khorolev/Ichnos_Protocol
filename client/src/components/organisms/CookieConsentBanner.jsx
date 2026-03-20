@@ -20,7 +20,7 @@ export default function CookieConsentBanner() {
   return (
     <ReactCookieConsent
       location="bottom"
-      buttonText="Accept"
+      buttonText="Accept cookies"
       cookieName="ichnos_cookie_consent"
       style={BANNER_STYLE}
       buttonStyle={BUTTON_STYLE}

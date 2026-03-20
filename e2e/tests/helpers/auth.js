@@ -4,7 +4,7 @@ import { ADMIN, USER, SUPER_ADMIN } from './credentials.js';
 
 export async function loginAs(page, email, password) {
   await waitForAppReady(page, '/');
-  await page.getByRole('button', { name: 'Login' }).click();
+  await page.getByTestId('navbar').getByRole('button', { name: 'Login' }).click();
   await expect(page.getByText('Welcome Back')).toBeVisible();
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password').fill(password);
