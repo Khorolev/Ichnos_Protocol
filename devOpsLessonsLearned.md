@@ -147,32 +147,43 @@ listed with an "Updated X ago" timestamp.
 
 ---
 
-## 8. Store URLs in Secrets, Not in Code
+## 8. Use Variables for Non-Sensitive Config, Secrets Only for Credentials
 
-**Problem**: Hardcoding staging URLs in workflow files makes them hard to
-find and update when domains change.
+**Problem**: Storing URLs as GitHub Actions secrets makes debugging impossible —
+values are masked as `***` in logs. When `E2E_API_BASE_URL` was a secret, the
+error `Failed to parse URL from ***/api/health` gave no clue whether the URL
+was malformed, missing `https://`, or had a typo. Secrets are also write-only:
+you can't view the current value after saving, so you can't verify correctness.
 
-**Solution**: Store deployment URLs as GitHub Actions secrets:
+**Solution**: Use **GitHub Actions Variables** (`vars.*`) for non-sensitive
+configuration and **Secrets** (`secrets.*`) only for actual credentials.
 
-| Secret             | Purpose                          |
+| Type       | Access in workflow | Visible in UI? | Masked in logs? | Use for                     |
+| ---------- | ------------------ | -------------- | --------------- | --------------------------- |
+| Variables  | `vars.NAME`        | Yes            | No              | URLs, feature flags, config |
+| Secrets    | `secrets.NAME`     | No (write-only)| Yes             | Passwords, API keys, tokens |
+
+**Repository vs. Environment variables**: Use **repository variables** (available
+to all workflows, no extra config) unless you have GitHub Environments set up
+and need per-environment values. Environment variables require the job to
+declare `environment: <name>` to access them.
+
+| Variable           | Purpose                          |
 | ------------------ | -------------------------------- |
 | `E2E_BASE_URL`     | Stable staging client URL        |
 | `E2E_API_BASE_URL` | Stable staging API URL           |
 
-This also keeps the URLs out of the git history, which is useful if staging
-domains are considered semi-private.
-
 ---
 
-## 9. Document All Required Secrets
+## 9. Document All Required Secrets and Variables
 
-**Problem**: Missing secrets cause silent failures — the variable is simply
-empty, and the workflow fails with a cryptic error (wrong URL, 401, etc.)
-rather than a clear "secret not configured" message.
+**Problem**: Missing secrets/variables cause silent failures — the value is
+simply empty, and the workflow fails with a cryptic error (wrong URL, 401,
+`Failed to parse URL`, etc.) rather than a clear "not configured" message.
 
 **Solution**: Maintain an explicit list of all required GitHub Actions secrets
-in your project documentation (see CLAUDE.md, Section 12). When adding a new
-secret dependency, update the docs in the same commit.
+and variables in your project documentation (see CLAUDE.md, Section 12). When
+adding a new secret or variable dependency, update the docs in the same commit.
 
 ---
 
