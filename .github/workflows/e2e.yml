@@ -173,15 +173,25 @@ jobs:
             SEED_ERR=$(echo "$BODY" | jq -r '.seed.error // empty' 2>/dev/null || true)
 
             if [ "$STATUS" = "ok" ]; then
-              if [ -n "$SEED_ERR" ] && [ "$SEED_ERR" != "null" ]; then
-                echo "::error::Seed failed on server: $SEED_ERR"
-                exit 1
-              fi
               if [ "$SEEDED" = "true" ]; then
                 echo "API healthy and seed complete."
                 exit 0
               fi
-              echo "API healthy but seed in progress..."
+              if [ -n "$SEED_ERR" ] && [ "$SEED_ERR" != "null" ]; then
+                # Permanent errors (missing config) → fail immediately.
+                # Transient errors (connection issues from Neon branch churn) → keep retrying.
+                case "$SEED_ERR" in
+                  *"missing required seed vars"*)
+                    echo "::error::Seed failed on server: $SEED_ERR"
+                    exit 1
+                    ;;
+                  *)
+                    echo "Transient seed error: $SEED_ERR — retrying..."
+                    ;;
+                esac
+              else
+                echo "API healthy but seed in progress..."
+              fi
             else
               echo "Attempt $((ATTEMPTS + 1))/$MAX_ATTEMPTS: non-JSON or error response — retrying in 5s..."
             fi
