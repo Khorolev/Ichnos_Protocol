@@ -202,11 +202,21 @@ jobs:
           fi
           ATTEMPTS=0
           MAX_ATTEMPTS=24
+          FIRST_CHECK=true
           while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
             BODY=$(curl "${CURL_ARGS[@]}" "$HEALTH_URL" 2>/dev/null || true)
             STATUS=$(echo "$BODY" | jq -r '.status // empty' 2>/dev/null || true)
             SEEDED=$(echo "$BODY" | jq -r '.seed.seeded // empty' 2>/dev/null || true)
             SEED_ERR=$(echo "$BODY" | jq -r '.seed.error // empty' 2>/dev/null || true)
+            SEED_ATTEMPTS=$(echo "$BODY" | jq -r '.seed.attempts // empty' 2>/dev/null || true)
+            VERCEL_ENV=$(echo "$BODY" | jq -r '.vercelEnv // empty' 2>/dev/null || true)
+
+            # Log full response on first check for diagnostics
+            if [ "$FIRST_CHECK" = "true" ]; then
+              echo "First health response:"
+              echo "$BODY" | jq '.' 2>/dev/null || echo "$BODY"
+              FIRST_CHECK=false
+            fi
 
             if [ "$STATUS" = "ok" ]; then
               if [ "$SEEDED" = "true" ]; then
@@ -222,11 +232,11 @@ jobs:
                     exit 1
                     ;;
                   *)
-                    echo "Transient seed error: $SEED_ERR — retrying..."
+                    echo "Transient seed error (server attempt ${SEED_ATTEMPTS}): $SEED_ERR — retrying..."
                     ;;
                 esac
               else
-                echo "API healthy but seed in progress..."
+                echo "API healthy but seed in progress (server attempt ${SEED_ATTEMPTS})..."
               fi
             else
               echo "Attempt $((ATTEMPTS + 1))/$MAX_ATTEMPTS: non-JSON or error response — retrying in 5s..."

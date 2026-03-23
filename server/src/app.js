@@ -60,10 +60,12 @@ app.get("/api/health", (_req, res) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || "development",
+    vercelEnv: process.env.VERCEL_ENV || "local",
     node: process.version,
     seed: {
       seeded: seedStatus.seeded,
       error: seedStatus.error,
+      attempts: seedStatus.attempts,
     },
   });
 });
