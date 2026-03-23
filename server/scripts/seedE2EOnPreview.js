@@ -110,19 +110,48 @@ export async function seedE2EOnPreview() {
   }
 
   console.log("[e2e-seed] Preview environment detected — seeding E2E data...");
-  let pool;
 
-  try {
-    pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    await seedOptionalUser(pool);
-    await seedAdmin(pool);
-    await seedOptionalSuperAdmin(pool);
-    seedStatus.seeded = true;
-    console.log("[e2e-seed] E2E seed complete");
-  } catch (err) {
-    seedStatus.error = err.message;
-    console.error("[e2e-seed] E2E seed failed:", err.message);
-  } finally {
-    if (pool) await closePool(pool);
+  // Retry logic: Neon ephemeral branch compute endpoints start suspended
+  // (scale-to-zero). The first connection attempt may fail with "Authentication
+  // timed out" or "Connection terminated unexpectedly" while Neon wakes up the
+  // compute endpoint. Retrying after a short delay resolves this.
+  const MAX_RETRIES = 5;
+  const RETRY_DELAY_MS = 5000;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    let pool;
+    try {
+      pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        connectionTimeoutMillis: 15000,
+      });
+      await seedOptionalUser(pool);
+      await seedAdmin(pool);
+      await seedOptionalSuperAdmin(pool);
+      seedStatus.seeded = true;
+      seedStatus.error = null;
+      console.log("[e2e-seed] E2E seed complete");
+      return;
+    } catch (err) {
+      const isTransient =
+        err.message.includes("timed out") ||
+        err.message.includes("terminated unexpectedly") ||
+        err.message.includes("Connection refused") ||
+        err.message.includes("ECONNRESET");
+
+      if (isTransient && attempt < MAX_RETRIES) {
+        console.warn(
+          `[e2e-seed] Attempt ${attempt}/${MAX_RETRIES} failed: ${err.message} — retrying in ${RETRY_DELAY_MS / 1000}s...`,
+        );
+        await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+      } else {
+        seedStatus.error = err.message;
+        console.error(
+          `[e2e-seed] E2E seed failed after ${attempt} attempt(s): ${err.message}`,
+        );
+      }
+    } finally {
+      if (pool) await closePool(pool);
+    }
   }
 }
