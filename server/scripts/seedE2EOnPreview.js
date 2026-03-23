@@ -15,7 +15,44 @@ const { Pool } = pg;
 
 const REQUIRED_VARS = ["DATABASE_URL", "E2E_ADMIN_EMAIL", "E2E_ADMIN_UID"];
 
-export const seedStatus = { seeded: false, error: null };
+export const seedStatus = { seeded: false, error: null, attempts: 0 };
+
+/**
+ * Parse the DATABASE_URL to extract host info for diagnostics.
+ * Never logs credentials — only host, port, and database name.
+ */
+function logConnectionInfo(dbUrl) {
+  try {
+    const u = new URL(dbUrl);
+    console.log(
+      `[e2e-seed] DB target: host=${u.hostname}, port=${u.port || 5432}, ` +
+        `db=${u.pathname.slice(1)}, user=${u.username}, ssl=${u.searchParams.get("sslmode") || "default"}`,
+    );
+  } catch {
+    console.error("[e2e-seed] DATABASE_URL is not a valid URL");
+  }
+}
+
+/**
+ * Build Pool configuration from DATABASE_URL.
+ * Neon requires SSL — ensure it's enabled even if the connection string
+ * doesn't explicitly set sslmode.
+ */
+function buildPoolConfig(dbUrl) {
+  const config = {
+    connectionString: dbUrl,
+    connectionTimeoutMillis: 15000,
+    max: 2,
+  };
+
+  // Neon always requires SSL. If sslmode is in the URL, pg handles it.
+  // If not, explicitly enable SSL to avoid "Connection terminated" errors.
+  if (!dbUrl.includes("sslmode=")) {
+    config.ssl = { rejectUnauthorized: false };
+  }
+
+  return config;
+}
 
 async function upsertUser(pool, uid, firstName, lastName, email) {
   await pool.query(
@@ -91,6 +128,15 @@ async function closePool(pool) {
   }
 }
 
+/**
+ * Test basic connectivity with a simple SELECT 1 before running the full seed.
+ * This isolates connection issues from seed logic errors.
+ */
+async function testConnection(pool) {
+  const { rows } = await pool.query("SELECT 1 AS ok");
+  return rows[0]?.ok === 1;
+}
+
 export async function seedE2EOnPreview() {
   seedStatus.error = null;
 
@@ -109,22 +155,32 @@ export async function seedE2EOnPreview() {
     return;
   }
 
+  const dbUrl = process.env.DATABASE_URL;
   console.log("[e2e-seed] Preview environment detected — seeding E2E data...");
+  logConnectionInfo(dbUrl);
 
-  // Retry logic: Neon ephemeral branch compute endpoints start suspended
-  // (scale-to-zero). The first connection attempt may fail with "Authentication
-  // timed out" or "Connection terminated unexpectedly" while Neon wakes up the
-  // compute endpoint. Retrying after a short delay resolves this.
-  const MAX_RETRIES = 5;
-  const RETRY_DELAY_MS = 5000;
+  // Retry logic: Neon ephemeral branch compute endpoints may start suspended
+  // (scale-to-zero). The first connection attempt can fail with:
+  //   - "Connection terminated due to connection timeout" (compute waking up)
+  //   - "Authentication timed out" (SSL handshake timeout)
+  //   - "Connection terminated unexpectedly" (branch churn from re-deploy)
+  // Retrying after a delay gives Neon time to provision the compute endpoint.
+  const MAX_RETRIES = 8;
+  const RETRY_DELAY_MS = 8000;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    seedStatus.attempts = attempt;
     let pool;
     try {
-      pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
-        connectionTimeoutMillis: 15000,
-      });
+      const poolConfig = buildPoolConfig(dbUrl);
+      pool = new Pool(poolConfig);
+
+      // Phase 1: Test basic connectivity
+      console.log(`[e2e-seed] Attempt ${attempt}/${MAX_RETRIES}: testing connection...`);
+      await testConnection(pool);
+      console.log(`[e2e-seed] Connection established — running seed queries...`);
+
+      // Phase 2: Run seed operations
       await seedOptionalUser(pool);
       await seedAdmin(pool);
       await seedOptionalSuperAdmin(pool);
@@ -135,20 +191,25 @@ export async function seedE2EOnPreview() {
     } catch (err) {
       const isTransient =
         err.message.includes("timed out") ||
-        err.message.includes("terminated unexpectedly") ||
+        err.message.includes("terminated") ||
         err.message.includes("Connection refused") ||
-        err.message.includes("ECONNRESET");
+        err.message.includes("ECONNRESET") ||
+        err.message.includes("ECONNREFUSED") ||
+        err.message.includes("ETIMEDOUT");
 
       if (isTransient && attempt < MAX_RETRIES) {
         console.warn(
-          `[e2e-seed] Attempt ${attempt}/${MAX_RETRIES} failed: ${err.message} — retrying in ${RETRY_DELAY_MS / 1000}s...`,
+          `[e2e-seed] Attempt ${attempt}/${MAX_RETRIES} failed: ${err.message} — ` +
+            `retrying in ${RETRY_DELAY_MS / 1000}s...`,
         );
+        seedStatus.error = `Attempt ${attempt}: ${err.message}`;
         await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
       } else {
         seedStatus.error = err.message;
         console.error(
           `[e2e-seed] E2E seed failed after ${attempt} attempt(s): ${err.message}`,
         );
+        if (err.stack) console.error(`[e2e-seed] Stack: ${err.stack}`);
       }
     } finally {
       if (pool) await closePool(pool);
