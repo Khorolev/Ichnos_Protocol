@@ -38,6 +38,17 @@ export function ensureSeeded() {
 }
 
 /**
+ * Reset seed state for testing. Clears the singleton promise and status
+ * so each test starts fresh.
+ */
+export function resetSeedState() {
+  seedPromise = null;
+  seedStatus.seeded = false;
+  seedStatus.error = null;
+  seedStatus.attempts = 0;
+}
+
+/**
  * Parse the DATABASE_URL to extract host info for diagnostics.
  * Never logs credentials — only host, port, and database name.
  */
@@ -157,7 +168,7 @@ async function testConnection(pool) {
   return rows[0]?.ok === 1;
 }
 
-async function seedE2EOnPreview() {
+export async function seedE2EOnPreview() {
   seedStatus.error = null;
 
   if (process.env.VERCEL_ENV !== "preview") {
