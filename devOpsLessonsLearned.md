@@ -242,7 +242,33 @@ For E2E seeding, the server needs these in Vercel (Preview scope only):
 
 ---
 
-## 11. Pre-Flight Checklist for E2E Pipeline Changes
+## 11. Neon Ephemeral Branches Cause Transient Seed Failures
+
+**Problem**: A single `git push` triggers both client and server Vercel deployments.
+Each server deployment gets its own Neon ephemeral database branch. When the second
+deployment supersedes the first, Neon tears down the first branch — killing any
+active database connections. The seed script on the first deployment fails with
+`Connection terminated unexpectedly`.
+
+**Why it matters**: The E2E workflow's health-check step polls `/api/health` and
+checks `seed.seeded === true`. If the first deployment's seed fails, the health
+endpoint reports the error. If the workflow treats all seed errors as fatal, it
+exits immediately — even though the second deployment (which the staging URL now
+points to) is still seeding successfully.
+
+**Solution**: Distinguish **permanent** seed errors from **transient** ones:
+
+| Error type  | Example                                    | Action         |
+| ----------- | ------------------------------------------ | -------------- |
+| Permanent   | `missing required seed vars: E2E_ADMIN_UID`| Fail immediately |
+| Transient   | `Connection terminated unexpectedly`       | Keep retrying  |
+
+The workflow retries on transient errors (Neon branch churn, connection resets)
+and only fails immediately on permanent config errors (missing env vars).
+
+---
+
+## 12. Pre-Flight Checklist for E2E Pipeline Changes
 
 Before committing any change to the E2E workflow:
 
