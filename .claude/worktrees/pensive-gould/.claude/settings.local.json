@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/malto/OneDrive/Documenti/GitHub/Ichnos_Protocol/**)",
+      "Bash(gh run:*)",
+      "Bash(gh api:*)",
+      "WebSearch",
+      "Bash(npx playwright:*)",
+      "WebFetch(domain:community.vercel.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.checklyhq.com)",
+      "Bash(curl -sL -w \"\\\\nHTTP_CODE: %{http_code}\\\\n\" \"https://staging-api.ichnos-protocol.com/api/health\")",
+      "Bash(curl -sL -w \"\\\\nHTTP_CODE: %{http_code}\\\\n\" \"https://staging-api.ichnos-protocol.com/\")",
+      "Bash(grep -r \"seed\\\\|health\" C:UsersmaltoOneDriveDocumentiGitHubIchnos_Protocolserversrc --include=*.js)",
+      "Bash(find /c/Users/malto/OneDrive/Documenti/GitHub/Ichnos_Protocol/e2e -name *.spec.js -o -name *.test.js)",
+      "Bash(xargs grep:*)"
+    ]
+  }
+}
