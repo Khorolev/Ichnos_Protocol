@@ -6,8 +6,24 @@
 #   Tests run against the stable staging domain (not the per-deployment hash URL,
 #   which can become stale if Vercel cancels/supersedes the deployment).
 #
+# Debounce strategy:
+#   A single git push triggers both client and server Vercel deployments. The client
+#   deploys first and fires repository_dispatch, but the server (and its Neon ephemeral
+#   DB branch) may still be deploying. Running tests immediately causes failures like
+#   "Authentication timed out" or "Connection terminated unexpectedly" from Neon.
+#
+#   To solve this, a debounce step runs early in the job:
+#   1. Sleep for a configurable window (default 90s) to let all deployments settle.
+#   2. Query the GitHub API to check if a newer run of this workflow was queued
+#      during the sleep (e.g., from a second push or Vercel re-deployment).
+#   3. If a newer run exists → exit 0 (skip, the newer run will handle testing).
+#   4. If this is the latest run → proceed with tests.
+#
+#   Combined with `cancel-in-progress: true`, this ensures only the latest dispatch
+#   runs E2E tests, and only after all deployments have had time to complete.
+#
 # Secondary trigger: workflow_dispatch (manual/ad-hoc runs)
-#   Accepts any base_url input for on-demand testing.
+#   Accepts any base_url input for on-demand testing. Debounce is skipped.
 name: E2E Tests (Playwright)
 
 on:
@@ -82,6 +98,59 @@ jobs:
             echo "commit_sha=" >> "$GITHUB_OUTPUT"
             echo "Manual run against: ${{ inputs.base_url }}"
           fi
+
+      # ── Debounce ──────────────────────────────────────────────────────
+      # A git push triggers both client and server Vercel deployments.
+      # The client fires repository_dispatch first, but the server (and its
+      # Neon ephemeral DB) may still be deploying. If we start immediately,
+      # we hit transient errors ("Authentication timed out", "Connection
+      # terminated unexpectedly") because the server/DB isn't ready.
+      #
+      # This step:
+      # 1. Sleeps for DEBOUNCE_SECONDS to let all deployments finish.
+      # 2. After waking, queries the GitHub API for newer runs of this
+      #    workflow. If a newer run was queued during the sleep (e.g., from
+      #    a rapid second push), THIS run exits 0 — the newer run will
+      #    handle testing. Run IDs are monotonically increasing, so a
+      #    higher ID means a newer run.
+      # 3. If this is still the latest run, it proceeds to the expensive
+      #    steps (browser install, readiness checks, Playwright tests).
+      #
+      # Skipped for workflow_dispatch (manual runs) since there's no
+      # deployment race to debounce.
+      - name: Debounce — wait for all deployments to settle
+        if: github.event_name == 'repository_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEBOUNCE_SECONDS: "90"
+        run: |
+          CURRENT_RUN_ID="${{ github.run_id }}"
+          echo "Run #${CURRENT_RUN_ID} — debouncing for ${DEBOUNCE_SECONDS}s..."
+          sleep "$DEBOUNCE_SECONDS"
+
+          # After sleeping, check if a newer run was triggered during the wait.
+          # Query both queued and in_progress runs of this workflow.
+          echo "Checking for newer workflow runs..."
+
+          NEWER_RUN_ID=""
+          for STATUS in "queued" "in_progress"; do
+            CANDIDATE=$(gh api "repos/${{ github.repository }}/actions/workflows/e2e.yml/runs?status=${STATUS}&per_page=10" \
+              --jq "[.workflow_runs[] | select(.id > $CURRENT_RUN_ID)] | sort_by(.id) | last | .id // empty" 2>/dev/null || true)
+            if [ -n "$CANDIDATE" ]; then
+              NEWER_RUN_ID="$CANDIDATE"
+              break
+            fi
+          done
+
+          if [ -n "$NEWER_RUN_ID" ]; then
+            echo "Newer run found: #${NEWER_RUN_ID} (this is #${CURRENT_RUN_ID})."
+            echo "Exiting — the newer run will handle E2E testing."
+            # Exit 0 so the job shows as "success" (not "failure"), since this
+            # is an intentional skip, not an error.
+            exit 0
+          fi
+
+          echo "No newer runs found. This run (#${CURRENT_RUN_ID}) is the latest — proceeding."
 
       - name: Set pending commit status
         if: steps.deploy.outputs.commit_sha != ''

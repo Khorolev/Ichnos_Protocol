@@ -268,7 +268,51 @@ and only fails immediately on permanent config errors (missing env vars).
 
 ---
 
-## 12. Pre-Flight Checklist for E2E Pipeline Changes
+## 12. Debounce Dispatch Runs to Avoid Wasted CI Time
+
+**Problem**: A single `git push` triggers both client and server Vercel deployments.
+The client deploys first and fires `repository_dispatch`, starting the E2E workflow.
+But the server (and its Neon ephemeral DB branch) is still deploying. The workflow
+hits transient errors ("Authentication timed out", "Connection terminated unexpectedly")
+and wastes 2+ minutes retrying before timing out — only for a second run to start
+afterward and repeat the cycle.
+
+**Why `cancel-in-progress` isn't enough**: The concurrency group's `cancel-in-progress`
+cancels older runs when a newer one starts in the same group. But if there's only one
+dispatch (only the client fires it), there's no second run to cancel the first. The
+real issue is the single run starting before the server deployment is ready.
+
+**Solution — debounce with timestamp check**:
+
+```
+Dispatch arrives → Sleep 90s → Check GitHub API → Proceed or exit
+```
+
+1. **Sleep**: The workflow sleeps for a configurable window (90s) immediately after
+   resolving the base URL, before any expensive work (browser install, readiness
+   checks). This gives the server deployment and Neon branch time to complete.
+
+2. **Check**: After waking, query the GitHub API for newer runs of this workflow.
+   Run IDs are monotonically increasing — a higher ID means a newer run. If a newer
+   run was queued during the sleep (e.g., from a rapid second push), exit gracefully.
+
+3. **Proceed or skip**: If this is the latest run, proceed with tests. If not, exit 0
+   (shows as "success" in GitHub, not "failure", since the skip is intentional).
+
+**Why this works**: The 90s sleep covers the typical server deployment time. The API
+check is the safety net — if two pushes happen within 90s, only the last run proceeds.
+Combined with `cancel-in-progress: true` in the concurrency group, truly concurrent
+runs are also handled: the older one is cancelled outright.
+
+**Cost**: ~90 seconds of idle runner time per E2E run. This is cheaper than the
+alternative (2+ minutes of failed polling + a full retry from a second run).
+
+**Tuning**: The `DEBOUNCE_SECONDS` env var in the workflow can be adjusted. 90s is
+conservative for typical Vercel deployments. If your server deploys faster, reduce it.
+
+---
+
+## 13. Pre-Flight Checklist for E2E Pipeline Changes
 
 Before committing any change to the E2E workflow:
 
