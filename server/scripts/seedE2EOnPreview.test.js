@@ -9,11 +9,14 @@ const mockPoolConstructor = vi.fn(function () {
 
 vi.mock("pg", () => ({ default: { Pool: mockPoolConstructor } }));
 
-const { seedE2EOnPreview } = await import("./seedE2EOnPreview.js");
+const { seedE2EOnPreview, resetSeedState } = await import(
+  "./seedE2EOnPreview.js"
+);
 
 describe("seedE2EOnPreview", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    resetSeedState();
     process.env.VERCEL_ENV = "preview";
     process.env.DATABASE_URL = "postgresql://test:test@localhost/test";
     process.env.E2E_ADMIN_EMAIL = "admin@test.com";
@@ -58,6 +61,7 @@ describe("seedE2EOnPreview", () => {
 
   it("seeds admin user and contact request with only required vars", async () => {
     mockQuery
+      .mockResolvedValueOnce({ rows: [{ ok: 1 }] }) // SELECT 1 connectivity test
       .mockResolvedValueOnce({ rows: [] }) // upsertUser: INSERT users
       .mockResolvedValueOnce({ rows: [] }) // upsertUser: INSERT user_profiles
       .mockResolvedValueOnce({ rows: [] }) // upsertContactRequest: SELECT
@@ -66,7 +70,7 @@ describe("seedE2EOnPreview", () => {
 
     await seedE2EOnPreview();
 
-    expect(mockQuery).toHaveBeenCalledTimes(5);
+    expect(mockQuery).toHaveBeenCalledTimes(6);
     expect(mockPoolEnd).toHaveBeenCalled();
   });
 
@@ -75,6 +79,7 @@ describe("seedE2EOnPreview", () => {
     process.env.E2E_USER_EMAIL = "user@test.com";
 
     mockQuery
+      .mockResolvedValueOnce({ rows: [{ ok: 1 }] }) // SELECT 1 connectivity test
       .mockResolvedValueOnce({ rows: [] }) // upsertUser (user): INSERT users
       .mockResolvedValueOnce({ rows: [] }) // upsertUser (user): INSERT user_profiles
       .mockResolvedValueOnce({ rows: [] }) // upsertUser (admin): INSERT users
@@ -85,7 +90,7 @@ describe("seedE2EOnPreview", () => {
 
     await seedE2EOnPreview();
 
-    expect(mockQuery).toHaveBeenCalledTimes(7);
+    expect(mockQuery).toHaveBeenCalledTimes(8);
     expect(mockPoolEnd).toHaveBeenCalled();
   });
 

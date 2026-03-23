@@ -15,7 +15,7 @@ import chatRoutes from "./routes/chatRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import gdprRoutes from "./routes/gdprRoutes.js";
 import buildStatusPage from "./helpers/buildStatusPage.js";
-import { seedE2EOnPreview, seedStatus } from "../scripts/seedE2EOnPreview.js";
+import { ensureSeeded, seedStatus } from "../scripts/seedE2EOnPreview.js";
 
 const app = express();
 
@@ -53,8 +53,16 @@ app.get("/", (_req, res) => {
   res.status(200).send(html);
 });
 
-// Health check endpoint (JSON, for monitoring tools)
-app.get("/api/health", (_req, res) => {
+// Health check endpoint (JSON, for monitoring tools).
+// On preview deployments, this endpoint drives the E2E seed: it awaits the
+// seed promise so the Vercel function stays alive until seeding completes.
+// Without this, Vercel kills the function after sending the response, and
+// any fire-and-forget seed work is lost.
+app.get("/api/health", async (_req, res) => {
+  // Trigger (or join) the seed — only runs once, subsequent calls are no-ops.
+  // The await keeps the Vercel function alive for the full seed duration.
+  await ensureSeeded();
+
   res.status(200).json({
     status: "ok",
     timestamp: new Date().toISOString(),
@@ -76,9 +84,6 @@ app.use("/api/contact", contactRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/gdpr", gdprRoutes);
-
-// Auto-seed E2E data on preview startup — fire-and-forget, does not block request handling
-seedE2EOnPreview();
 
 // 404 handler for undefined routes
 app.use((_req, res) => {
