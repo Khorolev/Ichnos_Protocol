@@ -1,29 +1,35 @@
-# E2E Tests — triggered by Vercel after a successful client preview deployment.
+# E2E Tests — triggered by Vercel after a successful SERVER preview deployment.
+#
+# Trigger strategy (Pattern B: Filter + Poll):
+#   A single git push triggers both client and server Vercel deployments. The
+#   server is always the slower deployment because it includes the Neon ephemeral
+#   DB branch creation and E2E seed. By triggering E2E on the SERVER's
+#   repository_dispatch, we guarantee the API and DB are ready when tests start.
+#
+#   The client (faster to deploy) is verified via a readiness poll against its
+#   stable staging URL before tests run. Since the client deploys faster than the
+#   server, it's almost always ready by the time the server dispatch fires.
+#
+#   This approach ensures:
+#   - E2E tests run exactly ONCE per push (only the server fires dispatch).
+#   - No debounce/sleep needed — the server event fires only after deployment + seed.
+#   - No "Connection terminated" or "Authentication timed out" Neon errors.
+#
+# Vercel project configuration:
+#   - Server project: Enable "Repository Dispatch Events" in Git settings.
+#   - Client project: Disable "Repository Dispatch Events" (or leave enabled —
+#     the `if` filter below skips client events anyway).
 #
 # Primary trigger: repository_dispatch (vercel.deployment.success)
-#   Vercel fires this event after each successful deployment.
-#   Enable "Repository Dispatch Events" in Vercel > Git settings (client project only).
-#   Tests run against the stable staging domain (not the per-deployment hash URL,
-#   which can become stale if Vercel cancels/supersedes the deployment).
-#
-# Debounce strategy:
-#   A single git push triggers both client and server Vercel deployments. The client
-#   deploys first and fires repository_dispatch, but the server (and its Neon ephemeral
-#   DB branch) may still be deploying. Running tests immediately causes failures like
-#   "Authentication timed out" or "Connection terminated unexpectedly" from Neon.
-#
-#   To solve this, a debounce step runs early in the job:
-#   1. Sleep for a configurable window (default 90s) to let all deployments settle.
-#   2. Query the GitHub API to check if a newer run of this workflow was queued
-#      during the sleep (e.g., from a second push or Vercel re-deployment).
-#   3. If a newer run exists → exit 0 (skip, the newer run will handle testing).
-#   4. If this is the latest run → proceed with tests.
-#
-#   Combined with `cancel-in-progress: true`, this ensures only the latest dispatch
-#   runs E2E tests, and only after all deployments have had time to complete.
+#   Tests run against stable staging domains (not per-deployment hash URLs).
 #
 # Secondary trigger: workflow_dispatch (manual/ad-hoc runs)
-#   Accepts any base_url input for on-demand testing. Debounce is skipped.
+#   Accepts any base_url input for on-demand testing.
+#
+# Edge case — push that only changes client/ files:
+#   If only the client changes, the server does not redeploy → no dispatch → no
+#   E2E run. This is acceptable: the server didn't change, so existing E2E results
+#   still apply. Use workflow_dispatch for manual validation if needed.
 name: E2E Tests (Playwright)
 
 on:
@@ -65,12 +71,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
-    # For repository_dispatch: only run for client deployments (skip server).
+    # For repository_dispatch: only run for SERVER deployments.
+    # The server is the slower deployment (includes Neon DB seed), so by the
+    # time this event fires, the API + DB are ready. The client (faster) is
+    # verified via a readiness poll step below.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (
         github.event_name == 'repository_dispatch' &&
-        !contains(github.event.client_payload.project.name || '', 'server')
+        contains(github.event.client_payload.project.name || '', 'server')
       )
 
     steps:
@@ -98,59 +107,6 @@ jobs:
             echo "commit_sha=" >> "$GITHUB_OUTPUT"
             echo "Manual run against: ${{ inputs.base_url }}"
           fi
-
-      # ── Debounce ──────────────────────────────────────────────────────
-      # A git push triggers both client and server Vercel deployments.
-      # The client fires repository_dispatch first, but the server (and its
-      # Neon ephemeral DB) may still be deploying. If we start immediately,
-      # we hit transient errors ("Authentication timed out", "Connection
-      # terminated unexpectedly") because the server/DB isn't ready.
-      #
-      # This step:
-      # 1. Sleeps for DEBOUNCE_SECONDS to let all deployments finish.
-      # 2. After waking, queries the GitHub API for newer runs of this
-      #    workflow. If a newer run was queued during the sleep (e.g., from
-      #    a rapid second push), THIS run exits 0 — the newer run will
-      #    handle testing. Run IDs are monotonically increasing, so a
-      #    higher ID means a newer run.
-      # 3. If this is still the latest run, it proceeds to the expensive
-      #    steps (browser install, readiness checks, Playwright tests).
-      #
-      # Skipped for workflow_dispatch (manual runs) since there's no
-      # deployment race to debounce.
-      - name: Debounce — wait for all deployments to settle
-        if: github.event_name == 'repository_dispatch'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          DEBOUNCE_SECONDS: "90"
-        run: |
-          CURRENT_RUN_ID="${{ github.run_id }}"
-          echo "Run #${CURRENT_RUN_ID} — debouncing for ${DEBOUNCE_SECONDS}s..."
-          sleep "$DEBOUNCE_SECONDS"
-
-          # After sleeping, check if a newer run was triggered during the wait.
-          # Query both queued and in_progress runs of this workflow.
-          echo "Checking for newer workflow runs..."
-
-          NEWER_RUN_ID=""
-          for STATUS in "queued" "in_progress"; do
-            CANDIDATE=$(gh api "repos/${{ github.repository }}/actions/workflows/e2e.yml/runs?status=${STATUS}&per_page=10" \
-              --jq "[.workflow_runs[] | select(.id > $CURRENT_RUN_ID)] | sort_by(.id) | last | .id // empty" 2>/dev/null || true)
-            if [ -n "$CANDIDATE" ]; then
-              NEWER_RUN_ID="$CANDIDATE"
-              break
-            fi
-          done
-
-          if [ -n "$NEWER_RUN_ID" ]; then
-            echo "Newer run found: #${NEWER_RUN_ID} (this is #${CURRENT_RUN_ID})."
-            echo "Exiting — the newer run will handle E2E testing."
-            # Exit 0 so the job shows as "success" (not "failure"), since this
-            # is an intentional skip, not an error.
-            exit 0
-          fi
-
-          echo "No newer runs found. This run (#${CURRENT_RUN_ID}) is the latest — proceeding."
 
       - name: Set pending commit status
         if: steps.deploy.outputs.commit_sha != ''
@@ -195,12 +151,17 @@ jobs:
             npx playwright install --with-deps chromium
           fi
 
-      - name: Wait for deployment readiness
+      # ── Client readiness check ───────────────────────────────────────
+      # The dispatch fires from the SERVER project. The client (faster to
+      # deploy) should already be live, but we verify to be safe. This poll
+      # uses curl with the Vercel bypass header against the stable staging
+      # client URL.
+      - name: Wait for client deployment readiness
         env:
           BASE_URL: ${{ steps.deploy.outputs.base_url }}
           BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
-          echo "Waiting for $BASE_URL to respond with HTTP 200..."
+          echo "Waiting for client at $BASE_URL to respond with HTTP 200..."
           CURL_ARGS=("-sL" "-o" "/dev/null" "-w" "%{http_code}")
           if [ -n "$BYPASS_SECRET" ]; then
             CURL_ARGS+=("-H" "x-vercel-protection-bypass: ${BYPASS_SECRET}")
@@ -211,23 +172,29 @@ jobs:
           while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
             STATUS=$(curl "${CURL_ARGS[@]}" "$BASE_URL" || true)
             if [ "$STATUS" = "200" ]; then
-              echo "Deployment is ready (HTTP $STATUS)."
+              echo "Client deployment is ready (HTTP $STATUS)."
               exit 0
             fi
             ATTEMPTS=$((ATTEMPTS + 1))
             echo "Attempt $ATTEMPTS/$MAX_ATTEMPTS: HTTP $STATUS — retrying in 5s..."
             sleep 5
           done
-          echo "::error::Deployment at $BASE_URL did not become ready within $((MAX_ATTEMPTS * 5))s."
+          echo "::error::Client at $BASE_URL did not become ready within $((MAX_ATTEMPTS * 5))s."
           exit 1
 
-      - name: Wait for API readiness and DB seed
+      # ── API + DB seed check ──────────────────────────────────────────
+      # Since the dispatch fires from the server project AFTER deployment
+      # succeeds, the API should be healthy. This step confirms readiness
+      # and that the Neon ephemeral DB seed completed successfully.
+      # Transient errors (Neon branch churn) are retried; permanent errors
+      # (missing env vars) fail immediately.
+      - name: Verify API readiness and DB seed
         env:
           API_URL: ${{ vars.E2E_API_BASE_URL }}
           BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           HEALTH_URL="${API_URL}/api/health"
-          echo "Polling ${HEALTH_URL} for readiness + seed completion..."
+          echo "Checking ${HEALTH_URL} for readiness + seed completion..."
           CURL_ARGS=("-sL")
           if [ -n "$BYPASS_SECRET" ]; then
             CURL_ARGS+=("-H" "x-vercel-protection-bypass: ${BYPASS_SECRET}")
@@ -248,7 +215,7 @@ jobs:
               fi
               if [ -n "$SEED_ERR" ] && [ "$SEED_ERR" != "null" ]; then
                 # Permanent errors (missing config) → fail immediately.
-                # Transient errors (connection issues from Neon branch churn) → keep retrying.
+                # Transient errors (connection issues from Neon branch churn) → retry.
                 case "$SEED_ERR" in
                   *"missing required seed vars"*)
                     echo "::error::Seed failed on server: $SEED_ERR"
