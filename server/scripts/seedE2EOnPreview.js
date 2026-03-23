@@ -5,9 +5,15 @@
  * and the required E2E account env vars are present, this module idempotently
  * upserts test users and contact requests into the preview database.
  *
- * Called fire-and-forget from app.js — does not block request handling.
- * Env vars are read inside the function body (not at module scope) so the
- * module can be imported safely in any environment.
+ * IMPORTANT — Vercel serverless lifecycle:
+ * On Vercel, async work that outlives the HTTP response is killed. A fire-and-
+ * forget call like `seedE2EOnPreview()` at module scope gets interrupted when
+ * Vercel terminates the function after sending the response.
+ *
+ * Solution: the seed is exposed as a lazy singleton promise via `ensureSeeded()`.
+ * The health endpoint `await`s this promise, keeping the function alive until
+ * the seed completes. The promise is created once and shared across requests —
+ * subsequent callers get the same (already-resolved) promise.
  */
 import pg from "pg";
 
@@ -16,6 +22,20 @@ const { Pool } = pg;
 const REQUIRED_VARS = ["DATABASE_URL", "E2E_ADMIN_EMAIL", "E2E_ADMIN_UID"];
 
 export const seedStatus = { seeded: false, error: null, attempts: 0 };
+
+/** Singleton promise — created on first call, shared across all callers. */
+let seedPromise = null;
+
+/**
+ * Returns a promise that resolves when seeding is complete (or skipped).
+ * Safe to call multiple times — only runs the seed once.
+ */
+export function ensureSeeded() {
+  if (!seedPromise) {
+    seedPromise = seedE2EOnPreview();
+  }
+  return seedPromise;
+}
 
 /**
  * Parse the DATABASE_URL to extract host info for diagnostics.
@@ -137,7 +157,7 @@ async function testConnection(pool) {
   return rows[0]?.ok === 1;
 }
 
-export async function seedE2EOnPreview() {
+async function seedE2EOnPreview() {
   seedStatus.error = null;
 
   if (process.env.VERCEL_ENV !== "preview") {
@@ -165,8 +185,8 @@ export async function seedE2EOnPreview() {
   //   - "Authentication timed out" (SSL handshake timeout)
   //   - "Connection terminated unexpectedly" (branch churn from re-deploy)
   // Retrying after a delay gives Neon time to provision the compute endpoint.
-  const MAX_RETRIES = 8;
-  const RETRY_DELAY_MS = 8000;
+  const MAX_RETRIES = 5;
+  const RETRY_DELAY_MS = 5000;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     seedStatus.attempts = attempt;
@@ -178,7 +198,7 @@ export async function seedE2EOnPreview() {
       // Phase 1: Test basic connectivity
       console.log(`[e2e-seed] Attempt ${attempt}/${MAX_RETRIES}: testing connection...`);
       await testConnection(pool);
-      console.log(`[e2e-seed] Connection established — running seed queries...`);
+      console.log("[e2e-seed] Connection established — running seed queries...");
 
       // Phase 2: Run seed operations
       await seedOptionalUser(pool);
