@@ -268,47 +268,50 @@ and only fails immediately on permanent config errors (missing env vars).
 
 ---
 
-## 12. Debounce Dispatch Runs to Avoid Wasted CI Time
+## 12. Trigger E2E on the Slower Deployment (Pattern B: Filter + Poll)
 
 **Problem**: A single `git push` triggers both client and server Vercel deployments.
-The client deploys first and fires `repository_dispatch`, starting the E2E workflow.
-But the server (and its Neon ephemeral DB branch) is still deploying. The workflow
-hits transient errors ("Authentication timed out", "Connection terminated unexpectedly")
-and wastes 2+ minutes retrying before timing out — only for a second run to start
-afterward and repeat the cycle.
+If E2E is triggered by the **client** (which deploys faster), the server and its Neon
+ephemeral DB are still deploying. The workflow hits transient errors like
+"Authentication timed out" or "Connection terminated unexpectedly" and wastes minutes
+retrying. Debounce (sleep + timestamp check) is a workaround but adds idle time and
+complexity.
 
-**Why `cancel-in-progress` isn't enough**: The concurrency group's `cancel-in-progress`
-cancels older runs when a newer one starts in the same group. But if there's only one
-dispatch (only the client fires it), there's no second run to cancel the first. The
-real issue is the single run starting before the server deployment is ready.
+**Root cause**: E2E was triggered by the wrong event. The client fires dispatch first,
+but tests need both client AND server to be ready.
 
-**Solution — debounce with timestamp check**:
+**Solution — Pattern B (Filter + Poll)**:
+Trigger E2E on the **server's** `repository_dispatch` event (the slower deployment),
+then poll the client's stable staging URL to verify it's also ready.
 
 ```
-Dispatch arrives → Sleep 90s → Check GitHub API → Proceed or exit
+Push → Client deploys (fast) → Server deploys + seeds DB (slow)
+                                        ↓
+                              repository_dispatch fires
+                                        ↓
+                              E2E workflow starts
+                                        ↓
+                              Poll client URL (usually instant ✓)
+                                        ↓
+                              Verify API health + seed (should pass ✓)
+                                        ↓
+                              Run Playwright tests
 ```
 
-1. **Sleep**: The workflow sleeps for a configurable window (90s) immediately after
-   resolving the base URL, before any expensive work (browser install, readiness
-   checks). This gives the server deployment and Neon branch time to complete.
+**Why this works**: By waiting for the slower deployment, the faster one is almost
+always ready when we check. No debounce, no sleep, no wasted CI time.
 
-2. **Check**: After waking, query the GitHub API for newer runs of this workflow.
-   Run IDs are monotonically increasing — a higher ID means a newer run. If a newer
-   run was queued during the sleep (e.g., from a rapid second push), exit gracefully.
+**Vercel project configuration**:
+- **Server project**: Enable "Repository Dispatch Events" in Git settings.
+- **Client project**: Disable "Repository Dispatch Events" (no longer needed).
 
-3. **Proceed or skip**: If this is the latest run, proceed with tests. If not, exit 0
-   (shows as "success" in GitHub, not "failure", since the skip is intentional).
+**Edge case — push that only changes `client/` files**: The server doesn't redeploy,
+so no dispatch fires and no E2E run starts. This is acceptable: the server didn't
+change, so existing E2E results still apply. Use `workflow_dispatch` for manual
+validation if needed.
 
-**Why this works**: The 90s sleep covers the typical server deployment time. The API
-check is the safety net — if two pushes happen within 90s, only the last run proceeds.
-Combined with `cancel-in-progress: true` in the concurrency group, truly concurrent
-runs are also handled: the older one is cancelled outright.
-
-**Cost**: ~90 seconds of idle runner time per E2E run. This is cheaper than the
-alternative (2+ minutes of failed polling + a full retry from a second run).
-
-**Tuning**: The `DEBOUNCE_SECONDS` env var in the workflow can be adjusted. 90s is
-conservative for typical Vercel deployments. If your server deploys faster, reduce it.
+**This replaced the earlier debounce approach** (sleep 90s + GitHub API check for
+newer runs), which was complex and still wasted runner time.
 
 ---
 
@@ -335,7 +338,7 @@ Before committing any change to the E2E workflow:
 
 | Setting                        | Client project | Server project |
 | ------------------------------ | -------------- | -------------- |
-| Repository Dispatch Events     | Enabled        | Disabled       |
+| Repository Dispatch Events     | Disabled       | Enabled        |
 | Protection Bypass for Automation | Configured   | Same secret    |
 
 ### GitHub Actions Variables (visible, not masked)
