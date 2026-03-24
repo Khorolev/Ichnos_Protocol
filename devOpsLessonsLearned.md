@@ -491,3 +491,34 @@ is safe to retry at any point — the worst case is a redundant update.
 
 **Lesson**: When the target API lacks an upsert, prefer update-then-add over
 remove-then-add. It's idempotent and safe to interrupt.
+
+---
+
+## 18. The Provisioning Script Is a Local/Manual Tool — Not a CI Step
+
+**Problem**: The provisioning script (`node scripts/provision-e2e-firebase-users.js`)
+calls `gh secret set` and `vercel env update/add` using locally authenticated CLIs.
+It also depends on `server/.vercel/project.json` linkage and local `.env.e2e`/`server/.env`
+files. These are local environment prerequisites that are not available (and not needed)
+on a CI runner.
+
+**Key distinction**: CI workflows (`ci.yml`) and the E2E workflow (`e2e.yml`) do **not**
+execute the provisioning script. They consume the GitHub Actions secrets and Vercel
+Preview env vars that the script has already synced. The script is a one-time (or
+as-needed) local admin setup step.
+
+**Environment differences can change behavior**: The script's outcome depends on local
+CLI installation and PATH, `gh` and `vercel` auth state, the linked Vercel project in
+`server/.vercel/project.json`, local env files, and the shell/terminal session. One
+terminal or machine may succeed while another fails against the same repo contents. This
+is expected, not a bug.
+
+**Troubleshooting checklist for terminal-related failures**:
+
+1. Confirm you are running from the repo root
+2. `gh auth status`
+3. `vercel whoami`
+4. `cd server && vercel link` (must link to `ichnos-protocolserver`)
+
+**Lesson**: Treat the provisioning script as a local admin setup tool, not part of the
+CI/CD pipeline. Treat terminal-related errors as local environment/setup issues first.

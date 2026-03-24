@@ -103,9 +103,11 @@ E2E test data is seeded automatically by the preview server on startup — no se
 
 These secrets are sufficient for CI, E2E, and preview deployments. Preview deployments are handled entirely by Vercel's native Git integration — no Vercel API tokens or project IDs are needed.
 
-> **Managing E2E secrets:** The canonical way to manage these secrets is through the provisioning script and `.env.e2e` file. Copy `.env.e2e.example` to `.env.e2e`, fill in email/password fields, and run `node scripts/provision-e2e-firebase-users.js`. The script provisions Firebase users, writes UIDs back to `.env.e2e`, and syncs the correct subset of values to GitHub Actions secrets (emails + passwords) and Vercel Preview env vars (emails + UIDs). For sync-only (skip Firebase provisioning): `node scripts/provision-e2e-firebase-users.js --sync-only`.
+> **Managing E2E secrets:** The provisioning script is a **local/manual admin tool** run from a developer's machine. Neither `ci.yml` nor `e2e.yml` execute it — they consume the synced outputs. The canonical way to manage these secrets is through the provisioning script and `.env.e2e` file. Copy `.env.e2e.example` to `.env.e2e`, fill in email/password fields, and run `node scripts/provision-e2e-firebase-users.js`. The script provisions Firebase users, writes UIDs back to `.env.e2e`, and syncs the correct subset of values to GitHub Actions secrets (emails + passwords) and Vercel Preview env vars (emails + UIDs). For sync-only (skip Firebase provisioning): `node scripts/provision-e2e-firebase-users.js --sync-only`.
 >
 > **Important:** Vercel Preview environment variable changes only take effect on **new preview deployments**. After syncing, trigger a new preview deployment or redeploy an existing one for the changes to be picked up.
+>
+> **Environment note:** The provisioning script depends on local CLI installation/PATH, `gh` and `vercel` CLI auth state, `server/.vercel/project.json` linkage, and local `.env.e2e`/`server/.env` files. Different terminals, shell sessions, or machines may produce different results. If you encounter terminal-related errors, check: (1) `.env.e2e` exists and has the required fields populated (copy from `.env.e2e.example`), (2) `server/.env` exists with Firebase admin credentials (needed unless running `--sync-only`), (3) you are in the repo root, (4) `gh auth status`, (5) `vercel whoami`, (6) `cd server && vercel link`.
 
 #### Production promotion secrets (4)
 

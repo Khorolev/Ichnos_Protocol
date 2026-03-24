@@ -8,7 +8,7 @@ function fail(message, remediation) {
 
 export function checkGhAuth() {
   try {
-    execFileSync("gh", ["auth", "status"], { stdio: "pipe" });
+    execFileSync("gh", ["auth", "status"], { stdio: "pipe", shell: true });
   } catch {
     fail(
       "GitHub CLI is not authenticated.",
@@ -19,7 +19,7 @@ export function checkGhAuth() {
 
 export function checkVercelAuth() {
   try {
-    execFileSync("vercel", ["whoami"], { stdio: "pipe" });
+    execFileSync("vercel", ["whoami"], { stdio: "pipe", shell: true });
   } catch {
     fail(
       "Vercel CLI is not authenticated.",
