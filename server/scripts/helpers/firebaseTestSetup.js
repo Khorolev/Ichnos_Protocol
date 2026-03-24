@@ -1,6 +1,10 @@
 /**
  * Create or update Firebase Auth users for E2E testing.
  *
+ * Exports:
+ *   - provisionFirebaseUsers(credentialsArray) — general-purpose provisioning
+ *   - setupFirebaseTestUsers() — backward-compatible wrapper (reads process.env)
+ *
  * Returns { userUid, adminUid, superAdminUid }.
  */
 import admin from "firebase-admin";
@@ -47,33 +51,46 @@ function getTestApp() {
 }
 
 async function upsertUser(auth, spec) {
-  const email = process.env[spec.envEmail];
-  const password = process.env[spec.envPassword];
+  const { email, password, displayName, claims } = spec;
   let user;
 
   try {
     user = await auth.getUserByEmail(email);
-    await auth.updateUser(user.uid, { password, displayName: spec.displayName });
+    await auth.updateUser(user.uid, { password, displayName });
     console.log(`[firebase] updated: ${email}`);
   } catch (err) {
     if (err.code !== "auth/user-not-found") throw err;
-    user = await auth.createUser({ email, password, displayName: spec.displayName });
+    user = await auth.createUser({ email, password, displayName });
     console.log(`[firebase] created: ${email}`);
   }
 
-  await auth.setCustomUserClaims(user.uid, spec.claims);
+  await auth.setCustomUserClaims(user.uid, claims);
   return user.uid;
 }
 
-export async function setupFirebaseTestUsers() {
+export async function provisionFirebaseUsers(credentialsArray) {
   const app = getTestApp();
   const auth = app.auth();
   const result = {};
 
-  for (const spec of USER_SPECS) {
+  for (const spec of credentialsArray) {
     result[spec.uidKey] = await upsertUser(auth, spec);
   }
 
   console.log("[firebase] all test users ready");
   return result;
+}
+
+export async function setupFirebaseTestUsers() {
+  const credentialsArray = USER_SPECS.filter(
+    (spec) => process.env[spec.envEmail],
+  ).map((spec) => ({
+    email: process.env[spec.envEmail],
+    password: process.env[spec.envPassword],
+    displayName: spec.displayName,
+    claims: spec.claims,
+    uidKey: spec.uidKey,
+  }));
+
+  return provisionFirebaseUsers(credentialsArray);
 }

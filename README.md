@@ -258,7 +258,7 @@ The color palette is derived from the **company logo** (a tree with circuit-boar
 | Chatbot         | X.ai Grok API (RAG)                                            | AI-powered visitor engagement                      |
 | LinkedIn        | Third-party embed widget                                       | Company feed on landing page                       |
 | Testing         | Vitest, eslint-plugin-vitest, React Testing Library, Supertest | Unit, component, and API test suites               |
-| E2E Testing     | Playwright                                                     | End-to-end tests against Vercel previews           |
+| E2E Testing     | Playwright                                                     | End-to-end tests against stable staging URLs       |
 | Linting         | ESLint + Prettier                                              | Code quality enforcement                           |
 | Linting Plugins | eslint-plugin-vitest                                           | Vitest globals recognition and test-specific rules |
 | Deployment      | Vercel (Monorepo)                                              | Two projects: `client/` + `server/`                |
@@ -362,7 +362,7 @@ cd e2e && npx playwright test --headed
 cd e2e && npx playwright show-report
 ```
 
-In CI, Playwright runs automatically against Vercel preview deployment URLs via GitHub Actions — no need to start local servers.
+In CI, Playwright is triggered by `repository_dispatch` (`vercel.deployment.success`) from the server Vercel project and runs against stable staging URLs configured via GitHub Actions variables (`vars.E2E_BASE_URL` and `vars.E2E_API_BASE_URL`) — no need to start local servers.
 
 ### Linting and Formatting
 
@@ -468,7 +468,7 @@ The project is deployed on **Vercel** as a monorepo with two separate Vercel pro
 | Component | Vercel Project  | Root Directory | Runtime        | Output                |
 | --------- | --------------- | -------------- | -------------- | --------------------- |
 | Frontend  | `ichnos-client` | `client/`      | Vite (static)  | `dist/` (static site) |
-| Backend   | `ichnos-server` | `server/`      | `@vercel/node` | Serverless function   |
+| Backend   | `ichnos-protocolserver` | `server/`      | `@vercel/node` | Serverless function   |
 
 ### How It Works
 
@@ -494,7 +494,7 @@ feature/* → main (PR-gated: CI + Vercel Preview + E2E)
         → production (environment approval required, promote-only model)
 ```
 
-- **Preview deployments**: PRs targeting `main` get unique Vercel preview URLs for both frontend and backend; E2E tests run against the client preview URL via `repository_dispatch` (`vercel.deployment.success`).
+- **Preview deployments**: PRs targeting `main` get unique Vercel preview URLs for both frontend and backend; E2E tests are triggered by `repository_dispatch` (`vercel.deployment.success`) from the server project and run against stable staging URLs (`vars.E2E_BASE_URL` for client, `vars.E2E_API_BASE_URL` for API), not per-deployment preview URLs.
 - **Production deployments**: Merges to `release` trigger `promote-to-production.yml`, which discovers the latest READY `main` preview and promotes it — no rebuild. Requires human approval via the GitHub `production` environment.
 - **Environment variables**: Configured in each Vercel project's settings dashboard (Production, Preview, Development scopes). Never committed to the repository.
 

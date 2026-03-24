@@ -53,8 +53,9 @@ deployments are cancelled. The `repository_dispatch` event may still fire with
 the cancelled deployment's URL.
 
 **Solution**: Use your **stable custom staging domain** (`staging-client.ichnos-protocol.com`)
-which always points to the latest successful preview deployment. Store it in a
-GitHub Actions secret (`E2E_BASE_URL`) so it's easy to update if the domain changes.
+which always points to the latest successful preview deployment. Store it as a
+**GitHub Actions Variable** (`vars.E2E_BASE_URL`) — not a secret — so the value is
+visible in logs and easy to verify. See §8 for the variables-vs-secrets distinction.
 
 ---
 
@@ -355,12 +356,13 @@ Before committing any change to the E2E workflow:
 | `VERCEL_AUTOMATION_BYPASS_SECRET` | Shared bypass secret (both projects)   |
 | `E2E_ADMIN_EMAIL`                 | Firebase admin test user email         |
 | `E2E_ADMIN_PASSWORD`              | Firebase admin test user password      |
-| `E2E_ADMIN_UID`                   | Firebase UID of admin test user        |
 | `E2E_USER_EMAIL`                  | Firebase regular test user email       |
 | `E2E_USER_PASSWORD`               | Firebase regular test user password    |
 | `E2E_SUPER_ADMIN_EMAIL`           | Firebase super admin test user email   |
 | `E2E_SUPER_ADMIN_PASSWORD`        | Firebase super admin test user password|
 | `FIREBASE_API_KEY`                | Firebase API key for E2E auth flows    |
+
+> **Note:** Firebase UIDs (`E2E_*_UID`) are no longer GitHub Actions secrets. UIDs are only consumed by the Vercel server seed script and belong in Vercel Preview env vars. Use the provisioning script (`node scripts/provision-e2e-firebase-users.js`) to manage all E2E credentials from a single `.env.e2e` file.
 
 ### Vercel Server Project — Environment Variables (Preview scope)
 
@@ -380,3 +382,112 @@ scoped to Preview. They are used by the seed script at server cold start.
 | `E2E_SUPER_ADMIN_EMAIL`    | Same value as GitHub Actions secret         |
 
 Note: `DATABASE_URL` and `VERCEL_ENV` are set automatically by Vercel/Neon.
+
+---
+
+## 14. Single Source of Truth for Cross-Platform Credentials
+
+**Problem**: E2E test credentials (emails, passwords, Firebase UIDs) were manually
+maintained across three platforms: GitHub Actions secrets, Vercel Server Preview env
+vars, and local `.env` files. With 3 roles x 3 credentials x 3 platforms = ~27 manual
+entries, any mismatch silently broke the E2E pipeline. GitHub secrets are write-only,
+making it impossible to verify what value is currently stored.
+
+**Root cause**: No single canonical file owned the credential values. Each platform
+was configured independently, with no automated way to detect or prevent drift.
+
+**Solution**: Introduce a `.env.e2e` file at the repo root as the single source of
+truth. A provisioning script reads this file, provisions Firebase users, writes UIDs
+back, and syncs the correct subset to each platform:
+
+| Platform            | What gets synced           |
+| ------------------- | -------------------------- |
+| GitHub Actions      | Emails + passwords         |
+| Vercel Server (Preview) | Emails + UIDs          |
+| Local `.env.e2e`    | Everything (canonical)     |
+
+**Lesson**: When the same credentials must exist on multiple platforms, pick one
+canonical file and automate the fan-out. Manual copy-paste across write-only stores
+guarantees eventual drift.
+
+---
+
+## 15. Explicit `import.meta.url` Path Resolution for Env Files
+
+**Problem**: The provisioning script loads both the repo-root `.env.e2e` and
+`server/.env`. Using `process.cwd()`-relative paths broke when the script was
+invoked from different directories (e.g., the root CJS wrapper executes from the
+repo root, but the ESM orchestrator lives in `server/scripts/`).
+
+**Root cause**: `process.cwd()` depends on where the user runs the command, not
+where the script file lives. In a monorepo with a CJS wrapper delegating to an ESM
+module, the working directory is unpredictable.
+
+**Solution**: Resolve all file paths from `import.meta.url` using `fileURLToPath`
+and `path.resolve`. This anchors paths to the script's location in the source tree,
+not the shell's working directory.
+
+```js
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const envPath = path.resolve(__dirname, '../../..', '.env.e2e');
+```
+
+**Lesson**: In ESM scripts that may be invoked indirectly (via wrappers, `execSync`,
+or npm scripts), always resolve paths from `import.meta.url`. Never assume `cwd`.
+
+---
+
+## 16. Shell-Safe CLI Secret Syncing via stdin
+
+**Problem**: Passing secret values as command-line arguments (e.g.,
+`gh secret set NAME --body "$VALUE"`) breaks when the value contains shell-special
+characters (`$`, `!`, `` ` ``, quotes, backslashes). Passwords frequently contain
+these characters.
+
+**Root cause**: Shell interpolation. Even with proper quoting, edge cases exist
+across shells (bash, zsh, PowerShell). Escaping is fragile and platform-dependent.
+
+**Solution**: Use `child_process.execSync` (or `spawn`) with stdin piping. Both
+`gh secret set` and `vercel env add/update` accept values from stdin:
+
+```js
+execSync(`gh secret set ${name}`, { input: value, stdio: ['pipe', 'pipe', 'pipe'] });
+```
+
+The value never touches the shell's argument parser — it goes directly from the
+Node.js process to the CLI tool's stdin stream.
+
+**Lesson**: When syncing secrets via CLI tools, always use stdin input instead of
+shell arguments. This eliminates an entire class of quoting/escaping bugs.
+
+---
+
+## 17. Vercel Env Update-Then-Add Pattern
+
+**Problem**: The Vercel CLI has separate commands for creating (`vercel env add`)
+and updating (`vercel env update`) environment variables. `env add` fails if the
+variable already exists; `env update` fails if it doesn't. There is no upsert
+command. Running `env rm` + `env add` works but is destructive and non-atomic.
+
+**Solution**: Attempt `vercel env update` first. If it fails (variable doesn't
+exist), fall back to `vercel env add`. Both commands accept the value via stdin
+for shell safety.
+
+```js
+try {
+  execSync(`vercel env update ${name} preview`, { input: value, cwd: serverDir });
+} catch {
+  execSync(`vercel env add ${name} preview`, { input: value, cwd: serverDir });
+}
+```
+
+**Why not remove-then-add?** The remove+add pattern is non-atomic: if the process
+crashes between remove and add, the variable is lost. The update-then-add pattern
+is safe to retry at any point — the worst case is a redundant update.
+
+**Lesson**: When the target API lacks an upsert, prefer update-then-add over
+remove-then-add. It's idempotent and safe to interrupt.
