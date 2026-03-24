@@ -17,6 +17,7 @@ export function syncToGitHub(credentials, repoRoot) {
       input: secretValue,
       encoding: "utf8",
       cwd: repoRoot,
+      shell: true,
     });
 
     results.push({

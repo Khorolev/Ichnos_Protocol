@@ -28,7 +28,19 @@
       "Bash(npx vitest:*)",
       "Bash(ls -la \"C:/Users/malto/OneDrive/Documenti/GitHub/Ichnos_Protocol/server/\"*.env*)",
       "Bash(ls -la \"C:/Users/malto/OneDrive/Documenti/GitHub/Ichnos_Protocol/server/.env\"*)",
-      "Bash(DOTENV_CONFIG_PATH=.env.test node scripts/provision-e2e-firebase-users.js)"
+      "Bash(DOTENV_CONFIG_PATH=.env.test node scripts/provision-e2e-firebase-users.js)",
+      "Bash(node server/scripts/provision-e2e-firebase-users.js)",
+      "Bash(npm install:*)",
+      "Bash(vercel login:*)",
+      "Bash(vercel whoami:*)",
+      "Bash(gh auth:*)",
+      "Bash(node -e \"const { execFileSync } = require\\(''child_process''\\); console.log\\(execFileSync\\(''vercel'', [''whoami''], { encoding: ''utf8'' }\\)\\)\")",
+      "Bash(node -e \"const { execFileSync } = require\\(''child_process''\\); console.log\\(execFileSync\\(''vercel.cmd'', [''whoami''], { encoding: ''utf8'' }\\)\\)\")",
+      "Bash(vercel link:*)",
+      "Bash(vercel env:*)",
+      "Bash(node -e \":*)",
+      "Bash(echo $SHELL)",
+      "Bash(node -e \"console.log\\(process.env.ComSpec\\); console.log\\(process.env.SHELL\\); console.log\\(process.platform\\)\")"
     ]
   }
 }

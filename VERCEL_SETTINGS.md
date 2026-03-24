@@ -128,7 +128,7 @@ Quick reference for finding the Vercel values needed as GitHub repository secret
 
 ## 5. Local Project Linking (One-Time Prerequisite)
 
-The E2E provisioning script (`node scripts/provision-e2e-firebase-users.js`) syncs environment variables to the Vercel server project via the Vercel CLI. This requires the `server/` directory to be linked to the correct Vercel project.
+The E2E provisioning script (`node scripts/provision-e2e-firebase-users.js`) syncs environment variables to the Vercel server project via the Vercel CLI. This script is a **local/manual developer/admin tool** — it is not executed by CI or E2E workflows. Those workflows consume the synced Vercel Preview env vars after the script has run. This requires the `server/` directory to be linked to the correct Vercel project.
 
 ### Setup
 
@@ -157,6 +157,8 @@ The provisioning script syncs the following E2E env vars to Vercel Server Previe
 | `E2E_SUPER_ADMIN_UID`     | Super-admin test account Firebase UID  |
 
 > **Important:** Vercel Preview environment variable changes only take effect on **new preview deployments**. After syncing, trigger a new preview deployment or redeploy an existing one for changes to take effect. The provisioning script prints a reminder after each successful sync.
+>
+> **Environment note:** The provisioning script depends on local CLI installation and PATH, `gh` and `vercel` CLI auth state, the linked `server/.vercel/project.json`, and local `.env.e2e`/`server/.env` files. One terminal or machine may succeed while another fails. For terminal-related errors, first verify: (1) you are in the repo root, (2) `gh auth status`, (3) `vercel whoami`, (4) `cd server && vercel link`.
 
 ---
 

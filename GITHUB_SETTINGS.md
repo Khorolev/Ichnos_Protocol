@@ -62,7 +62,7 @@ Three test accounts are required for Playwright E2E tests. The canonical way to 
 node scripts/provision-e2e-firebase-users.js
 ```
 
-This script creates or updates the Firebase users, writes all credentials and UIDs to `.env.e2e`, and syncs the correct subset of values to both GitHub Actions secrets and Vercel Preview environment variables. See `.env.e2e.example` for the template.
+This script creates or updates the Firebase users, writes all credentials and UIDs to `.env.e2e`, and syncs the correct subset of values to both GitHub Actions secrets and Vercel Preview environment variables. The provisioning script is a **local/manual developer/admin tool** — it is not executed by `ci.yml` or `e2e.yml`. CI and E2E workflows consume the synced secrets after the script has run. See `.env.e2e.example` for the template.
 
 After running the script, the following GitHub Actions secrets will be set automatically:
 
@@ -78,6 +78,8 @@ After running the script, the following GitHub Actions secrets will be set autom
 > **Note:** Firebase UIDs (`E2E_*_UID`) are **not** GitHub Actions secrets. UIDs are only consumed by the Vercel server seed script and belong in Vercel Preview environment variables (see [`VERCEL_SETTINGS.md`](VERCEL_SETTINGS.md) §2) — the provisioning script handles this automatically.
 >
 > **Manual fallback (exception only):** If the provisioning script is unavailable (e.g., missing Firebase service account credentials), you can create the accounts manually in Firebase Console → Authentication → Users and set the 6 secrets above by hand in Settings → Secrets → Actions. However, the script-based flow is the canonical path and should be used whenever possible.
+>
+> **Environment note:** Environment and terminal differences can cause the provisioning script to succeed in one shell but fail in another. The script depends on local CLI installation/PATH, `gh` and `vercel` CLI auth state, `server/.vercel/project.json` linkage, and `.env.e2e`/`server/.env` files. For terminal-related errors, first verify: (1) you are in the repo root, (2) `gh auth status`, (3) `vercel whoami`, (4) `cd server && vercel link`.
 
 ### Firebase and Vercel Bypass Secrets
 
