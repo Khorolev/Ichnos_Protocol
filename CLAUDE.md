@@ -426,7 +426,6 @@ Configured in **GitHub → Settings → Secrets and variables → Actions → Se
 ```
 E2E_ADMIN_EMAIL=                     # Firebase admin test user email
 E2E_ADMIN_PASSWORD=                  # Firebase admin test user password
-E2E_ADMIN_UID=                       # Firebase UID of admin test user (also needed on Vercel server)
 E2E_USER_EMAIL=                      # Firebase regular test user email
 E2E_USER_PASSWORD=                   # Firebase regular test user password
 E2E_SUPER_ADMIN_EMAIL=               # Firebase super admin test user email
@@ -539,7 +538,7 @@ e2e/
 
 - **Config file**: `e2e/playwright.config.js`.
 - **Base URL**: Read from `BASE_URL` environment variable. Defaults to `http://localhost:5173` for local dev.
-- **Browsers**: Chromium, Firefox, WebKit (all three for CI; Chromium-only for local speed).
+- **Browsers**: Chromium only for `repository_dispatch` CI runs; full suite (Chromium, Firefox, WebKit) for `workflow_dispatch` manual runs; Chromium only locally (unless `E2E_BROWSER_PROFILE=full` is set).
 - **Retries**: 0 locally, 2 in CI.
 - **Timeouts**: 30s per test, 5s per action.
 
@@ -645,7 +644,7 @@ GitHub Repository (Ichnos_Protocol)
     │   ├── Framework: Vite
     │   └── Output: Static site (dist/)
     │
-    └── Vercel Project: ichnos-server
+    └── Vercel Project: ichnos-protocolserver
         ├── Root Directory: server/
         ├── Runtime: @vercel/node
         └── Entry: api/index.js (wraps Express app)

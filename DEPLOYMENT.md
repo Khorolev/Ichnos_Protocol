@@ -8,7 +8,7 @@ Step-by-step instructions for deploying the Ichnos Protocol website to productio
 
 | Service                  | Purpose                                                                                                           |
 | ------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| **Vercel account**       | Hosting — two projects: `ichnos-client` (frontend) and `ichnos-server` (backend)                                  |
+| **Vercel account**       | Hosting — two projects: `ichnos-client` (frontend) and `ichnos-protocolserver` (backend)                          |
 | **Neon Tech PostgreSQL** | Relational database for customer requests, users, and structured data                                             |
 | **Firebase project**     | Authentication (Email/Password), Firestore (knowledge base), Storage (file uploads), Admin SDK (server-side auth) |
 | **xAI API key**          | Grok-powered RAG chatbot                                                                                          |
@@ -96,7 +96,7 @@ node server/scripts/seedKnowledgeBase.js
 
 ### One-Time Project Setup
 
-1. Create a Vercel project named `ichnos-server`.
+1. Create a Vercel project named `ichnos-protocolserver`.
    - Set the **root directory** to `server/`.
    - Add all server environment variables in Vercel project settings.
 2. Create a second Vercel project named `ichnos-client`.
@@ -260,8 +260,8 @@ Do once before first deploy:
 - [ ] GitHub `production` environment exists with at least one required reviewer configured
 - [ ] All required repository secrets are set (see [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md) for the full list)
 - [ ] GitHub rulesets/branch protections are configured for `main` (required checks as listed in [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md) §3) and `release` (`Release Policy Check` + PR requirement)
-- [ ] Vercel production branch is set to `release` on both `ichnos-client` and `ichnos-server`
-- [ ] Production environment variables are set in Vercel project settings for both `ichnos-client` and `ichnos-server` (never committed to the repo)
+- [ ] Vercel production branch is set to `release` on both `ichnos-client` and `ichnos-protocolserver`
+- [ ] Production environment variables are set in Vercel project settings for both `ichnos-client` and `ichnos-protocolserver` (never committed to the repo)
 
 ### Daily Flow Verification
 

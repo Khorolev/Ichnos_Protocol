@@ -1,113 +1,69 @@
-/**
- * Provision Firebase Authentication users for E2E testing.
- *
- * Idempotent: creates users if they don't exist, updates custom claims
- * if they do. Safe to re-run without creating duplicates.
- *
- * Required env vars:
- *   FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY
- *   E2E_ADMIN_EMAIL, E2E_ADMIN_PASSWORD
- *
- * Optional env vars (each pair must be complete):
- *   E2E_USER_EMAIL, E2E_USER_PASSWORD
- *   E2E_SUPER_ADMIN_EMAIL, E2E_SUPER_ADMIN_PASSWORD
- *
- * Usage:
- *   cd server && node scripts/provision-e2e-firebase-users.js
- */
-import "dotenv/config";
-import admin from "firebase-admin";
+/** E2E Credential Pipeline — Orchestrator. See .env.e2e.example for usage. */
+import { fileURLToPath } from "url";
+import { dirname, resolve } from "path";
+import { config } from "dotenv";
+import { runPreflight } from "./helpers/e2ePreflight.js";
+import { readEnvFile, writeUidsToEnvFile } from "./helpers/e2eEnvFile.js";
+import { provisionFirebaseUsers } from "./helpers/firebaseTestSetup.js";
+import { syncToGitHub } from "./helpers/e2eSyncGitHub.js";
+import { syncToVercel } from "./helpers/e2eSyncVercel.js";
+import { buildCredentialMaps } from "./helpers/e2eCredentials.js";
+import { printFailedDetails, printSummary } from "./helpers/e2eReporting.js";
 
-const REQUIRED_VARS = [
-  "FIREBASE_PROJECT_ID",
-  "FIREBASE_CLIENT_EMAIL",
-  "FIREBASE_PRIVATE_KEY",
-  "E2E_ADMIN_EMAIL",
-  "E2E_ADMIN_PASSWORD",
-];
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const serverDir = resolve(__dirname, "..");
+const repoRoot = resolve(__dirname, "../..");
+const envFilePath = resolve(__dirname, "../../.env.e2e");
+const serverEnvPath = resolve(serverDir, ".env");
+const syncOnly = process.argv.includes("--sync-only");
 
-const missing = REQUIRED_VARS.filter((v) => !process.env[v]);
-if (missing.length > 0) {
-  console.error(
-    `Missing required env vars: ${missing.join(", ")}\n` +
-      "Set these in your .env or environment before running.",
-  );
-  process.exit(1);
-}
+config({ path: serverEnvPath });
 
-if (!admin.apps.length) {
-  admin.initializeApp({
-    credential: admin.credential.cert({
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    }),
-  });
-}
+async function main() {
+  const mode = syncOnly ? "sync-only" : "full pipeline";
+  console.log(`[orchestrator] ${mode}\n`);
 
-const auth = admin.auth();
+  runPreflight({ syncOnly, envFilePath, serverDir });
+  console.log("[preflight] all checks passed");
 
-async function provisionUser(email, password, claims, label) {
-  let user;
-  try {
-    user = await auth.getUserByEmail(email);
-    console.log(`[${label}] Found existing user: ${user.uid}`);
-    await auth.updateUser(user.uid, { password });
-    console.log(`[${label}] Password updated.`);
-  } catch (err) {
-    if (err.code === "auth/user-not-found") {
-      user = await auth.createUser({ email, password });
-      console.log(`[${label}] Created new user: ${user.uid}`);
-    } else {
-      throw err;
+  const env = readEnvFile(envFilePath);
+  const { github, vercel, firebaseCreds } = buildCredentialMaps(env);
+
+  if (!syncOnly) {
+    console.log("\n=== Firebase Provisioning ===");
+    const uidMap = await provisionFirebaseUsers(firebaseCreds);
+    writeUidsToEnvFile(envFilePath, uidMap);
+    console.log("[env] UIDs written back to .env.e2e");
+    for (const [key, uid] of Object.entries(uidMap)) {
+      vercel[key] = uid;
     }
   }
 
-  await auth.setCustomUserClaims(user.uid, claims);
-  console.log(`[${label}] Custom claims set:`, JSON.stringify(claims));
-  return user.uid;
+  console.log("\n=== GitHub Actions Sync ===");
+  const ghResults = syncToGitHub(github, repoRoot);
+  const ghFailed = ghResults.some((r) => r.status === "failed");
+  if (ghFailed) {
+    printSummary(ghResults, []);
+    printFailedDetails("GitHub", ghResults);
+    process.exit(1);
+  }
+
+  console.log("\n=== Vercel Preview Sync ===");
+  const vcResults = syncToVercel(vercel, serverDir);
+  const vcFailed = vcResults.some((r) => r.status === "failed");
+
+  printSummary(ghResults, vcResults);
+
+  if (vcFailed) {
+    printFailedDetails("Vercel", vcResults);
+    process.exit(1);
+  }
+
+  console.log("[reminder] Vercel Preview env changes require a new deployment or redeploy.");
+  console.log("[done] E2E credential pipeline complete.");
 }
 
-try {
-  const adminUid = await provisionUser(
-    process.env.E2E_ADMIN_EMAIL,
-    process.env.E2E_ADMIN_PASSWORD,
-    { role: "admin" },
-    "admin",
-  );
-  console.log(`Admin UID: ${adminUid}`);
-
-  if (process.env.E2E_USER_EMAIL && process.env.E2E_USER_PASSWORD) {
-    const userUid = await provisionUser(
-      process.env.E2E_USER_EMAIL,
-      process.env.E2E_USER_PASSWORD,
-      {},
-      "user",
-    );
-    console.log(`User UID: ${userUid}`);
-  } else {
-    console.log("[user] Skipped — E2E_USER_EMAIL/PASSWORD not set.");
-  }
-
-  if (
-    process.env.E2E_SUPER_ADMIN_EMAIL &&
-    process.env.E2E_SUPER_ADMIN_PASSWORD
-  ) {
-    const superAdminUid = await provisionUser(
-      process.env.E2E_SUPER_ADMIN_EMAIL,
-      process.env.E2E_SUPER_ADMIN_PASSWORD,
-      { role: "admin", superAdmin: true },
-      "super-admin",
-    );
-    console.log(`Super Admin UID: ${superAdminUid}`);
-  } else {
-    console.log(
-      "[super-admin] Skipped — E2E_SUPER_ADMIN_EMAIL/PASSWORD not set.",
-    );
-  }
-
-  console.log("\nProvisioning complete.");
-} catch (err) {
-  console.error("Provisioning failed:", err.message);
+main().catch((err) => {
+  console.error(`\n[fatal] ${err.message}`);
   process.exit(1);
-}
+});

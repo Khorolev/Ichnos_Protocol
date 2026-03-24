@@ -1,6 +1,6 @@
 # Vercel Project Settings Reference
 
-Complete configuration guide for the Ichnos Protocol Vercel projects (`ichnos-client` and `ichnos-server`). This document assumes the projects may have been previously configured with different settings (e.g., staging aliases, wrong production branch, or stale environment variables) and walks through a clean setup from scratch.
+Complete configuration guide for the Ichnos Protocol Vercel projects (`ichnos-client` and `ichnos-protocolserver`). This document assumes the projects may have been previously configured with different settings (e.g., staging aliases, wrong production branch, or stale environment variables) and walks through a clean setup from scratch.
 
 > **This is the authoritative source** for Vercel project settings. [`DEPLOYMENT_GITHUB_ACTIONS.md`](DEPLOYMENT_GITHUB_ACTIONS.md) references this file for quick-reference summaries.
 
@@ -16,12 +16,13 @@ Complete configuration guide for the Ichnos Protocol Vercel projects (`ichnos-cl
 | **Client Environment Variables** | Build-time config for the Vite frontend | The Vite build injects Firebase, API, and widget config at build time |
 | **Old Alias Cleanup** | Remove any previously configured aliases for removed environments | Stale aliases (e.g., for `staging`) waste quota and cause confusion |
 | **Token and ID Lookup** | Know where to find the 4 Vercel values needed as GitHub secrets | These are set as GitHub repository secrets, not Vercel environment variables |
+| **Local Project Linking** | One-time `cd server && vercel link` to link the server directory to the correct Vercel project | Required by the E2E provisioning script to sync Preview env vars via Vercel CLI |
 
 ---
 
 ## 1. Git Integration
 
-For **both** `ichnos-client` and `ichnos-server` Vercel projects:
+For **both** `ichnos-client` and `ichnos-protocolserver` Vercel projects:
 
 ### Production Branch
 
@@ -39,7 +40,7 @@ The `"git": { "deploymentEnabled": false }` key has been removed from both `clie
 
 ### Repository Dispatch Events
 
-**Repository Dispatch Events** must be enabled on the **`ichnos-client`** project to trigger `e2e.yml` automatically after a client preview deployment. To enable: Vercel Dashboard → `ichnos-client` → Settings → Git → enable "Repository Dispatch Events". This causes Vercel to emit a `repository_dispatch` event with type `vercel.deployment.success` to GitHub after each successful deployment. Enabling this on the server project (`ichnos-server`) is optional — the `e2e.yml` workflow filters for client deployments and will skip server events.
+**Repository Dispatch Events** must be enabled on the **`ichnos-protocolserver`** project to trigger `e2e.yml` automatically after a server preview deployment. To enable: Vercel Dashboard → `ichnos-protocolserver` → Settings → Git → enable "Repository Dispatch Events". This causes Vercel to emit a `repository_dispatch` event with type `vercel.deployment.success` to GitHub after each successful deployment. The `e2e.yml` workflow filters on the server project name (`contains(project.name, 'server')`) because the server is the slower deployment — by the time it completes (including Neon DB seed), the client is already ready. Enabling this on the client project (`ichnos-client`) is unnecessary — only the server dispatch is needed to trigger E2E tests.
 
 ---
 
@@ -47,9 +48,9 @@ The `"git": { "deploymentEnabled": false }` key has been removed from both `clie
 
 Environment variables are configured in each Vercel project's settings dashboard, scoped to the appropriate environments (Production, Preview, Development). **Never commit secrets to the repository.**
 
-### `ichnos-server` Environment Variables
+### `ichnos-protocolserver` Environment Variables
 
-Set in **Vercel Dashboard → ichnos-server → Settings → Environment Variables**:
+Set in **Vercel Dashboard → ichnos-protocolserver → Settings → Environment Variables**:
 
 | Variable | Environments | Description |
 |---|---|---|
@@ -119,9 +120,43 @@ Quick reference for finding the Vercel values needed as GitHub repository secret
 | `VERCEL_TOKEN` | Vercel → Settings → Tokens → Create (or use an existing token) |
 | `VERCEL_ORG_ID` | Vercel → Settings → General → "Your ID" (for personal accounts) or "Team ID" (for team accounts) |
 | `VERCEL_PROJECT_ID_CLIENT` | Vercel → ichnos-client → Settings → General → "Project ID" |
-| `VERCEL_PROJECT_ID_SERVER` | Vercel → ichnos-server → Settings → General → "Project ID" |
+| `VERCEL_PROJECT_ID_SERVER` | Vercel → ichnos-protocolserver → Settings → General → "Project ID" |
 
 > These four values are set as **GitHub repository secrets** (not Vercel environment variables). They are used by GitHub Actions workflows to authenticate and target Vercel CLI commands. See [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md) §2 for where to add them.
+
+---
+
+## 5. Local Project Linking (One-Time Prerequisite)
+
+The E2E provisioning script (`node scripts/provision-e2e-firebase-users.js`) syncs environment variables to the Vercel server project via the Vercel CLI. This requires the `server/` directory to be linked to the correct Vercel project.
+
+### Setup
+
+```bash
+cd server && vercel link
+```
+
+When prompted, select the `ichnos-protocolserver` Vercel project. The linked project must be exactly `ichnos-protocolserver` — the preflight script rejects any other project name. This creates `server/.vercel/project.json` with the project and org IDs.
+
+> **Safety check:** The provisioning script verifies that `server/.vercel/project.json` exists and performs two validations:
+>
+> 1. **Missing `projectName`** — If the `projectName` field is absent or not a string, the script exits with an error asking you to re-link with `cd server && vercel link` using the latest Vercel CLI (older CLI versions may not write `projectName`).
+> 2. **Name is not `ichnos-protocolserver`** — If the `projectName` is not exactly `ichnos-protocolserver`, the script exits to prevent accidentally syncing credentials to the wrong Vercel project. Re-link and select the `ichnos-protocolserver` project.
+
+### What gets synced to Vercel Preview
+
+The provisioning script syncs the following E2E env vars to Vercel Server Preview scope only:
+
+| Variable                  | Description                            |
+| ------------------------- | -------------------------------------- |
+| `E2E_ADMIN_EMAIL`         | Admin test account email               |
+| `E2E_ADMIN_UID`           | Admin test account Firebase UID        |
+| `E2E_USER_EMAIL`          | Regular user test account email        |
+| `E2E_USER_UID`            | Regular user test account Firebase UID |
+| `E2E_SUPER_ADMIN_EMAIL`   | Super-admin test account email         |
+| `E2E_SUPER_ADMIN_UID`     | Super-admin test account Firebase UID  |
+
+> **Important:** Vercel Preview environment variable changes only take effect on **new preview deployments**. After syncing, trigger a new preview deployment or redeploy an existing one for changes to take effect. The provisioning script prints a reminder after each successful sync.
 
 ---
 
@@ -129,13 +164,14 @@ Quick reference for finding the Vercel values needed as GitHub repository secret
 
 Use this checklist when setting up new Vercel projects or verifying existing ones:
 
-- [ ] **Production branch** — Set to `release` on both `ichnos-client` and `ichnos-server` (§1)
+- [ ] **Production branch** — Set to `release` on both `ichnos-client` and `ichnos-protocolserver` (§1)
 - [ ] **Native preview integration** — Confirm `"deploymentEnabled": false` does **not** exist in either `client/vercel.json` or `server/vercel.json`, and that Vercel creates a preview deployment automatically when a PR is opened (§1)
 - [ ] **Server environment variables** — All variables set with correct environment scoping (§2)
 - [ ] **Client environment variables** — All variables set with correct environment scoping (§2)
 - [ ] **CORS_ORIGIN** — Production value matches the frontend production URL; preview value is configured for preview URLs (§2)
 - [ ] **VITE_API_BASE_URL** — Production value matches the backend production URL; preview value matches the backend preview URL (§2)
-- [ ] **Repository Dispatch Events** — Enabled on `ichnos-client` in Vercel Git settings; optionally enabled on `ichnos-server` (§1)
-- [ ] **E2E auto-seed env vars** — Set on ichnos-server, Preview scope only: `E2E_ADMIN_EMAIL`, `E2E_ADMIN_UID`, and optionally `E2E_USER_*`, `E2E_SUPER_ADMIN_*` (§2)
+- [ ] **Repository Dispatch Events** — Enabled on `ichnos-protocolserver` in Vercel Git settings; disabled (or left disabled) on `ichnos-client` (§1)
+- [ ] **E2E auto-seed env vars** — Set on ichnos-protocolserver, Preview scope only: `E2E_ADMIN_EMAIL`, `E2E_ADMIN_UID`, and optionally `E2E_USER_*`, `E2E_SUPER_ADMIN_*` (§2)
 - [ ] **Old aliases** — Removed if previously configured (§3)
 - [ ] **Vercel IDs** — All four IDs (`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID_CLIENT`, `VERCEL_PROJECT_ID_SERVER`) are set as GitHub repository secrets (§4)
+- [ ] **Local project linking** — `server/.vercel/project.json` exists, its `projectName` field is present (re-link with latest Vercel CLI if missing), and the name is exactly `ichnos-protocolserver` (§5)
