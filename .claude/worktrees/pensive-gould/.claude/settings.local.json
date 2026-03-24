@@ -13,7 +13,19 @@
       "Bash(curl -sL -w \"\\\\nHTTP_CODE: %{http_code}\\\\n\" \"https://staging-api.ichnos-protocol.com/\")",
       "Bash(grep -r \"seed\\\\|health\" C:UsersmaltoOneDriveDocumentiGitHubIchnos_Protocolserversrc --include=*.js)",
       "Bash(find /c/Users/malto/OneDrive/Documenti/GitHub/Ichnos_Protocol/e2e -name *.spec.js -o -name *.test.js)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(git pull:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git stash:*)",
+      "WebFetch(domain:vercel.com)",
+      "WebFetch(domain:www.philgiese.com)",
+      "WebFetch(domain:blog.dylants.com)",
+      "WebFetch(domain:www.janpoth.de)",
+      "WebFetch(domain:www.kiteto.ai)",
+      "WebFetch(domain:neon.com)",
+      "Bash(npx vitest:*)"
     ]
   }
 }
