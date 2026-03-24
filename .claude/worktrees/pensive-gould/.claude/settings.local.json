@@ -25,7 +25,10 @@
       "WebFetch(domain:www.janpoth.de)",
       "WebFetch(domain:www.kiteto.ai)",
       "WebFetch(domain:neon.com)",
-      "Bash(npx vitest:*)"
+      "Bash(npx vitest:*)",
+      "Bash(ls -la \"C:/Users/malto/OneDrive/Documenti/GitHub/Ichnos_Protocol/server/\"*.env*)",
+      "Bash(ls -la \"C:/Users/malto/OneDrive/Documenti/GitHub/Ichnos_Protocol/server/.env\"*)",
+      "Bash(DOTENV_CONFIG_PATH=.env.test node scripts/provision-e2e-firebase-users.js)"
     ]
   }
 }

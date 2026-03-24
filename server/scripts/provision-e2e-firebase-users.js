@@ -15,6 +15,7 @@
  * Usage:
  *   cd server && node scripts/provision-e2e-firebase-users.js
  */
+import "dotenv/config";
 import admin from "firebase-admin";
 
 const REQUIRED_VARS = [
