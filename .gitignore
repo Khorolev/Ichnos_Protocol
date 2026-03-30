@@ -45,6 +45,7 @@ coverage/
 playwright-report/
 test-results/
 blob-report/
+e2e/.auth/
 
 # ============================================
 # IDE and editor files

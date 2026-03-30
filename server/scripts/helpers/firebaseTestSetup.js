@@ -31,6 +31,13 @@ const USER_SPECS = [
     claims: { admin: true, superAdmin: true },
     uidKey: "superAdminUid",
   },
+  {
+    envEmail: "E2E_MANAGE_ADMIN_TARGET_EMAIL",
+    envPassword: "E2E_MANAGE_ADMIN_TARGET_PASSWORD",
+    displayName: "E2E Manage-Admin Target",
+    claims: {},
+    uidKey: "manageAdminTargetUid",
+  },
 ];
 
 function getTestApp() {
