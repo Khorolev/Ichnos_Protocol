@@ -51,6 +51,7 @@ The site includes public-facing pages (landing, team, services/products), an AI-
 | E2E Testing  | Playwright                     | End-to-end tests against Vercel previews     |
 | Linting      | ESLint + Prettier              | Enforced via pre-commit hook                 |
 | Deployment   | Vercel (Monorepo)              | `client/` and `server/` as separate projects |
+| MCP Servers  | GitHub, DBHub, Playwright, Context7 | Direct repo, DB, E2E, and docs access  |
 
 ---
 
@@ -723,6 +724,7 @@ When working on this project, Claude must:
 13. **Validate inputs** at the boundary: Zod on the server, form validation on the client.
 14. **When creating a new page**, wire up the route in the router, add it to the navigation if public, and protect it if admin-only.
 15. **Run a mental test.** Before presenting code, mentally trace through the user flow to catch obvious issues.
+16. **Use MCP integrations first.** Prefer GitHub MCP for repo operations, DBHub for database inspection, Playwright MCP for E2E tests, and Context7 for library docs. See Section 19 for details.
 
 ### Traycer Plan Execution Rules
 
@@ -755,3 +757,140 @@ The following actions still require explicit user confirmation even in automated
 - Modifying files outside `client/` and `server/` (root config, CI/CD, CLAUDE.md itself)
 - Running database migrations against production
 - Installing new top-level dependencies (devDependencies are fine)
+
+---
+
+## 19. MCP Server Integrations
+
+Claude Code has four MCP (Model Context Protocol) servers configured that provide direct access to external services. **Always prefer MCP tools over manual alternatives** when available.
+
+### 19.1 Overview
+
+| MCP Server      | Package / Transport                  | Scope   | Purpose                                      | Priority Over                          |
+| --------------- | ------------------------------------ | ------- | -------------------------------------------- | -------------------------------------- |
+| **GitHub**      | HTTP (`api.githubcopilot.com`)       | User    | Full repo access: issues, PRs, code, commits | `gh` CLI, manual git remote operations |
+| **DBHub**       | `@bytebase/dbhub` (stdio)           | Project | Direct PostgreSQL query access               | Manual `psql` or SQL client            |
+| **Playwright**  | `@playwright/mcp` (stdio)           | User    | Browser automation and E2E test execution     | Manual `npx playwright test` commands  |
+| **Context7**    | `@upstash/context7-mcp` (stdio)     | User    | Up-to-date library documentation lookup      | Web search for API docs                |
+
+### 19.2 Setup Instructions
+
+MCP servers are added via `claude mcp add` in a terminal **outside** of Claude Code. On Windows, wrap stdio commands with `cmd /c`.
+
+#### User-scoped servers (available across all projects)
+
+```bash
+# GitHub — configured via HTTP, requires a GitHub personal access token
+claude mcp add --transport http github https://api.githubcopilot.com/mcp \
+  --header "Authorization: Bearer <GITHUB_PAT>"
+
+# Context7 — no API key required
+claude mcp add --transport stdio context7 -- cmd /c npx -y @upstash/context7-mcp@latest
+
+# Playwright — runs headless by default
+claude mcp add --transport stdio playwright -- cmd /c npx -y @playwright/mcp --headless
+```
+
+#### Project-scoped servers (per-project, reads from that project's config)
+
+```bash
+# DBHub — reads DATABASE_URL from server/.env via dotenv-cli
+# Run this from the project root directory
+claude mcp add --transport stdio db --scope project \
+  -- cmd /c "npx -y dotenv-cli -e server/.env -- npx -y @bytebase/dbhub"
+```
+
+DBHub is project-scoped because each project has its own `DATABASE_URL` in `server/.env`. The `dotenv-cli` package loads that file at startup and passes the env vars to `@bytebase/dbhub`, which reads `DATABASE_URL` automatically.
+
+#### Verification
+
+```bash
+claude mcp list              # check all servers and connection status
+claude mcp get <name>        # inspect a specific server
+```
+
+Inside Claude Code, run `/mcp` to verify connections. MCP configs are loaded at session startup — restart Claude Code after adding/removing servers.
+
+#### Management
+
+```bash
+claude mcp remove <name>                  # remove from default (local) scope
+claude mcp remove <name> --scope project  # remove from project scope
+claude mcp remove <name> --scope user     # remove from user scope
+```
+
+### 19.3 GitHub MCP (`github`)
+
+**Scope**: User — works across all repositories.
+
+**Repository**: `Khorolev/Ichnos_Protocol` — always use `owner: "Khorolev"`, `repo: "Ichnos_Protocol"` when calling GitHub MCP tools.
+
+**When to use** (prefer over `gh` CLI or raw git remote commands):
+
+- Reading issues and PRs: `issue_read`, `pull_request_read`, `list_issues`, `list_pull_requests`
+- Creating/updating issues and PRs: `issue_write`, `create_pull_request`, `update_pull_request`
+- Searching code across the repo: `search_code`
+- Reading file contents on remote branches: `get_file_contents`
+- Viewing commits, diffs, and PR reviews: `get_commit`, `pull_request_read` (method: `get_diff`)
+- Creating branches and pushing files directly: `create_branch`, `push_files`
+- Listing branches, tags, and releases: `list_branches`, `list_tags`, `list_releases`
+
+**When NOT to use**:
+
+- Local file reads/edits — use the Read/Edit tools instead
+- Local git operations (staging, committing) — use Bash with git
+- Running local builds, tests, or dev servers — use Bash
+
+### 19.4 DBHub — PostgreSQL (`db`)
+
+**Scope**: Project — each project connects to its own database via `DATABASE_URL` from `server/.env`.
+
+**How it works**: `dotenv-cli` loads `server/.env` at MCP server startup and passes all env vars (including `DATABASE_URL`) to `@bytebase/dbhub`. This means the database connection always matches the current project's configuration without hardcoding secrets in MCP config.
+
+**When to use**:
+
+- Inspecting the current database schema (list tables, describe columns, check constraints)
+- Running read-only queries to verify data after migrations or bug fixes
+- Checking `customer_requests` table structure and sample data
+- Validating that repository-layer SQL queries match the actual schema
+- Debugging data-related issues by examining live data
+
+**Safety rules**:
+
+- **Prefer read-only queries** (SELECT, `\d`, `\dt`). Never run DROP, TRUNCATE, or DELETE without explicit user confirmation.
+- Use this for schema inspection and data verification, **not** as a replacement for the repository layer in application code.
+- All application-level DB access still goes through `server/src/repositories/` — DBHub is a development/debugging tool.
+- Never expose query results containing PII in commit messages or logs.
+
+### 19.5 Playwright MCP (`playwright`)
+
+**Scope**: User — works across all projects.
+
+**Configuration**: Runs in headless mode by default.
+
+**When to use**:
+
+- Running E2E tests directly from Claude Code without needing a separate terminal
+- Writing and iterating on Playwright tests with immediate feedback on pass/fail
+- Debugging failing E2E tests by running them and inspecting results
+- Testing against localhost (`http://localhost:5173`) or Vercel preview URLs
+- Verifying UI behavior after frontend changes
+
+**Preferred over**: Manual `cd e2e && npx playwright test` commands when Claude needs to iterate on test results and fix issues in the same session.
+
+**Integration with Section 14.4**: All E2E test rules from Section 14.4 still apply. Playwright MCP is the execution mechanism, not a replacement for test structure conventions.
+
+### 19.6 Context7 (`context7`)
+
+**Scope**: User — works across all projects.
+
+**When to use**:
+
+- Looking up current API docs for project dependencies: React, Redux Toolkit, RTK Query, Express, Playwright, Firebase, react-bootstrap, Zod, Vite, Vitest, React Router, pg (node-postgres)
+- Resolving ambiguity about library API signatures, options, or return values rather than relying on training data
+- Checking for breaking changes or deprecated patterns before writing code
+- Verifying correct usage of hooks, middleware, or configuration options
+
+**Priority**: Use Context7 **before** falling back to web search for library documentation. Context7 returns the most relevant, version-aware documentation directly.
+
+**When NOT to use**: For project-specific code patterns — read the codebase directly instead. Context7 is for external library docs only.

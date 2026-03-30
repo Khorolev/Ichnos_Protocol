@@ -18,6 +18,7 @@
 - [Design System](#design-system)
 - [Tech Stack](#tech-stack)
 - [Getting Started](#getting-started)
+- [Claude Code MCP Servers](#claude-code-mcp-servers)
 - [Project Structure](#project-structure)
 - [Environment Variables](#environment-variables)
 - [Deployment](#deployment)
@@ -371,6 +372,117 @@ The project uses ESLint 9 with flat config format (`eslint.config.js`). For test
 - Enforce test best practices
 
 Test files are identified by the patterns: `**/*.{test,mock}.{js,jsx}`, `**/*.spec.{js,jsx}`, and `**/setupTests.js`.
+
+---
+
+## Claude Code MCP Servers
+
+This project uses [Claude Code](https://claude.ai/claude-code) with four MCP (Model Context Protocol) servers that give the AI assistant direct access to the GitHub repository, the PostgreSQL database, Playwright for E2E testing, and up-to-date library documentation.
+
+### Why MCP Servers?
+
+Without MCP, Claude Code can only read/write local files and run shell commands. MCP servers extend its capabilities to interact directly with external services — querying the live database, managing GitHub issues and PRs, running browser tests, and looking up current API docs — all without leaving the coding session.
+
+### Server Overview
+
+| Server          | Package                        | Scope   | Purpose                                    |
+|-----------------|--------------------------------|---------|--------------------------------------------|
+| **GitHub**      | GitHub Copilot MCP (HTTP)      | User    | Issues, PRs, code search, branches, commits|
+| **DBHub**       | `@bytebase/dbhub`             | Project | Query PostgreSQL directly                  |
+| **Playwright**  | `@playwright/mcp`             | User    | Run E2E tests, browser automation          |
+| **Context7**    | `@upstash/context7-mcp`       | User    | Library documentation lookup               |
+
+### Scoping Rationale
+
+MCP servers support three scopes that determine where the configuration is stored and when it applies:
+
+- **User scope** (`--scope user`, stored in `~/.claude.json`) — The server is available in every project on the machine. Use this for tools that are project-agnostic: GitHub (works with any repo), Playwright (runs any test suite), and Context7 (looks up any library's docs).
+
+- **Project scope** (`--scope project`, stored in the project's `.claude.json` entry) — The server is only available when working in this specific project. Use this when the server needs project-specific configuration. **DBHub uses project scope** because each project has its own `DATABASE_URL` in its `server/.env` file — the `dotenv-cli` wrapper loads that file at startup so the database connection always matches the current project.
+
+- **Local scope** (default, stored in `~/.claude.json` under the project path) — Similar to project scope but not shareable. Useful for personal overrides.
+
+### Prerequisites
+
+- [Claude Code](https://claude.ai/claude-code) installed and authenticated
+- Node.js 18+ and npm 9+ (for `npx` commands)
+- A GitHub Personal Access Token (for GitHub MCP)
+- The project's `server/.env` file configured with `DATABASE_URL` (for DBHub)
+
+### Installation
+
+Run these commands in a **terminal outside of Claude Code**. On Windows (non-WSL), stdio servers require the `cmd /c` wrapper.
+
+#### 1. GitHub MCP (user scope)
+
+```bash
+claude mcp add --transport http github https://api.githubcopilot.com/mcp \
+  --header "Authorization: Bearer <YOUR_GITHUB_PAT>"
+```
+
+Replace `<YOUR_GITHUB_PAT>` with a GitHub personal access token that has `repo` scope.
+
+#### 2. Context7 (user scope)
+
+```bash
+claude mcp add --transport stdio context7 -- cmd /c npx -y @upstash/context7-mcp@latest
+```
+
+No API key required. Provides up-to-date documentation for React, Express, Playwright, Firebase, Bootstrap, Zod, and other libraries used in this project.
+
+#### 3. Playwright (user scope)
+
+```bash
+claude mcp add --transport stdio playwright -- cmd /c npx -y @playwright/mcp --headless
+```
+
+Runs in headless mode by default. Claude can write, run, and iterate on E2E tests within a single session.
+
+#### 4. DBHub — PostgreSQL (project scope)
+
+```bash
+# Run from the project root (Ichnos_Protocol/)
+claude mcp add --transport stdio db --scope project \
+  -- cmd /c "npx -y dotenv-cli -e server/.env -- npx -y @bytebase/dbhub"
+```
+
+This uses `dotenv-cli` to load `DATABASE_URL` from `server/.env` at startup. Each project gets its own database connection automatically — no secrets are hardcoded in the MCP configuration.
+
+**For a new project**: Run this same command from that project's root directory (after creating its `server/.env` with `DATABASE_URL`).
+
+### Verification
+
+```bash
+# List all servers and their connection status
+claude mcp list
+
+# Inside Claude Code, run:
+/mcp
+```
+
+All four servers should show `Connected`. If any show `Failed to connect`:
+
+1. **Check the command format** — On Windows, ensure `cmd /c` is used (not `cmd C:/`).
+2. **Restart Claude Code** — MCP connections are established at session startup.
+3. **Check `server/.env`** — For DBHub, ensure `DATABASE_URL` is set and the database is reachable.
+
+### Removing Servers
+
+```bash
+claude mcp remove context7              # remove from default scope
+claude mcp remove db --scope project    # remove project-scoped server
+```
+
+### macOS / Linux
+
+On macOS or Linux, omit the `cmd /c` wrapper:
+
+```bash
+claude mcp add --transport stdio context7 -- npx -y @upstash/context7-mcp@latest
+claude mcp add --transport stdio playwright -- npx -y @playwright/mcp --headless
+claude mcp add --transport stdio db --scope project \
+  -- npx -y dotenv-cli -e server/.env -- npx -y @bytebase/dbhub
+```
 
 ---
 
