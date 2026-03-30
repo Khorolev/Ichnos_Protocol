@@ -1,0 +1,21 @@
+{
+  "_comment": "T1 baseline metrics — source of truth for rollback thresholds. Captured from CI run 23727551946 on e2e-testing branch.",
+  "source": {
+    "workflow": "E2E Tests (Playwright)",
+    "artifact": "playwright-report",
+    "run_id": "23727551946",
+    "run_url": "https://github.com/Khorolev/Ichnos_Protocol/actions/runs/23727551946",
+    "commit_sha": "fcbd24743b02fcf459313d1a603a2c206c08d8a1",
+    "branch": "e2e-testing",
+    "date": "2026-03-30",
+    "profile": "E2E_WORKERS=1, Chromium only, retries=1"
+  },
+  "metrics": {
+    "total_tests": 55,
+    "passed": 20,
+    "failed": 35,
+    "skipped": 0,
+    "wall_clock_time_s": 1374,
+    "retries_triggered": 35
+  }
+}

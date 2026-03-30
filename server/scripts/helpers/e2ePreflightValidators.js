@@ -1,4 +1,4 @@
-const OPTIONAL_ROLES = ["USER", "SUPER_ADMIN"];
+const OPTIONAL_ROLES = ["USER", "SUPER_ADMIN", "MANAGE_ADMIN_TARGET"];
 
 function fail(message, remediation) {
   throw new Error(`${message}\nRemediation: ${remediation}`);
@@ -34,11 +34,33 @@ function validateOptionalRole(role, env, syncOnly) {
   }
 }
 
+function validateDistinctEmails(env) {
+  const targetEmail = env.E2E_MANAGE_ADMIN_TARGET_EMAIL;
+  if (!targetEmail) return;
+
+  const roleEmails = [
+    ["ADMIN", env.E2E_ADMIN_EMAIL],
+    ["USER", env.E2E_USER_EMAIL],
+    ["SUPER_ADMIN", env.E2E_SUPER_ADMIN_EMAIL],
+  ];
+
+  for (const [role, email] of roleEmails) {
+    if (email && targetEmail.toLowerCase() === email.toLowerCase()) {
+      fail(
+        `E2E_MANAGE_ADMIN_TARGET_EMAIL must not match E2E_${role}_EMAIL (${email}). ` +
+          "Destructive manage-admin tests would mutate a shared account.",
+        `Create a dedicated Firebase user for MANAGE_ADMIN_TARGET that differs from all other E2E role emails.`,
+      );
+    }
+  }
+}
+
 export function validateCredentials(env, syncOnly) {
   validateAdminCredentials(env);
   for (const role of OPTIONAL_ROLES) {
     validateOptionalRole(role, env, syncOnly);
   }
+  validateDistinctEmails(env);
   if (syncOnly && !env.E2E_ADMIN_UID) {
     fail(
       "E2E_ADMIN_UID is required for sync-only mode.",

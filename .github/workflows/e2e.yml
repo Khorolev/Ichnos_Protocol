@@ -49,6 +49,15 @@ on:
         options:
           - chromium
           - full
+      test_suite:
+        description: "Test suite filter: 'default' excludes @destructive, 'destructive' runs only @destructive, 'all' runs everything"
+        required: false
+        default: default
+        type: choice
+        options:
+          - default
+          - destructive
+          - all
 
 permissions:
   contents: read
@@ -253,17 +262,45 @@ jobs:
         env:
           BASE_URL: ${{ steps.deploy.outputs.base_url }}
           E2E_BROWSER_PROFILE: ${{ inputs.browser_profile || 'chromium' }}
-          E2E_WORKERS: "1"
+          # Worker count — rollback threshold:
+          # Revert to "1" if EITHER condition is met for 3 consecutive CI runs:
+          # (a) overall failure rate increases >= 10 percentage points vs T1 baseline, or
+          # (b) retry-triggered test count increases >= 50% vs T1 baseline.
+          # Baseline reference: e2e/refactoring-analysis.md § Baseline Metrics
+          E2E_WORKERS: "2"
+          E2E_RUN_ID: ${{ github.run_id }}
           E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
           E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
           E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
           E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
           E2E_SUPER_ADMIN_EMAIL: ${{ secrets.E2E_SUPER_ADMIN_EMAIL }}
           E2E_SUPER_ADMIN_PASSWORD: ${{ secrets.E2E_SUPER_ADMIN_PASSWORD }}
+          E2E_MANAGE_ADMIN_TARGET_EMAIL: ${{ secrets.E2E_MANAGE_ADMIN_TARGET_EMAIL }}
+          E2E_MANAGE_ADMIN_TARGET_PASSWORD: ${{ secrets.E2E_MANAGE_ADMIN_TARGET_PASSWORD }}
           E2E_API_BASE_URL: ${{ vars.E2E_API_BASE_URL }}
           FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY || secrets.VITE_FIREBASE_API_KEY }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-        run: npx playwright test
+        run: |
+          GREP_ARGS=()
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            # Default fast path: exclude destructive tests
+            GREP_ARGS=(--grep-invert @destructive)
+          else
+            SUITE="${{ inputs.test_suite || 'default' }}"
+            case "$SUITE" in
+              destructive)
+                GREP_ARGS=(--grep @destructive)
+                ;;
+              all)
+                GREP_ARGS=()
+                ;;
+              *)
+                GREP_ARGS=(--grep-invert @destructive)
+                ;;
+            esac
+          fi
+          echo "Running: npx playwright test ${GREP_ARGS[*]}"
+          npx playwright test "${GREP_ARGS[@]}"
 
       - name: Set final commit status
         if: always() && steps.deploy.outputs.commit_sha != ''

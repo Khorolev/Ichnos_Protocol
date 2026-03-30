@@ -67,6 +67,10 @@ export default defineConfig({
   retries: IS_CI ? 1 : 0,
   workers: WORKERS,
   reporter: IS_CI ? "html" : "list",
+  reportSlowTests: {
+    max: 5,
+    threshold: IS_CI ? 30_000 : 15_000,
+  },
   timeout: IS_CI ? 60_000 : 30_000,
 
   use: {

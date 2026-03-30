@@ -1,15 +1,16 @@
 import { expect } from '@playwright/test';
 import { waitForAppReady, TIMEOUTS } from './app.js';
 import { ADMIN, USER, SUPER_ADMIN } from './credentials.js';
+import { AuthPage } from '../pages/AuthPage.js';
 
 export async function loginAs(page, email, password) {
+  const auth = new AuthPage(page);
   await waitForAppReady(page, '/');
-  await page.getByTestId('navbar').getByRole('button', { name: 'Login' }).click();
-  await expect(page.getByText('Welcome Back')).toBeVisible();
-  await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Password').fill(password);
-  await page.locator('button[type="submit"]').click();
-  await expect(page.getByTestId('user-menu-toggle')).toBeVisible({
+  await auth.openLoginModal();
+  await expect(auth.welcomeBackText).toBeVisible();
+  await auth.fillLoginForm(email, password);
+  await auth.submitForm();
+  await expect(auth.userMenuToggle).toBeVisible({
     timeout: TIMEOUTS.authVerify,
   });
 }
