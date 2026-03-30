@@ -4,6 +4,7 @@
 .env
 .env.*
 !.env.example
+!.env.e2e.example
 *.pem
 *.key
 *.p12
@@ -13,7 +14,14 @@
 firebase-service-account*.json
 serviceAccountKey*.json
 credentials*.json
+.ichnos-protocol-firebase-adminsdk-fbsvc-2046c58e9e.json
+.ichnos-protocol-test-firebase-adminsdk-fbsvc-af7f7c29c0.json
 secrets/
+
+# ============================================
+# MCP configuration (machine and project-specific, may contain secrets)
+# ============================================
+.mcp.json
 
 # ============================================
 # Dependencies
@@ -76,6 +84,19 @@ lerna-debug.log*
 # Claude CLI (local settings are machine-specific)
 # ============================================
 .claude/settings.local.json
+
+# ============================================
+# Knowledge base PDFs (large binaries, proprietary sources)
+# ============================================
+server/knowledge-base/pdfs/
+
+# ============================================
+# Knowledge base pipeline artifacts
+# ============================================
+server/knowledge-base/markdown_output/
+.state/
+.pipeline.lock
+.logs/
 
 # ============================================
 # Misc

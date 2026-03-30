@@ -1,15 +1,32 @@
+# Required check names: "Client — Lint & Test", "Server — Lint & Test"
+# These names are registered as required status checks in GitHub rulesets
+# for main. Do not rename without updating rulesets.
+#
+# E2E tests run separately in e2e.yml, triggered by Vercel's
+# repository_dispatch after a successful preview deployment.
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   lint-and-test-client:
     name: Client — Lint & Test
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     defaults:
       run:
         working-directory: client
@@ -32,11 +49,24 @@ jobs:
         run: npm run lint
 
       - name: Run tests
-        run: npm test -- --run
+        run: npm test
+
+      - name: Build
+        env:
+          VITE_FIREBASE_API_KEY: ci-stub
+          VITE_FIREBASE_AUTH_DOMAIN: ci-stub.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: ci-stub
+          VITE_FIREBASE_STORAGE_BUCKET: ci-stub.appspot.com
+          VITE_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
+          VITE_FIREBASE_APP_ID: 1:000000000000:web:ci-stub
+          VITE_API_BASE_URL: https://ci-stub.vercel.app
+          VITE_CALENDLY_URL: https://calendly.com/ci-stub
+        run: npm run build
 
   lint-and-test-server:
     name: Server — Lint & Test
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     defaults:
       run:
         working-directory: server
@@ -59,4 +89,5 @@ jobs:
         run: npm run lint
 
       - name: Run tests
-        run: npm test -- --run
+        run: npm test
+

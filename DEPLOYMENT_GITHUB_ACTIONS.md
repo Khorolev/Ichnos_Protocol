@@ -1,0 +1,182 @@
+# GitHub Actions Deployment Pipeline
+
+This repository uses a **2-branch deployment model**: `feature/* → main → release`. No code reaches Vercel production without passing CI, E2E tests, and a human approval gate. Preview deployments are handled by **Vercel's native Git integration** — every push to a branch or PR automatically creates a preview deployment without any GitHub Actions workflow involvement. E2E tests are triggered by the server's `repository_dispatch` event after each preview deployment, and merge to `main` is blocked until all required checks pass.
+
+## 1. Pipeline Overview
+
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant GH as GitHub Actions
+    participant CI as CI Jobs (Lint + Test)
+    participant Vercel as Vercel Git Integration
+    participant DS as repository_dispatch (vercel.deployment.success)
+    participant E2E as e2e.yml
+    participant PW as Playwright
+    participant RPC as Release Policy Check
+    participant Prod as Vercel Production
+
+    Dev->>GH: Open PR from feature/* to main
+    GH->>CI: Trigger Client — Lint & Test and Server — Lint & Test (parallel)
+    Dev->>Vercel: Push to branch / open PR
+    Vercel->>Vercel: Build and deploy preview (client + server, automatic)
+    Vercel->>GH: Emit Vercel check status (build success/failure)
+    Vercel->>DS: Emit repository_dispatch (vercel.deployment.success) from server project
+    DS->>E2E: Trigger E2E Tests (Playwright) job
+    E2E->>PW: Run Playwright tests against stable staging URL
+    PW-->>GH: ✅ E2E passes — required status check for merge
+    CI-->>GH: ✅ CI passes
+    Dev->>GH: Merge PR into main (all 5 checks pass)
+
+    Dev->>GH: Open PR from main to release
+    GH->>RPC: Release Policy Check — fails if head branch is not main
+    RPC-->>GH: ✅ Policy check passes
+    Dev->>GH: Merge PR into release
+    GH->>Prod: Promote to Production triggers
+    GH-->>Dev: Awaiting approval (production environment) 🔴
+    Dev->>GH: Approve 🔴
+    GH->>Prod: Discover latest READY main preview → promote to production
+```
+
+## 2. Workflows
+
+| Workflow file                   | Name                                 | Trigger                      | Purpose                                                                                                                                 |
+| ------------------------------- | ------------------------------------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `ci.yml`                        | CI                                   | `pull_request` to `main`     | Lint + unit tests + client build verification                                                                                           |
+| `e2e.yml`                       | E2E Tests (Playwright)               | `repository_dispatch (vercel.deployment.success)` + `workflow_dispatch` (manual) | Run E2E when the server project emits a deployment dispatch (the slower deployment, includes Neon DB seed). Tests target stable staging URLs (`vars.E2E_BASE_URL` / `vars.E2E_API_BASE_URL`). Also supports ad-hoc runs via `workflow_dispatch` with a provided `base_url` |
+| `promote-to-production.yml`     | Promote to Production                | `push` to `release`          | Discover latest READY `main` preview → promote to production (approval-gated)                                                           |
+| `release-policy-check.yml`      | Release Policy Check                 | `pull_request` to `release`  | Fails if PR head branch is not `main`                                                                                                   |
+
+> **Note:** Preview deployments are **not** managed by any GitHub Actions workflow. They are created automatically by Vercel's native Git integration whenever code is pushed to a branch or a PR is opened.
+
+## 3. E2E Trigger and Target Detection
+
+E2E tests are triggered by **`repository_dispatch (vercel.deployment.success)`** events via `e2e.yml`. When Vercel's native Git integration completes a Preview deployment, a `repository_dispatch` event is emitted. The workflow uses **project-name filtering** (not hostname pattern matching) to decide whether to run tests.
+
+### How it works
+
+1. **Trigger**: Only the **server** Vercel project has Repository Dispatch Events enabled (see [`VERCEL_SETTINGS.md`](VERCEL_SETTINGS.md) §1). The client project does not emit dispatch events.
+2. **Filter**: The `e2e.yml` job has an `if` condition: `contains(github.event.client_payload.project.name || '', 'server')`. This is a safety guard — since only the server project emits dispatches, it effectively always passes for `repository_dispatch` events.
+3. **Target URL**: Tests run against the stable staging client URL from `vars.E2E_BASE_URL` (a **GitHub Actions Variable**, not a secret), not the per-deployment hash URL from the dispatch payload. This avoids stale/cancelled deployment URLs.
+4. **API URL**: The API base URL is read from `vars.E2E_API_BASE_URL` (also a GitHub Actions Variable).
+5. **Client readiness**: After the server dispatch fires, the workflow polls `vars.E2E_BASE_URL` with `curl` to verify the client is also ready before starting Playwright.
+6. **`workflow_dispatch`**: Manual/ad-hoc runs accept a `base_url` input directly, bypassing the project-name filter.
+
+### Key details
+
+- Only the server project emits `repository_dispatch` events, so the `E2E Tests (Playwright)` check is produced once per deployment cycle. The client project does not emit dispatches — no client-event skip path exists.
+- Detection uses the `project.name` field from the dispatch payload as a safety guard, **not** hostname pattern matching or `VERCEL_PROJECT_ID_CLIENT`.
+- Non-sensitive config (`E2E_BASE_URL`, `E2E_API_BASE_URL`) uses **GitHub Actions Variables** (`vars.*`) so values are visible in logs and easy to verify. Credentials use **Secrets** (`secrets.*`).
+
+## 4. E2E Troubleshooting
+
+When investigating E2E check results, use this table to interpret the status:
+
+| Check Status                                     | Meaning                                                                                                     | Action                                                                                                                          |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| **Passed**                                       | Playwright tests executed against stable staging URL and passed                                              | No action needed                                                                                                                |
+| **Failed** — Playwright test failure             | Tests executed against the staging URL and failed                                                            | Check the Playwright HTML report artifact uploaded to the workflow run                                                          |
+| **Failed** — readiness check timeout             | Client or API did not respond within the polling window                                                      | Check the readiness-check step logs for HTTP status codes and error details                                                     |
+| **Cancelled**                                    | Workflow run was cancelled mid-execution                                                                     | Re-run the workflow or push a new commit to trigger a fresh deployment                                                          |
+
+**First debugging step:** Open the workflow run for `e2e.yml` and review the step logs. Key diagnostic artifacts: the **Vercel payload dump** (shows project name, deployment URL, commit SHA), the **resolved staging URL**, the **client readiness-check** and **API readiness-check** logs, and the uploaded **Playwright report** and **test results** artifacts.
+
+## 5. One-Time Setup — GitHub
+
+Full GitHub repository settings — secrets, environments, branch protections, auto-merge, and fork policy — are documented in [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md). Follow that guide from top to bottom for initial setup or to verify an existing configuration.
+
+### Required secrets summary
+
+Kept here for quick reference. [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md) is the authoritative source.
+
+#### CI and E2E secrets (8)
+
+| Secret                                                    | Purpose                                                        |
+| --------------------------------------------------------- | -------------------------------------------------------------- |
+| `E2E_ADMIN_EMAIL` / `E2E_ADMIN_PASSWORD`                  | Admin test account                                             |
+| `E2E_USER_EMAIL` / `E2E_USER_PASSWORD`                    | Regular user test account                                      |
+| `E2E_SUPER_ADMIN_EMAIL` / `E2E_SUPER_ADMIN_PASSWORD`      | Super-admin test account                                       |
+| `FIREBASE_API_KEY`                                         | Firebase API key for E2E auth (fallback: `VITE_FIREBASE_API_KEY`) |
+| `VERCEL_AUTOMATION_BYPASS_SECRET`                          | Vercel Deployment Protection bypass for E2E automation         |
+
+E2E test data is seeded automatically by the preview server on startup — no seeding secrets needed in GitHub Actions.
+
+These secrets are sufficient for CI, E2E, and preview deployments. Preview deployments are handled entirely by Vercel's native Git integration — no Vercel API tokens or project IDs are needed.
+
+> **Managing E2E secrets:** The provisioning script is a **local/manual admin tool** run from a developer's machine. Neither `ci.yml` nor `e2e.yml` execute it — they consume the synced outputs. The canonical way to manage these secrets is through the provisioning script and `.env.e2e` file. Copy `.env.e2e.example` to `.env.e2e`, fill in email/password fields, and run `node scripts/provision-e2e-firebase-users.js`. The script provisions Firebase users, writes UIDs back to `.env.e2e`, and syncs the correct subset of values to GitHub Actions secrets (emails + passwords) and Vercel Preview env vars (emails + UIDs). For sync-only (skip Firebase provisioning): `node scripts/provision-e2e-firebase-users.js --sync-only`.
+>
+> **Important:** Vercel Preview environment variable changes only take effect on **new preview deployments**. After syncing, trigger a new preview deployment or redeploy an existing one for the changes to be picked up.
+>
+> **Environment note:** The provisioning script depends on local CLI installation/PATH, `gh` and `vercel` CLI auth state, `server/.vercel/project.json` linkage, and local `.env.e2e`/`server/.env` files. Different terminals, shell sessions, or machines may produce different results. If you encounter terminal-related errors, check: (1) `.env.e2e` exists and has the required fields populated (copy from `.env.e2e.example`), (2) `server/.env` exists with Firebase admin credentials (needed unless running `--sync-only`), (3) you are in the repo root, (4) `gh auth status`, (5) `vercel whoami`, (6) `cd server && vercel link`.
+
+#### Production promotion secrets (4)
+
+| Secret                     | Purpose                                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------------------ |
+| `VERCEL_TOKEN`             | Vercel API token — used by `promote-to-production.yml`  |
+| `VERCEL_ORG_ID`            | Vercel team/org ID — used by `promote-to-production.yml` |
+| `VERCEL_PROJECT_ID_CLIENT` | Vercel project ID for the client app — used by `promote-to-production.yml` |
+| `VERCEL_PROJECT_ID_SERVER` | Vercel project ID for the server app — used by `promote-to-production.yml` |
+
+These 4 secrets are **required** for production promotion via GitHub Actions. Without them, merging into `release` will trigger `promote-to-production.yml` which will fail. If you prefer to promote manually via the Vercel dashboard, you can omit these secrets.
+
+### Required checks per branch
+
+| Target branch | Required status checks                                                                                                               |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `main`        | `Client — Lint & Test`, `Server — Lint & Test`, `<your-client-vercel-check>`, `<your-server-vercel-check>`, `E2E Tests (Playwright)` |
+| `release`     | `Release Policy Check` + require a pull request before merging                                                                       |
+
+> **Note:** The `E2E Tests (Playwright)` check name is produced by `e2e.yml` (job name: `E2E Tests (Playwright)`). The Vercel checks are produced by Vercel's native Git integration — **their exact names depend on your Vercel project names** (e.g., `Vercel – ichnos-protocol`, `Vercel – ichnos-protocol-server`). To find the correct names: open a recent PR, scroll to the status checks section, and copy the exact Vercel check context strings. A mismatch between the configured required check name and the actual check context will block all merges. GitHub Actions check names are frozen in workflow file headers — do not rename jobs without updating branch protection rules. See [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md) §4 for step-by-step configuration.
+
+## 6. One-Time Setup — Vercel
+
+Full Vercel project settings — production branch, environment variables, old alias cleanup, and token/ID lookup — are documented in [`VERCEL_SETTINGS.md`](VERCEL_SETTINGS.md). Follow that guide for both `ichnos-client` and `ichnos-protocolserver`.
+
+Two critical invariants to maintain:
+
+- **Vercel production branch must be `release`** on both projects (not `main`).
+- **Vercel Git integration must remain enabled** — preview deployments are created automatically on branch pushes and PRs. This is the default Vercel behavior; do not add `"git": { "deploymentEnabled": false }` to `vercel.json` files.
+
+## 7. Daily Developer Workflow
+
+### Feature → main (PR-gated)
+
+| Step | Action                                                                                               | Status                                |
+| ---- | ---------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| 1    | Create `feature/<name>` from `main`; open PR targeting `main`                                        | 🔴 Manual                             |
+| 2    | CI runs: lint + test + build (client and server)                                                     | ✅ Automated                          |
+| 3    | Vercel automatically creates preview deployments for both client and server                          | ✅ Automated (native Git integration) |
+| 4    | Server project emits `repository_dispatch (vercel.deployment.success)`; `e2e.yml` runs `E2E Tests (Playwright)` | ✅ Automated                          |
+| 5    | All 5 required checks pass — PR is mergeable                                                         | ✅ Automated gate                     |
+| 6    | Merge PR into `main`                                                                                 | 🔴 Manual                             |
+
+### main → release (production promotion)
+
+| Step | Action                                                                                 | Status                                    |
+| ---- | -------------------------------------------------------------------------------------- | ----------------------------------------- |
+| 7    | Open PR from `main` to `release`                                                       | 🔴 Manual                                 |
+| 8    | `Release Policy Check` runs — fails if head branch is not `main`                       | ✅ Automated gate                         |
+| 9    | Merge PR into `release`                                                                | 🔴 Manual                                 |
+| 10   | `Promote to Production` triggers; GitHub pauses for `production` environment approval  | ✅ Automated trigger / 🔴 Manual approval |
+| 11   | Approve → workflow discovers latest READY `main` preview and promotes it to production | 🔴 Manual approval → ✅ Automated         |
+
+## 8. Vercel Quota Protection
+
+Preview deployments are managed by Vercel's native Git integration, which builds on every push. E2E tests run against the preview URL emitted via `repository_dispatch (vercel.deployment.success)`, so no extra Vercel build is triggered for testing.
+
+Fork PRs do not receive preview deployments with secrets because Vercel's Git integration does not expose environment variables to builds from forks by default.
+
+## 9. Rollback
+
+### Option A — Revert through the pipeline
+
+Revert the bad commit on `main`, open a new `main → release` PR, and promote through the normal pipeline.
+
+### Option B — Via Vercel dashboard
+
+1. Open **Vercel Dashboard → Project → Deployments**.
+2. Find the previous production deployment.
+3. Click **Promote to Production** directly in the UI.
+
+Repeat for both `ichnos-client` and `ichnos-protocolserver`. No GitHub Actions run is required.

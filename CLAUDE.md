@@ -111,8 +111,10 @@ Ichnos_Protocol/
 │   └── package.json              # Playwright dependencies
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml                # GitHub Actions: Lint + unit tests on every PR
-│       └── e2e.yml               # GitHub Actions: Playwright vs Vercel previews
+│       ├── ci.yml                        # Lint + unit tests on every PR
+│       ├── e2e.yml                       # Playwright E2E — repository_dispatch (staging URL) + workflow_dispatch
+│       ├── promote-to-production.yml     # Approval-gated production promotion on push to release
+│       └── release-policy-check.yml     # Enforces release branch policy
 ├── assets/                       # Brand assets (logo, images)
 ├── CLAUDE.md                     # This file
 ├── AGENTS.md                     # Shared agent conventions
@@ -409,6 +411,46 @@ XAI_API_BASE_URL=
 CORS_ORIGIN=                     # Frontend URL
 ```
 
+### GitHub Actions Variables (visible, not masked)
+
+Configured in **GitHub → Settings → Secrets and variables → Actions → Variables tab**. These are non-sensitive values that should be visible in logs for debugging.
+
+```
+E2E_BASE_URL=                        # Stable staging client URL (e.g. https://staging-client.ichnos-protocol.com)
+E2E_API_BASE_URL=                    # Stable staging API URL (e.g. https://staging-api.ichnos-protocol.com)
+```
+
+### GitHub Actions Secrets (masked, write-only)
+
+Configured in **GitHub → Settings → Secrets and variables → Actions → Secrets tab**. These are sensitive values that are masked in logs.
+
+```
+E2E_ADMIN_EMAIL=                     # Firebase admin test user email
+E2E_ADMIN_PASSWORD=                  # Firebase admin test user password
+E2E_USER_EMAIL=                      # Firebase regular test user email
+E2E_USER_PASSWORD=                   # Firebase regular test user password
+E2E_SUPER_ADMIN_EMAIL=               # Firebase super admin test user email
+E2E_SUPER_ADMIN_PASSWORD=            # Firebase super admin test user password
+FIREBASE_API_KEY=                    # Firebase API key (client-side, for E2E auth)
+VERCEL_AUTOMATION_BYPASS_SECRET=     # Vercel Deployment Protection bypass secret (from Vercel → Settings → Deployment Protection → Protection Bypass for Automation)
+```
+
+### Vercel Server Project — Environment Variables (Preview scope)
+
+The server's E2E seed script (`server/scripts/seedE2EOnPreview.js`) runs at cold start on Vercel preview deployments. It needs its own env vars set in **Vercel → Server project → Settings → Environment Variables**, scoped to **Preview** only. These are separate from GitHub Actions secrets — GitHub secrets are only available to the CI runner, not to the deployed Vercel server.
+
+```
+# Required — seed fails without these (DATABASE_URL and VERCEL_ENV are set automatically)
+E2E_ADMIN_EMAIL=                     # Must match the GitHub Actions secret value
+E2E_ADMIN_UID=                       # Firebase UID of admin test user (from Firebase Console → Authentication → Users)
+
+# Optional — seed skips these users if not set
+E2E_USER_UID=                        # Firebase UID of regular test user
+E2E_USER_EMAIL=                      # Must match the GitHub Actions secret value
+E2E_SUPER_ADMIN_UID=                 # Firebase UID of super-admin test user
+E2E_SUPER_ADMIN_EMAIL=               # Must match the GitHub Actions secret value
+```
+
 ---
 
 ## 13. Security
@@ -454,6 +496,25 @@ CORS_ORIGIN=                     # Frontend URL
 - **Naming**: `<ModuleName>.test.js` or `<ModuleName>.test.jsx`.
 - **Coverage target**: Minimum 80% line coverage for helpers and services.
 - **Run tests before every commit**. A failing test suite blocks the commit.
+- **No conditional expects** (`vitest/no-conditional-expect`): Never place `expect()` inside `try/catch`, `if/else`, or any conditional branch. This hides test failures when the expected branch is not reached.
+  - **Anti-pattern**:
+    ```js
+    try {
+      await fn();
+    } catch (e) {
+      expect(e.message).toBe("fail");
+    }
+    ```
+  - **Correct pattern**:
+    ```js
+    expect(() => fn()).toThrowError(
+      expect.objectContaining({ message: "fail" })
+    );
+    // For async functions:
+    await expect(() => fn()).rejects.toThrowError(
+      expect.objectContaining({ message: "fail" })
+    );
+    ```
 
 ### 14.4 End-to-End Testing: Playwright
 
@@ -478,7 +539,7 @@ e2e/
 
 - **Config file**: `e2e/playwright.config.js`.
 - **Base URL**: Read from `BASE_URL` environment variable. Defaults to `http://localhost:5173` for local dev.
-- **Browsers**: Chromium, Firefox, WebKit (all three for CI; Chromium-only for local speed).
+- **Browsers**: Chromium only for `repository_dispatch` CI runs; full suite (Chromium, Firefox, WebKit) for `workflow_dispatch` manual runs; Chromium only locally (unless `E2E_BROWSER_PROFILE=full` is set).
 - **Retries**: 0 locally, 2 in CI.
 - **Timeouts**: 30s per test, 5s per action.
 
@@ -508,13 +569,13 @@ cd e2e && npx playwright show-report
 
 #### CI Workflow: Playwright Against Vercel Preview Deployments
 
-E2E tests run in GitHub Actions **after** Vercel deploys a preview for the pull request. This tests the real deployed infrastructure (serverless functions, CDN, rewrites) rather than a localhost simulation.
+E2E tests run in a **separate workflow** (`e2e.yml`), not inside the CI workflow (`ci.yml`). This avoids wasting runner time polling for Vercel deployments.
 
-```
-PR Push → Vercel Preview Deploy → GitHub Action Triggered → Playwright runs against preview URL → Results posted to PR
-```
+**Primary trigger**: `repository_dispatch` (`vercel.deployment.success`) — Vercel emits this event after each successful preview deployment when Repository Dispatch Events are enabled in the Vercel **server** project's Git settings. The workflow filters to only run on server deployments via `project.name` (Pattern B: trigger on the slower deployment). Since the server includes the Neon DB seed, by the time the dispatch fires, the API and database are ready. The client (faster to deploy) is verified via a readiness poll before tests run. Tests run against the stable staging domains configured via GitHub Actions repository variables (`E2E_BASE_URL` for the client, `E2E_API_BASE_URL` for the API), not the per-deployment hash URLs (which can become stale if Vercel cancels/supersedes a deployment). Vercel Deployment Protection is bypassed using the `VERCEL_AUTOMATION_BYPASS_SECRET` secret. Non-sensitive config (URLs) uses variables (`vars.*`) for log visibility; credentials use secrets (`secrets.*`). Chromium only. One concurrent run per project — newer deployments cancel in-progress runs.
 
-The GitHub Actions workflow (`.github/workflows/e2e.yml`) uses `vercel-preview-url` to wait for and retrieve the preview deployment URL, then passes it to Playwright as `BASE_URL`.
+**Secondary trigger**: `workflow_dispatch` — manual/ad-hoc runs against any `base_url` input; full browser suite available.
+
+**Commit status**: The workflow posts a commit status (`E2E Tests (Playwright)`) to the PR so results are visible alongside CI checks, even though E2E runs in a separate workflow.
 
 #### E2E Test Rules
 
@@ -584,7 +645,7 @@ GitHub Repository (Ichnos_Protocol)
     │   ├── Framework: Vite
     │   └── Output: Static site (dist/)
     │
-    └── Vercel Project: ichnos-server
+    └── Vercel Project: ichnos-protocolserver
         ├── Root Directory: server/
         ├── Runtime: @vercel/node
         └── Entry: api/index.js (wraps Express app)
@@ -614,8 +675,8 @@ GitHub Repository (Ichnos_Protocol)
 
 ### Deployment Rules
 
-- **Automatic deployments**: Merges to `main` trigger production deployments for both projects.
-- **Preview deployments**: Pull requests get preview URLs automatically.
+- **Preview deployments**: Vercel's native Git integration creates preview deployments automatically on every branch push and PR — no GitHub Actions workflow is involved in creating previews. Merges to `main` produce a validated preview, not a production deploy.
+- **Production promotion**: Triggered automatically on push/merge to `release` via `promote-to-production.yml`. The workflow pauses for human approval via the GitHub `production` environment before promoting the latest validated `main` preview to production — no rebuild occurs.
 - **Environment separation**: Use Vercel's environment scoping (Production, Preview, Development) to manage secrets per environment.
 - **CORS**: The server's `CORS_ORIGIN` must match the frontend's Vercel deployment URL (or use the `VERCEL_URL` environment variable for preview deployments).
 - **Domain**: Configure custom domains in Vercel project settings, not in code.

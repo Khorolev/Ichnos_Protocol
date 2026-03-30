@@ -1,0 +1,92 @@
+name: Promote to Production
+
+on:
+  push:
+    branches: [release]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promote-to-production
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  promote:
+    name: Promote to Production
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Discover latest client preview deployment
+        id: discover-client
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CLIENT }}
+        run: |
+          DEPLOYMENT_ID=$(curl -sf \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v6/deployments?projectId=$PROJECT_ID&teamId=$VERCEL_ORG_ID&target=preview&state=READY&meta-githubCommitRef=main&limit=1" \
+            | jq -r '.deployments[0].uid')
+
+          if [ -z "$DEPLOYMENT_ID" ] || [ "$DEPLOYMENT_ID" = "null" ]; then
+            echo "::error::No READY preview deployment found for client on main"
+            exit 1
+          fi
+
+          echo "deployment_id=$DEPLOYMENT_ID" >> "$GITHUB_OUTPUT"
+          echo "Found client deployment: $DEPLOYMENT_ID"
+
+      - name: Promote client to production
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_CLIENT }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          npx --yes vercel@latest promote "${{ steps.discover-client.outputs.deployment_id }}" --yes --token="$VERCEL_TOKEN"
+
+          echo "### Client Production Promotion" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Promoted deployment:** ${{ steps.discover-client.outputs.deployment_id }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Triggered by commit:** ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Discover latest server preview deployment
+        id: discover-server
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_SERVER }}
+        run: |
+          DEPLOYMENT_ID=$(curl -sf \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v6/deployments?projectId=$PROJECT_ID&teamId=$VERCEL_ORG_ID&target=preview&state=READY&meta-githubCommitRef=main&limit=1" \
+            | jq -r '.deployments[0].uid')
+
+          if [ -z "$DEPLOYMENT_ID" ] || [ "$DEPLOYMENT_ID" = "null" ]; then
+            echo "::error::No READY preview deployment found for server on main"
+            exit 1
+          fi
+
+          echo "deployment_id=$DEPLOYMENT_ID" >> "$GITHUB_OUTPUT"
+          echo "Found server deployment: $DEPLOYMENT_ID"
+
+      - name: Promote server to production
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_SERVER }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          npx --yes vercel@latest promote "${{ steps.discover-server.outputs.deployment_id }}" --yes --token="$VERCEL_TOKEN"
+
+          echo "### Server Production Promotion" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Promoted deployment:** ${{ steps.discover-server.outputs.deployment_id }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Triggered by commit:** ${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"

@@ -6,10 +6,18 @@
 
 ![Ichnos Protocol Logo](assets/Ichnos_Logo_832x832.png)
 
+## Workflows
+
+[![CI](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/ci.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/ci.yml)
+[![E2E Tests (Playwright)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/e2e.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/e2e.yml)
+[![Promote to Production](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/promote-to-production.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/promote-to-production.yml)
+[![Release Policy Check](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/release-policy-check.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/release-policy-check.yml)
+
 ---
 
 ## Table of Contents
 
+- [Workflows](#workflows)
 - [About the Company](#about-the-company)
 - [The Founder](#the-founder)
 - [The Battery Passport](#the-battery-passport)
@@ -22,6 +30,7 @@
 - [Project Structure](#project-structure)
 - [Environment Variables](#environment-variables)
 - [Deployment](#deployment)
+- [Knowledge Base Management](#knowledge-base-management)
 - [Development Workflow](#development-workflow)
 - [Legal](#legal)
 
@@ -31,12 +40,12 @@
 
 **Ichnos Protocol Pte. Ltd.** is registered in Singapore.
 
-| Detail              | Value                                                        |
-|---------------------|--------------------------------------------------------------|
-| Legal Name          | Ichnos Protocol Pte. Ltd.                                    |
-| UEN                 | 202606521W                                                   |
-| Registered Address  | 160 Robinson Road, #14-04 Singapore Business Federation Center, Singapore 068914 |
-| Jurisdiction        | Singapore                                                    |
+| Detail             | Value                                                                            |
+| ------------------ | -------------------------------------------------------------------------------- |
+| Legal Name         | Ichnos Protocol Pte. Ltd.                                                        |
+| UEN                | 202606521W                                                                       |
+| Registered Address | 160 Robinson Road, #14-04 Singapore Business Federation Center, Singapore 068914 |
+| Jurisdiction       | Singapore                                                                        |
 
 ### Why Singapore?
 
@@ -55,13 +64,13 @@ Singapore provides strategic advantages for Ichnos Protocol's mission:
 
 ### Background
 
-| Area                      | Detail                                                                 |
-|---------------------------|------------------------------------------------------------------------|
-| Academic Research         | RWTH Aachen University — circular economy for battery systems, with a focus on remanufacturing |
-| Industry Experience       | Lead Expert, Battery Systems at FEV Europe                             |
-| Domain Expertise          | Battery system development, requirement management, legal and homologation requirements, EU Battery Regulation |
-| Software Engineering      | Full Stack Web Developer — trained at Sigma School, Puchong            |
-| Industry Background       | Motorcycle and automotive industries                                   |
+| Area                 | Detail                                                                                                         |
+| -------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Academic Research    | RWTH Aachen University — circular economy for battery systems, with a focus on remanufacturing                 |
+| Industry Experience  | Lead Expert, Battery Systems at FEV Europe                                                                     |
+| Domain Expertise     | Battery system development, requirement management, legal and homologation requirements, EU Battery Regulation |
+| Software Engineering | Full Stack Web Developer — trained at Sigma School, Puchong                                                    |
+| Industry Background  | Motorcycle and automotive industries                                                                           |
 
 ### Vision
 
@@ -81,17 +90,17 @@ The **EU Battery Regulation** mandates that batteries placed on the European mar
 
 Most Battery Passport solutions stop at the minimum required dataset. Ichnos Protocol goes further:
 
-| Capability                          | Mandated | Ichnos Protocol |
-|-------------------------------------|----------|-----------------|
-| Composition and materials data      | Yes      | Yes             |
-| Performance and durability metrics  | Yes      | Yes             |
-| Carbon footprint declaration        | Yes      | Yes             |
-| Supply chain due diligence          | Yes      | Yes             |
-| **Remanufacturing readiness score** | No       | Yes             |
-| **Second-life application matching**| No       | Yes             |
-| **SME marketplace integration**     | No       | Yes             |
-| **Degradation forecasting**         | No       | Yes             |
-| **Repurposer/remanufacturer tools** | No       | Yes             |
+| Capability                           | Mandated | Ichnos Protocol |
+| ------------------------------------ | -------- | --------------- |
+| Composition and materials data       | Yes      | Yes             |
+| Performance and durability metrics   | Yes      | Yes             |
+| Carbon footprint declaration         | Yes      | Yes             |
+| Supply chain due diligence           | Yes      | Yes             |
+| **Remanufacturing readiness score**  | No       | Yes             |
+| **Second-life application matching** | No       | Yes             |
+| **SME marketplace integration**      | No       | Yes             |
+| **Degradation forecasting**          | No       | Yes             |
+| **Repurposer/remanufacturer tools**  | No       | Yes             |
 
 ### Technology Roadmap
 
@@ -110,14 +119,14 @@ Ichnos Protocol offers consulting and development services for companies navigat
 
 ### Consulting Services
 
-| Service                                      | Description                                                                                              |
-|----------------------------------------------|----------------------------------------------------------------------------------------------------------|
-| **Battery Regulation Compliance**            | Gap analysis, compliance roadmap, and documentation preparation for the EU Battery Regulation.           |
-| **Homologation Support**                     | End-to-end support for type approval processes, including coordination with notified bodies in the EU.    |
-| **Testing Center Coordination**              | Selection of and liaison with accredited testing centers for battery safety, performance, and durability. |
-| **Requirement Management**                   | Structuring and managing technical, legal, and regulatory requirements for battery system development.    |
-| **Battery Passport Development (In-House)**  | Help your engineering team build a Battery Passport solution tailored to your products and processes.     |
-| **Circular Economy Strategy**                | Advisory on remanufacturing, repurposing, and second-life strategies to maximize battery asset value.     |
+| Service                                     | Description                                                                                               |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| **Battery Regulation Compliance**           | Gap analysis, compliance roadmap, and documentation preparation for the EU Battery Regulation.            |
+| **Homologation Support**                    | End-to-end support for type approval processes, including coordination with notified bodies in the EU.    |
+| **Testing Center Coordination**             | Selection of and liaison with accredited testing centers for battery safety, performance, and durability. |
+| **Requirement Management**                  | Structuring and managing technical, legal, and regulatory requirements for battery system development.    |
+| **Battery Passport Development (In-House)** | Help your engineering team build a Battery Passport solution tailored to your products and processes.     |
+| **Circular Economy Strategy**               | Advisory on remanufacturing, repurposing, and second-life strategies to maximize battery asset value.     |
 
 ### Competitive Advantage
 
@@ -137,26 +146,26 @@ The website is structured to serve two audiences: **potential clients** seeking 
 
 The first impression. Communicates who Ichnos Protocol is, what problem it solves, and why a visitor should engage further.
 
-| Section              | Content                                                                                         |
-|----------------------|-------------------------------------------------------------------------------------------------|
-| **Hero**             | Tagline, one-sentence value proposition, primary CTA ("Get in Touch" / "Explore Services").     |
-| **Problem Statement**| The EU Battery Regulation challenge — what companies face and what's at stake.                  |
-| **Solution Overview**| The Ichnos Battery Passport — compliance plus real utility, in a brief visual summary.          |
-| **Why Ichnos**       | Three to four differentiators: domain depth, beyond-compliance features, competitive rates, ASEAN+EU reach. |
-| **Services Snapshot**| Card grid previewing key services, linking to the full Services page.                           |
-| **LinkedIn Feed**    | Latest company posts via embedded widget — signals activity and thought leadership.             |
-| **CTA / Contact**    | Closing call to action — directs to the chatbot contact flow or a contact form.                 |
+| Section               | Content                                                                                                     |
+| --------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Hero**              | Tagline, one-sentence value proposition, primary CTA ("Get in Touch" / "Explore Services").                 |
+| **Problem Statement** | The EU Battery Regulation challenge — what companies face and what's at stake.                              |
+| **Solution Overview** | The Ichnos Battery Passport — compliance plus real utility, in a brief visual summary.                      |
+| **Why Ichnos**        | Three to four differentiators: domain depth, beyond-compliance features, competitive rates, ASEAN+EU reach. |
+| **Services Snapshot** | Card grid previewing key services, linking to the full Services page.                                       |
+| **LinkedIn Feed**     | Latest company posts via embedded widget — signals activity and thought leadership.                         |
+| **CTA / Contact**     | Closing call to action — directs to the chatbot contact flow or a contact form.                             |
 
 #### Team Page (`/team`)
 
 Builds trust through transparency. Shows who is behind the company.
 
-| Section                | Content                                                                                     |
-|------------------------|---------------------------------------------------------------------------------------------|
-| **Founder Profile**    | Photo, name, title, bio summarizing academic and industry background (see [The Founder](#the-founder)). |
-| **Expertise Areas**    | Visual representation of core competencies (battery systems, regulation, software).          |
-| **Career Highlights**  | Key milestones: RWTH Aachen research, FEV Europe role, Sigma School, company founding.       |
-| **Vision Statement**   | The circular economy mission and what drives the company.                                    |
+| Section               | Content                                                                                                 |
+| --------------------- | ------------------------------------------------------------------------------------------------------- |
+| **Founder Profile**   | Photo, name, title, bio summarizing academic and industry background (see [The Founder](#the-founder)). |
+| **Expertise Areas**   | Visual representation of core competencies (battery systems, regulation, software).                     |
+| **Career Highlights** | Key milestones: RWTH Aachen research, FEV Europe role, Sigma School, company founding.                  |
+| **Vision Statement**  | The circular economy mission and what drives the company.                                               |
 
 > As the team grows, this page will expand to include additional team members with consistent card-based profiles.
 
@@ -164,14 +173,14 @@ Builds trust through transparency. Shows who is behind the company.
 
 The commercial core. Details what Ichnos Protocol offers and showcases the Battery Passport product.
 
-| Section                          | Content                                                                              |
-|----------------------------------|--------------------------------------------------------------------------------------|
-| **Services Overview**            | Introduction to the consulting and development offerings.                            |
-| **Service Cards**                | One card per service (see [Services](#services)) with description and CTA.           |
-| **Battery Passport Showcase**    | Dedicated section explaining the product: features, compliance scope, technology roadmap, and differentiators. |
-| **How It Works**                 | Step-by-step visual flow: data collection, passport creation, lifecycle tracking, second-life enablement. |
-| **Target Industries**            | Automotive, motorcycle, energy storage, industrial equipment, marine.                |
-| **CTA**                          | "Discuss Your Needs" — triggers chatbot contact flow or links to contact.            |
+| Section                       | Content                                                                                                        |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Services Overview**         | Introduction to the consulting and development offerings.                                                      |
+| **Service Cards**             | One card per service (see [Services](#services)) with description and CTA.                                     |
+| **Battery Passport Showcase** | Dedicated section explaining the product: features, compliance scope, technology roadmap, and differentiators. |
+| **How It Works**              | Step-by-step visual flow: data collection, passport creation, lifecycle tracking, second-life enablement.      |
+| **Target Industries**         | Automotive, motorcycle, energy storage, industrial equipment, marine.                                          |
+| **CTA**                       | "Discuss Your Needs" — triggers chatbot contact flow or links to contact.                                      |
 
 ### Admin Pages
 
@@ -179,23 +188,23 @@ The commercial core. Details what Ichnos Protocol offers and showcases the Batte
 
 Internal tool for managing inbound customer inquiries.
 
-| Feature                  | Description                                                        |
-|--------------------------|--------------------------------------------------------------------|
-| **Request Table**        | Name, email, company, message preview, status, date, document link.|
-| **Status Management**    | Update status: `new` → `in_progress` → `resolved`.                |
-| **Document Access**      | View/download uploaded files from Firestore.                       |
-| **Filtering & Search**   | Filter by status, date range, or keyword.                          |
+| Feature                | Description                                                         |
+| ---------------------- | ------------------------------------------------------------------- |
+| **Request Table**      | Name, email, company, message preview, status, date, document link. |
+| **Status Management**  | Update status: `new` → `in_progress` → `resolved`.                  |
+| **Document Access**    | View/download uploaded files from Firestore.                        |
+| **Filtering & Search** | Filter by status, date range, or keyword.                           |
 
 ### Chatbot (All Public Pages)
 
 A persistent AI-powered assistant available on every public page.
 
-| Capability              | Description                                                                  |
-|-------------------------|------------------------------------------------------------------------------|
-| **Company Q&A**         | Answers questions about Ichnos Protocol, services, pricing, and expertise.   |
-| **Contact Flow**        | Collects name, email, company, message — creates a customer request.         |
-| **Document Upload**     | Accepts file uploads (PDF, DOCX, PNG, JPG, max 10MB) as part of inquiries.  |
-| **RAG-Powered**         | Responses grounded in a curated knowledge base about the company.            |
+| Capability          | Description                                                                |
+| ------------------- | -------------------------------------------------------------------------- |
+| **Company Q&A**     | Answers questions about Ichnos Protocol, services, pricing, and expertise. |
+| **Contact Flow**    | Collects name, email, company, message — creates a customer request.       |
+| **Document Upload** | Accepts file uploads (PDF, DOCX, PNG, JPG, max 10MB) as part of inquiries. |
+| **RAG-Powered**     | Responses grounded in a curated knowledge base about the company.          |
 
 ---
 
@@ -205,19 +214,19 @@ A persistent AI-powered assistant available on every public page.
 
 The color palette is derived from the **company logo** (a tree with circuit-board roots against a deep navy background with luminous blue highlights and golden accents) and aligned with the **Solana ecosystem** aesthetic.
 
-| Role              | Color                  | Hex       | Usage                                          |
-|-------------------|------------------------|-----------|-------------------------------------------------|
-| **Primary Dark**  | Deep Navy              | `#0A1628` | Backgrounds, hero sections, footer              |
-| **Primary**       | Luminous Blue          | `#1E90FF` | Links, buttons, interactive elements             |
-| **Accent**        | Cyan / Teal            | `#00D1C1` | Highlights, hover states, secondary CTAs         |
-| **Accent Warm**   | Golden Amber           | `#C8A24E` | Accents, badges, premium indicators              |
-| **Gradient Start**| Solana Teal            | `#14F195` | Gradient accents (Solana alignment)              |
-| **Gradient End**  | Solana Purple          | `#9945FF` | Gradient accents (Solana alignment)              |
-| **Surface**       | Slate Blue             | `#1A2744` | Cards, panels, elevated surfaces                 |
-| **Text Primary**  | Off-White              | `#E8ECF1` | Body text on dark backgrounds                    |
-| **Text Secondary**| Muted Blue-Gray        | `#8B9DC3` | Secondary text, captions, metadata               |
-| **Background Alt**| Light Gray             | `#F5F7FA` | Light-mode sections, alternating content blocks   |
-| **Text Dark**     | Charcoal               | `#1A1A2E` | Body text on light backgrounds                   |
+| Role               | Color           | Hex       | Usage                                           |
+| ------------------ | --------------- | --------- | ----------------------------------------------- |
+| **Primary Dark**   | Deep Navy       | `#0A1628` | Backgrounds, hero sections, footer              |
+| **Primary**        | Luminous Blue   | `#1E90FF` | Links, buttons, interactive elements            |
+| **Accent**         | Cyan / Teal     | `#00D1C1` | Highlights, hover states, secondary CTAs        |
+| **Accent Warm**    | Golden Amber    | `#C8A24E` | Accents, badges, premium indicators             |
+| **Gradient Start** | Solana Teal     | `#14F195` | Gradient accents (Solana alignment)             |
+| **Gradient End**   | Solana Purple   | `#9945FF` | Gradient accents (Solana alignment)             |
+| **Surface**        | Slate Blue      | `#1A2744` | Cards, panels, elevated surfaces                |
+| **Text Primary**   | Off-White       | `#E8ECF1` | Body text on dark backgrounds                   |
+| **Text Secondary** | Muted Blue-Gray | `#8B9DC3` | Secondary text, captions, metadata              |
+| **Background Alt** | Light Gray      | `#F5F7FA` | Light-mode sections, alternating content blocks |
+| **Text Dark**      | Charcoal        | `#1A1A2E` | Body text on light backgrounds                  |
 
 ### Typography
 
@@ -236,24 +245,24 @@ The color palette is derived from the **company logo** (a tree with circuit-boar
 
 ## Tech Stack
 
-| Layer        | Technology                         | Purpose                                  |
-|--------------|------------------------------------|------------------------------------------|
-| Frontend     | React 18+                          | Component-based UI                       |
-| Build Tool   | Vite                               | Dev server, HMR, production bundling     |
-| UI Framework | Bootstrap 5 (react-bootstrap)      | Responsive layout and styling            |
-| State        | Redux Toolkit (RTK Query)          | State management and API communication   |
-| Routing      | React Router v6+                   | Client-side routing                      |
-| Backend      | Express.js                         | REST API server                          |
-| SQL Database | PostgreSQL (Neon Tech)             | Customer requests, structured data       |
-| NoSQL / Files| Firebase Firestore + Storage       | Document uploads and file metadata       |
-| Auth         | Firebase Authentication            | JWT-based user and admin authentication  |
-| Chatbot      | X.ai Grok API (RAG)               | AI-powered visitor engagement            |
-| LinkedIn     | Third-party embed widget           | Company feed on landing page             |
-| Testing      | Vitest, eslint-plugin-vitest, React Testing Library, Supertest | Unit, component, and API test suites |
-| E2E Testing  | Playwright                         | End-to-end tests against Vercel previews |
-| Linting      | ESLint + Prettier                  | Code quality enforcement                 |
-| Linting Plugins | eslint-plugin-vitest            | Vitest globals recognition and test-specific rules |
-| Deployment   | Vercel (Monorepo)                  | Two projects: `client/` + `server/`      |
+| Layer           | Technology                                                     | Purpose                                            |
+| --------------- | -------------------------------------------------------------- | -------------------------------------------------- |
+| Frontend        | React 18+                                                      | Component-based UI                                 |
+| Build Tool      | Vite                                                           | Dev server, HMR, production bundling               |
+| UI Framework    | Bootstrap 5 (react-bootstrap)                                  | Responsive layout and styling                      |
+| State           | Redux Toolkit (RTK Query)                                      | State management and API communication             |
+| Routing         | React Router v6+                                               | Client-side routing                                |
+| Backend         | Express.js                                                     | REST API server                                    |
+| SQL Database    | PostgreSQL (Neon Tech)                                         | Customer requests, structured data                 |
+| NoSQL / Files   | Firebase Firestore + Storage                                   | Document uploads and file metadata                 |
+| Auth            | Firebase Authentication                                        | JWT-based user and admin authentication            |
+| Chatbot         | X.ai Grok API (RAG)                                            | AI-powered visitor engagement                      |
+| LinkedIn        | Third-party embed widget                                       | Company feed on landing page                       |
+| Testing         | Vitest, eslint-plugin-vitest, React Testing Library, Supertest | Unit, component, and API test suites               |
+| E2E Testing     | Playwright                                                     | End-to-end tests against stable staging URLs       |
+| Linting         | ESLint + Prettier                                              | Code quality enforcement                           |
+| Linting Plugins | eslint-plugin-vitest                                           | Vitest globals recognition and test-specific rules |
+| Deployment      | Vercel (Monorepo)                                              | Two projects: `client/` + `server/`                |
 
 ---
 
@@ -297,15 +306,15 @@ See [Environment Variables](#environment-variables) for the full list.
 
 Current versions (as of last update):
 
-| Package                  | Version    | Purpose                                    |
-|--------------------------|------------|--------------------------------------------|
-| react                    | ^18.3.1    | UI library                                 |
-| react-dom                | ^18.3.1    | React DOM renderer                         |
-| react-helmet-async       | ^2.0.5     | SEO meta tags (React 18 compatible)        |
-| vite                     | ^7.3.1     | Build tool and dev server                  |
-| vitest                   | ^4.0.18    | Test runner                                |
-| eslint                   | ^9.39.1    | Linter (flat config)                       |
-| eslint-plugin-vitest     | ^0.5.4     | Vitest globals and test-specific rules     |
+| Package              | Version | Purpose                                |
+| -------------------- | ------- | -------------------------------------- |
+| react                | ^18.3.1 | UI library                             |
+| react-dom            | ^18.3.1 | React DOM renderer                     |
+| react-helmet-async   | ^2.0.5  | SEO meta tags (React 18 compatible)    |
+| vite                 | ^7.3.1  | Build tool and dev server              |
+| vitest               | ^4.0.18 | Test runner                            |
+| eslint               | ^9.39.1 | Linter (flat config)                   |
+| eslint-plugin-vitest | ^0.5.4  | Vitest globals and test-specific rules |
 
 **Note**: React 18.x is used instead of React 19 due to `react-helmet-async@2.0.5` compatibility constraints.
 
@@ -354,7 +363,7 @@ cd e2e && npx playwright test --headed
 cd e2e && npx playwright show-report
 ```
 
-In CI, Playwright runs automatically against Vercel preview deployment URLs via GitHub Actions — no need to start local servers.
+In CI, Playwright is triggered by `repository_dispatch` (`vercel.deployment.success`) from the server Vercel project and runs against stable staging URLs configured via GitHub Actions variables (`vars.E2E_BASE_URL` and `vars.E2E_API_BASE_URL`) — no need to start local servers.
 
 ### Linting and Formatting
 
@@ -538,11 +547,15 @@ Ichnos_Protocol/
 │   └── package.json               # Playwright dependencies
 ├── .github/
 │   └── workflows/
-│       ├── ci.yml                 # GitHub Actions: Lint + unit tests on every PR
-│       └── e2e.yml                # GitHub Actions: Playwright against Vercel previews
+│       ├── ci.yml                           # Lint + unit tests + client build verification (PRs to main)
+│       ├── e2e.yml                          # E2E Tests (Playwright) — repository_dispatch + workflow_dispatch
+│       ├── promote-to-production.yml        # Production promotion on push to release (approval-gated)
+│       └── release-policy-check.yml         # Policy gate: confirms PR head is main before release merge
 ├── assets/                        # Brand assets (logo, images)
 ├── CLAUDE.md                      # Claude AI coding instructions
 ├── AGENTS.md                      # Shared agent conventions
+├── GITHUB_SETTINGS.md             # GitHub repository settings reference
+├── VERCEL_SETTINGS.md             # Vercel project settings reference
 └── README.md                      # This file
 ```
 
@@ -550,43 +563,24 @@ Ichnos_Protocol/
 
 ## Environment Variables
 
-### Client (`client/.env`)
-
-| Variable                            | Description                              |
-|-------------------------------------|------------------------------------------|
-| `VITE_API_BASE_URL`                | Backend API base URL                     |
-| `VITE_FIREBASE_API_KEY`            | Firebase project API key                 |
-| `VITE_FIREBASE_AUTH_DOMAIN`        | Firebase auth domain                     |
-| `VITE_FIREBASE_PROJECT_ID`         | Firebase project ID                      |
-| `VITE_FIREBASE_STORAGE_BUCKET`     | Firebase storage bucket                  |
-| `VITE_FIREBASE_MESSAGING_SENDER_ID`| Firebase messaging sender ID             |
-| `VITE_FIREBASE_APP_ID`            | Firebase app ID                          |
-| `VITE_LINKEDIN_WIDGET_ID`         | Third-party LinkedIn widget embed ID     |
-| `VITE_LINKEDIN_PAGE_URL`          | Company LinkedIn page URL (fallback)     |
-
-### Server (`server/.env`)
-
-| Variable                        | Description                              |
-|---------------------------------|------------------------------------------|
-| `PORT`                          | Server port                              |
-| `DATABASE_URL`                  | Neon Tech PostgreSQL connection string   |
-| `FIREBASE_SERVICE_ACCOUNT_KEY`  | Path or JSON string for Firebase admin   |
-| `XAI_API_KEY`                   | X.ai Grok API key                        |
-| `XAI_API_BASE_URL`             | X.ai API base URL                        |
-| `CORS_ORIGIN`                   | Allowed frontend origin                  |
+See `server/.env.example` and `client/.env.example` for the full list of required variables with descriptions.
 
 ---
 
 ## Deployment
 
+### Full Deployment Guide
+
+For complete step-by-step deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
 The project is deployed on **Vercel** as a monorepo with two separate Vercel projects linked to the same Git repository.
 
 ### Architecture
 
-| Component  | Vercel Project    | Root Directory | Runtime        | Output                 |
-|------------|-------------------|----------------|----------------|------------------------|
-| Frontend   | `ichnos-client`   | `client/`      | Vite (static)  | `dist/` (static site)  |
-| Backend    | `ichnos-server`   | `server/`      | `@vercel/node` | Serverless function    |
+| Component | Vercel Project  | Root Directory | Runtime        | Output                |
+| --------- | --------------- | -------------- | -------------- | --------------------- |
+| Frontend  | `ichnos-client` | `client/`      | Vite (static)  | `dist/` (static site) |
+| Backend   | `ichnos-protocolserver` | `server/`      | `@vercel/node` | Serverless function   |
 
 ### How It Works
 
@@ -596,40 +590,84 @@ The project is deployed on **Vercel** as a monorepo with two separate Vercel pro
 
 ### Configuration Files
 
-| File                   | Purpose                                                         |
-|------------------------|-----------------------------------------------------------------|
-| `client/vercel.json`   | Vite framework preset, build output, SPA rewrites               |
-| `server/vercel.json`   | Serverless build config, `@vercel/node` runtime, API rewrites   |
-| `server/api/index.js`  | Thin wrapper — imports and re-exports the Express app            |
+| File                  | Purpose                                                       |
+| --------------------- | ------------------------------------------------------------- |
+| `client/vercel.json`  | Vite framework preset, build output, SPA rewrites             |
+| `server/vercel.json`  | Serverless build config, `@vercel/node` runtime, API rewrites |
+| `server/api/index.js` | Thin wrapper — imports and re-exports the Express app         |
 
 ### Deployment Flow
 
+The project follows a **2-branch deployment model**:
+
 ```
-Push to main
-    │
-    ├── Vercel Project: ichnos-client
-    │   └── npm run build → dist/ → CDN
-    │
-    └── Vercel Project: ichnos-server
-        └── api/index.js → @vercel/node → Serverless function
+feature/* → main (PR-gated: CI + Vercel Preview + E2E)
+    → release (PR from main only, Release Policy Check required)
+        → production (environment approval required, promote-only model)
 ```
 
-- **Automatic deployments**: Merges to `main` trigger production builds for both projects.
-- **Preview deployments**: Every pull request gets unique preview URLs for both frontend and backend.
+- **Preview deployments**: PRs targeting `main` get unique Vercel preview URLs for both frontend and backend; E2E tests are triggered by `repository_dispatch` (`vercel.deployment.success`) from the server project and run against stable staging URLs (`vars.E2E_BASE_URL` for client, `vars.E2E_API_BASE_URL` for API), not per-deployment preview URLs.
+- **Production deployments**: Merges to `release` trigger `promote-to-production.yml`, which discovers the latest READY `main` preview and promotes it — no rebuild. Requires human approval via the GitHub `production` environment.
 - **Environment variables**: Configured in each Vercel project's settings dashboard (Production, Preview, Development scopes). Never committed to the repository.
+
+For the authoritative CI/CD reference, see [`DEPLOYMENT_GITHUB_ACTIONS.md`](DEPLOYMENT_GITHUB_ACTIONS.md). For infrastructure setup, see [`DEPLOYMENT.md`](DEPLOYMENT.md). For GitHub settings, see [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md). For Vercel settings, see [`VERCEL_SETTINGS.md`](VERCEL_SETTINGS.md).
 
 ### Manual Deploys (Vercel CLI)
 
-```bash
-# Install Vercel CLI globally
-npm i -g vercel
+> **Emergency use only.** These commands bypass CI, E2E, and approval gates. Use only when GitHub Actions is unavailable or broken.
 
+```bash
 # Deploy frontend
-cd client && vercel --prod
+cd client && npx vercel --prod
 
 # Deploy backend
-cd server && vercel --prod
+cd server && npx vercel --prod
 ```
+
+### Cron Jobs
+
+Two scheduled jobs run automatically via Vercel Cron (configured in `server/vercel.json`):
+
+| Job             | Path                              | Schedule                                |
+| --------------- | --------------------------------- | --------------------------------------- |
+| Retention Sweep | `/api/admin/retention-sweep`      | `0 2 * * 0` — Every Sunday at 02:00 UTC |
+| Email Digest    | `/api/admin/notifications/digest` | `0 9 * * *` — Every day at 09:00 UTC    |
+
+Cron endpoints are invoked via `GET` by Vercel's scheduler and authenticated via `Authorization: Bearer CRON_SECRET`. Admin users can also trigger them manually via `POST` with a Firebase admin token.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for setup and verification instructions.
+
+---
+
+## Knowledge Base Management
+
+The RAG chatbot is powered by a Firestore `knowledge_base` collection populated through four extraction pipelines.
+
+### Pipelines Overview
+
+| Pipeline       | Purpose                     | Command                                                                       |
+| -------------- | --------------------------- | ----------------------------------------------------------------------------- |
+| Manual Seeding | Company info, services      | `node server/scripts/seedKnowledgeBase.js`                                    |
+| Simple PDF     | Text-only PDFs              | `node server/scripts/extractPdfKnowledgeLegacy.js <file.pdf>`                 |
+| Complex PDF    | Tables, equations, diagrams | `python .../convertPdfToMarkdown.py` + `node .../extractMarkdownKnowledge.js` |
+| Web Content    | Catena-X, GBA, standards    | `node server/scripts/extractWebKnowledge.js <url>`                            |
+
+### Quick Start Examples
+
+```bash
+# Seed company knowledge
+node server/scripts/seedKnowledgeBase.js
+
+# Extract from a complex PDF (two-step)
+python server/scripts/python/convertPdfToMarkdown.py --input spec.pdf --output-dir ./markdown
+node server/scripts/extractMarkdownKnowledge.js ./markdown/spec.md --category batteries
+
+# Extract from Catena-X standard
+node server/scripts/extractWebKnowledge.js \
+  https://catenax-ev.github.io/docs/next/standards/CX-0143 \
+  --category regulations
+```
+
+For complete workflow documentation, troubleshooting, and periodic update procedures, see [`server/scripts/README.md`](server/scripts/README.md).
 
 ---
 
