@@ -19,6 +19,11 @@ credentials*.json
 secrets/
 
 # ============================================
+# MCP configuration (machine and project-specific, may contain secrets)
+# ============================================
+.mcp.json
+
+# ============================================
 # Dependencies
 # ============================================
 node_modules/
