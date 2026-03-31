@@ -12,6 +12,7 @@
 [![E2E Tests (Playwright)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/e2e.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/e2e.yml)
 [![Promote to Production](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/promote-to-production.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/promote-to-production.yml)
 [![Release Policy Check](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/release-policy-check.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/release-policy-check.yml)
+[![Sync Staging](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/sync-staging.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/sync-staging.yml)
 
 ---
 
@@ -26,7 +27,6 @@
 - [Design System](#design-system)
 - [Tech Stack](#tech-stack)
 - [Getting Started](#getting-started)
-- [Claude Code MCP Servers](#claude-code-mcp-servers)
 - [Project Structure](#project-structure)
 - [Environment Variables](#environment-variables)
 - [Deployment](#deployment)
@@ -363,7 +363,7 @@ cd e2e && npx playwright test --headed
 cd e2e && npx playwright show-report
 ```
 
-In CI, Playwright is triggered by `repository_dispatch` (`vercel.deployment.success`) from the server Vercel project and runs against stable staging URLs configured via GitHub Actions variables (`vars.E2E_BASE_URL` and `vars.E2E_API_BASE_URL`) — no need to start local servers.
+In CI, Playwright is triggered by `repository_dispatch` (`vercel.deployment.success`) from the server Vercel project and runs against stable staging URLs resolved exclusively from GitHub Actions variables (`vars.E2E_BASE_URL` and `vars.E2E_API_BASE_URL`) — no need to start local servers. Both `repository_dispatch` and `workflow_dispatch` modes resolve targets from the same variables; there is no manual URL input. A fail-closed production-host denylist (exact hostname match, canonical in `e2e.yml`) validates all target URLs before tests execute. The workflow uses `seed.mode` from `/api/health` for readiness — `seeded` or `skipped` are both accepted as ready states.
 
 ### Linting and Formatting
 
@@ -381,117 +381,6 @@ The project uses ESLint 9 with flat config format (`eslint.config.js`). For test
 - Enforce test best practices
 
 Test files are identified by the patterns: `**/*.{test,mock}.{js,jsx}`, `**/*.spec.{js,jsx}`, and `**/setupTests.js`.
-
----
-
-## Claude Code MCP Servers
-
-This project uses [Claude Code](https://claude.ai/claude-code) with four MCP (Model Context Protocol) servers that give the AI assistant direct access to the GitHub repository, the PostgreSQL database, Playwright for E2E testing, and up-to-date library documentation.
-
-### Why MCP Servers?
-
-Without MCP, Claude Code can only read/write local files and run shell commands. MCP servers extend its capabilities to interact directly with external services — querying the live database, managing GitHub issues and PRs, running browser tests, and looking up current API docs — all without leaving the coding session.
-
-### Server Overview
-
-| Server          | Package                        | Scope   | Purpose                                    |
-|-----------------|--------------------------------|---------|--------------------------------------------|
-| **GitHub**      | GitHub Copilot MCP (HTTP)      | User    | Issues, PRs, code search, branches, commits|
-| **DBHub**       | `@bytebase/dbhub`             | Project | Query PostgreSQL directly                  |
-| **Playwright**  | `@playwright/mcp`             | User    | Run E2E tests, browser automation          |
-| **Context7**    | `@upstash/context7-mcp`       | User    | Library documentation lookup               |
-
-### Scoping Rationale
-
-MCP servers support three scopes that determine where the configuration is stored and when it applies:
-
-- **User scope** (`--scope user`, stored in `~/.claude.json`) — The server is available in every project on the machine. Use this for tools that are project-agnostic: GitHub (works with any repo), Playwright (runs any test suite), and Context7 (looks up any library's docs).
-
-- **Project scope** (`--scope project`, stored in the project's `.claude.json` entry) — The server is only available when working in this specific project. Use this when the server needs project-specific configuration. **DBHub uses project scope** because each project has its own `DATABASE_URL` in its `server/.env` file — the `dotenv-cli` wrapper loads that file at startup so the database connection always matches the current project.
-
-- **Local scope** (default, stored in `~/.claude.json` under the project path) — Similar to project scope but not shareable. Useful for personal overrides.
-
-### Prerequisites
-
-- [Claude Code](https://claude.ai/claude-code) installed and authenticated
-- Node.js 18+ and npm 9+ (for `npx` commands)
-- A GitHub Personal Access Token (for GitHub MCP)
-- The project's `server/.env` file configured with `DATABASE_URL` (for DBHub)
-
-### Installation
-
-Run these commands in a **terminal outside of Claude Code**. On Windows (non-WSL), stdio servers require the `cmd /c` wrapper.
-
-#### 1. GitHub MCP (user scope)
-
-```bash
-claude mcp add --transport http github https://api.githubcopilot.com/mcp \
-  --header "Authorization: Bearer <YOUR_GITHUB_PAT>"
-```
-
-Replace `<YOUR_GITHUB_PAT>` with a GitHub personal access token that has `repo` scope.
-
-#### 2. Context7 (user scope)
-
-```bash
-claude mcp add --transport stdio context7 -- cmd /c npx -y @upstash/context7-mcp@latest
-```
-
-No API key required. Provides up-to-date documentation for React, Express, Playwright, Firebase, Bootstrap, Zod, and other libraries used in this project.
-
-#### 3. Playwright (user scope)
-
-```bash
-claude mcp add --transport stdio playwright -- cmd /c npx -y @playwright/mcp --headless
-```
-
-Runs in headless mode by default. Claude can write, run, and iterate on E2E tests within a single session.
-
-#### 4. DBHub — PostgreSQL (project scope)
-
-```bash
-# Run from the project root (Ichnos_Protocol/)
-claude mcp add --transport stdio db --scope project \
-  -- cmd /c "npx -y dotenv-cli -e server/.env -- npx -y @bytebase/dbhub"
-```
-
-This uses `dotenv-cli` to load `DATABASE_URL` from `server/.env` at startup. Each project gets its own database connection automatically — no secrets are hardcoded in the MCP configuration.
-
-**For a new project**: Run this same command from that project's root directory (after creating its `server/.env` with `DATABASE_URL`).
-
-### Verification
-
-```bash
-# List all servers and their connection status
-claude mcp list
-
-# Inside Claude Code, run:
-/mcp
-```
-
-All four servers should show `Connected`. If any show `Failed to connect`:
-
-1. **Check the command format** — On Windows, ensure `cmd /c` is used (not `cmd C:/`).
-2. **Restart Claude Code** — MCP connections are established at session startup.
-3. **Check `server/.env`** — For DBHub, ensure `DATABASE_URL` is set and the database is reachable.
-
-### Removing Servers
-
-```bash
-claude mcp remove context7              # remove from default scope
-claude mcp remove db --scope project    # remove project-scoped server
-```
-
-### macOS / Linux
-
-On macOS or Linux, omit the `cmd /c` wrapper:
-
-```bash
-claude mcp add --transport stdio context7 -- npx -y @upstash/context7-mcp@latest
-claude mcp add --transport stdio playwright -- npx -y @playwright/mcp --headless
-claude mcp add --transport stdio db --scope project \
-  -- npx -y dotenv-cli -e server/.env -- npx -y @bytebase/dbhub
-```
 
 ---
 
@@ -550,7 +439,8 @@ Ichnos_Protocol/
 │       ├── ci.yml                           # Lint + unit tests + client build verification (PRs to main)
 │       ├── e2e.yml                          # E2E Tests (Playwright) — repository_dispatch + workflow_dispatch
 │       ├── promote-to-production.yml        # Production promotion on push to release (approval-gated)
-│       └── release-policy-check.yml         # Policy gate: confirms PR head is main before release merge
+│       ├── release-policy-check.yml         # Policy gate: confirms PR head is main before release merge
+│       └── sync-staging.yml                 # Auto-sync main → staging (manual QA lane)
 ├── assets/                        # Brand assets (logo, images)
 ├── CLAUDE.md                      # Claude AI coding instructions
 ├── AGENTS.md                      # Shared agent conventions
@@ -577,9 +467,9 @@ The project is deployed on **Vercel** as a monorepo with two separate Vercel pro
 
 ### Architecture
 
-| Component | Vercel Project  | Root Directory | Runtime        | Output                |
-| --------- | --------------- | -------------- | -------------- | --------------------- |
-| Frontend  | `ichnos-client` | `client/`      | Vite (static)  | `dist/` (static site) |
+| Component | Vercel Project          | Root Directory | Runtime        | Output                |
+| --------- | ----------------------- | -------------- | -------------- | --------------------- |
+| Frontend  | `ichnos-client`         | `client/`      | Vite (static)  | `dist/` (static site) |
 | Backend   | `ichnos-protocolserver` | `server/`      | `@vercel/node` | Serverless function   |
 
 ### How It Works
@@ -604,11 +494,14 @@ The project follows a **2-branch deployment model**:
 feature/* → main (PR-gated: CI + Vercel Preview + E2E)
     → release (PR from main only, Release Policy Check required)
         → production (environment approval required, promote-only model)
+
+main ─── sync-staging.yml ───→ staging (parallel manual-QA lane, not in promotion chain)
 ```
 
-- **Preview deployments**: PRs targeting `main` get unique Vercel preview URLs for both frontend and backend; E2E tests are triggered by `repository_dispatch` (`vercel.deployment.success`) from the server project and run against stable staging URLs (`vars.E2E_BASE_URL` for client, `vars.E2E_API_BASE_URL` for API), not per-deployment preview URLs.
+- **Preview deployments**: PRs targeting `main` get unique Vercel preview URLs for both frontend and backend; E2E tests are triggered by `repository_dispatch` (`vercel.deployment.success`) from the server project and run against stable staging URLs resolved exclusively from `vars.E2E_BASE_URL` (client) and `vars.E2E_API_BASE_URL` (API), not per-deployment preview URLs. `workflow_dispatch` also resolves from the same variables — there is no manual URL override. A fail-closed production-host denylist (exact hostname match, canonical in `e2e.yml`) prevents tests from running against production. The workflow accepts `seed.mode` values of `seeded` or `skipped` from `/api/health` as ready states before running Playwright.
 - **Production deployments**: Merges to `release` trigger `promote-to-production.yml`, which discovers the latest READY `main` preview and promotes it — no rebuild. Requires human approval via the GitHub `production` environment.
 - **Environment variables**: Configured in each Vercel project's settings dashboard (Production, Preview, Development scopes). Never committed to the repository.
+- **Staging (manual QA)**: The `staging` branch is a long-lived parallel lane for manual QA. It is auto-synced from `main` after every server deployment via `sync-staging.yml`. Staging deploys as a Vercel preview with production Firebase and production Neon credentials (branch-scoped env overrides). `SKIP_E2E_SEED=true` prevents automated seed injection. Manual QA actions on staging write to the production database — this is explicitly accepted. `staging` does not gate any automated checks and is not a valid PR source for `release`. E2E targets (`vars.E2E_BASE_URL`, `vars.E2E_API_BASE_URL`) remain pointed at ephemeral preview URLs and are unaffected by staging.
 
 For the authoritative CI/CD reference, see [`DEPLOYMENT_GITHUB_ACTIONS.md`](DEPLOYMENT_GITHUB_ACTIONS.md). For infrastructure setup, see [`DEPLOYMENT.md`](DEPLOYMENT.md). For GitHub settings, see [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md). For Vercel settings, see [`VERCEL_SETTINGS.md`](VERCEL_SETTINGS.md).
 

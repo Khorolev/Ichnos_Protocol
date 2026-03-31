@@ -8,14 +8,15 @@ Complete configuration guide for the Ichnos Protocol GitHub repository. This doc
 
 ## Overview — What Must Be Configured
 
-The GitHub repository requires the following settings to support the 2-branch deployment model (`feature/* → main → release`):
+The GitHub repository requires the following settings to support the 3-branch lifecycle (`feature/* → main → release` automated promotion chain, plus `staging` as a parallel manual-QA lane):
 
 | Area                      | What                                                                                    | Why                                                                                                                         |
 | ------------------------- | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | **Repository Secrets**    | 8 secrets for CI/E2E + 4 additional secrets for production promotion (12 total)        | CI/E2E workflows need Firebase auth, Vercel bypass, and test accounts; production promotion workflows need Vercel API access |
 | **Environments**          | `production` environment with required reviewers                                        | Production promotion workflow pauses for human approval before deploying                                                    |
 | **Branch Protections**    | `main` (5 required checks + PR required) and `release` (1 required check + PR required) | Enforces the CI → Preview → E2E → merge pipeline and the `main`-only release policy                                         |
-| **Old Rule Cleanup**      | Remove stale branch protections and rulesets from previous configurations               | Stale rules (e.g., for `staging`, `e2e-testing`, or different check names) can block merges or silently bypass the pipeline |
+| **Old Rule Cleanup**      | Remove stale branch protections and rulesets from previous configurations               | Stale rules (e.g., for `e2e-testing` or different check names) can block merges or silently bypass the pipeline              |
+| **Staging Sync Secret**   | `SYNC_PAT` GitHub Actions secret                                                       | `sync-staging.yml` requires a PAT with `contents: write` to push to `staging` and trigger Vercel redeployment               |
 | **Auto-Merge** (optional) | Allow auto-merge at the repository level                                                | Enables automatic merge of `main → release` PRs once the `Release Policy Check` passes                                      |
 
 ---
@@ -27,8 +28,8 @@ If this repository was previously configured with different branch protections (
 ### Step 1 — Remove stale branch protection rules
 
 1. Go to **Settings → Branches**.
-2. For each existing branch protection rule, check whether the **Branch name pattern** matches a branch that no longer exists in the 2-branch model (e.g., `staging`, `e2e-testing`, `develop`).
-3. Delete any rule that does not apply to `main` or `release`.
+2. For each existing branch protection rule, check whether the **Branch name pattern** matches a branch that no longer exists in the current model (e.g., `e2e-testing`, `develop`).
+3. Delete any rule that does not apply to `main` or `release`. Note: `staging` is intentionally **unprotected** — it should **not** have a branch protection rule (it is auto-managed by `sync-staging.yml`).
 
 ### Step 2 — Remove stale rulesets
 
@@ -105,6 +106,16 @@ These 4 secrets are **required** for the production promotion workflow (`promote
 
 > **Without these 4 secrets, merging into `release` will trigger `promote-to-production.yml` which will fail.** If you only need preview deployments and CI/E2E (no production promotion via GitHub Actions), you can omit these secrets and promote manually via the Vercel dashboard instead.
 
+### Staging Sync Secret
+
+This secret is required by `sync-staging.yml` to force-push `main` to `staging` after every server deployment.
+
+| Secret     | Description                                                                               | Where to Find                                                        |
+| ---------- | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `SYNC_PAT` | Personal Access Token with `contents: write` scope — used to push to `staging` and trigger Vercel redeployment | GitHub → Settings → Developer settings → Personal access tokens (fine-grained or classic) |
+
+> **Why a PAT?** Pushes made with the default `GITHUB_TOKEN` do not trigger Vercel's native Git integration (Vercel ignores events from GitHub Actions bots). A PAT makes the push appear as a real user, which triggers the Vercel preview deployment for the `staging` branch.
+
 ---
 
 ## 3. Environments
@@ -137,7 +148,7 @@ Configure branch protection rules in **Settings → Branches** (or **Settings �
 >
 > - **`Client — Lint & Test`** and **`Server — Lint & Test`**: Produced by `ci.yml`. Run linting, unit tests, and client build verification.
 > - **Vercel deployment checks** (e.g., `Vercel – ichnos-protocol` and `Vercel – ichnos-protocol-server`): Produced by Vercel's native Git integration. These checks confirm that preview deployments build and deploy successfully. **The exact check names are determined by your Vercel project names and may differ from the examples shown here.** To find the correct names: open a recent PR, scroll to the status checks section, and copy the exact Vercel check context strings. Use those exact strings when configuring required status checks — a mismatch will block all merges.
-> - **`E2E Tests (Playwright)`**: Produced by `e2e.yml`, triggered by `repository_dispatch: vercel.deployment.success` events after the **server** Vercel project completes a preview deployment (Repository Dispatch Events are only enabled on the server project). The server is the slower deployment, which includes the Neon DB seed — by the time the dispatch fires, the API and database are ready. Tests run against the stable staging URLs configured as GitHub Actions Variables (`vars.E2E_BASE_URL` / `vars.E2E_API_BASE_URL`). See [`DEPLOYMENT_GITHUB_ACTIONS.md`](DEPLOYMENT_GITHUB_ACTIONS.md) §3 for full details.
+> - **`E2E Tests (Playwright)`**: Produced by `e2e.yml`, triggered by `repository_dispatch: vercel.deployment.success` events after the **server** Vercel project completes a preview deployment (Repository Dispatch Events are only enabled on the server project). The server is the slower deployment — by the time the dispatch fires, the server is live and the client is already ready. Note that the dispatch signals that the server deployment is live, not that E2E seeding is complete; the `e2e.yml` workflow polls `/api/health` for the `seed.mode` readiness signal to confirm seeding status before running tests. Tests run against the stable staging URLs configured as GitHub Actions Variables (`vars.E2E_BASE_URL` / `vars.E2E_API_BASE_URL`). Both trigger modes (`repository_dispatch` and `workflow_dispatch`) resolve targets from these variables — the `workflow_dispatch` mode does not accept manual URL inputs. A production-host denylist gate (canonical in `e2e.yml` workflow constants) validates all target URLs before tests run; denylist updates require maintainer-reviewed PRs. The gate is fail-closed — missing/empty denylist constants or unparseable URLs abort the workflow. API readiness is determined by `seed.mode` from `/api/health`: `seeded` or `skipped` → ready; `failed` → immediate failure. See [`DEPLOYMENT_GITHUB_ACTIONS.md`](DEPLOYMENT_GITHUB_ACTIONS.md) §3 for full details.
 
 ### `release` branch
 
@@ -148,6 +159,21 @@ Configure branch protection rules in **Settings → Branches** (or **Settings �
 | Include administrators                | Recommended            |
 
 > **Important:** GitHub Actions check names are frozen in workflow file headers (the `name:` field of each job). Do not rename jobs in workflow YAML without updating the corresponding branch protection rules here. `E2E Tests (Playwright)` is produced by `e2e.yml`. Vercel check names are determined by your Vercel project names — always copy the exact context string from a recent PR's checks tab before configuring branch protection rules.
+
+### `staging` branch
+
+The `staging` branch does **not** have a branch protection rule — this is intentional.
+
+- It is auto-managed by `sync-staging.yml`, which force-pushes `main` to `staging` after every server deployment.
+- PRs should **never** target `staging` — it is not a merge target.
+- It is a parallel manual-QA lane, not in the `main → release` promotion chain.
+- Do not create a branch protection rule for `staging`. A protection rule would block the force-push from `sync-staging.yml`.
+
+> **Production-backed environment (accepted risk):** The `staging` Vercel preview uses **production Firebase** and **production Neon DB** credentials via branch-scoped environment variable overrides (configured in Vercel, not GitHub). Manual QA actions performed on `staging` write directly to the production database — this is explicitly accepted to enable realistic QA. `SKIP_E2E_SEED=true` is set on `staging` to prevent automated E2E seed injection.
+>
+> **E2E target isolation:** `vars.E2E_BASE_URL` and `vars.E2E_API_BASE_URL` (GitHub Actions Variables) must point to **ephemeral preview** targets — never to the `staging` branch URL. The staging manual-QA environment and E2E test targets are intentionally separate. Repointing E2E variables at `staging` would run automated tests against production data.
+>
+> See [`DEPLOYMENT_GITHUB_ACTIONS.md`](DEPLOYMENT_GITHUB_ACTIONS.md) and [`VERCEL_SETTINGS.md`](VERCEL_SETTINGS.md) for full setup details.
 
 ---
 
@@ -194,7 +220,9 @@ After completing setup (or when verifying an existing configuration), confirm ev
 | `release` branch protection                              | PR required + `Release Policy Check`               | Settings → Branches (or Rules → Rulesets)              |
 | Include administrators (`main`)                          | Enabled                                            | Settings → Branches → `main` rule                      |
 | Include administrators (`release`)                       | Enabled                                            | Settings → Branches → `release` rule                   |
-| Stale branch protections                                 | None (no rules for `staging`, `e2e-testing`, etc.) | Settings → Branches                                    |
+| `SYNC_PAT` secret                                        | Set, non-empty                                     | Settings → Secrets → Actions                           |
+| `staging` branch protection                              | **None** (intentionally unprotected)               | Settings → Branches                                    |
+| Stale branch protections                                 | None (no rules for `e2e-testing`, etc.)            | Settings → Branches                                    |
 | Stale rulesets                                           | None (no rulesets referencing removed branches)    | Settings → Rules → Rulesets                            |
 | Auto-merge (optional)                                    | Enabled at repo level                              | Settings → General                                     |
 
@@ -216,8 +244,10 @@ Use this checklist when setting up a new repository or verifying an existing one
   - [ ] `VERCEL_ORG_ID`
   - [ ] `VERCEL_PROJECT_ID_CLIENT`
   - [ ] `VERCEL_PROJECT_ID_SERVER`
+- [ ] **Secret (staging sync)** — `SYNC_PAT` is set (§2)
 - [ ] **Environment** — `production` environment exists with at least one required reviewer (§3)
 - [ ] **Branch protection: `main`** — 5 required status checks configured: `Client — Lint & Test`, `Server — Lint & Test`, the two Vercel deployment checks (copy exact names from a recent PR's check list), `E2E Tests (Playwright)` (§4)
 - [ ] **Branch protection: `release`** — `Release Policy Check` required + PR required (§4)
+- [ ] **No branch protection on `staging`** — Confirmed intentionally unprotected (§4)
 - [ ] **Admin bypass** — "Include administrators" enabled on both branches (§6)
 - [ ] **Verification matrix** — All rows confirmed (§Verification Matrix)

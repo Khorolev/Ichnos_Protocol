@@ -34,24 +34,24 @@ The site includes public-facing pages (landing, team, services/products), an AI-
 
 ## 2. Tech Stack
 
-| Layer        | Technology                     | Notes                                        |
-| ------------ | ------------------------------ | -------------------------------------------- |
-| Frontend     | React 18+                      | Functional components, hooks only            |
-| Build Tool   | Vite                           | Dev server, HMR, production bundling         |
-| UI Framework | Bootstrap 5 (react-bootstrap)  | No custom CSS frameworks on top              |
-| State        | Redux Toolkit (RTK)            | RTK Query for API calls                      |
-| Routing      | React Router v6+               |                                              |
-| Backend      | Express.js 5                   | REST API, ES modules (`"type": "module"`)    |
-| SQL DB       | PostgreSQL (Neon Tech)         | Accessed via `pg`                            |
-| NoSQL DB     | Firestore                      | File storage + document metadata             |
-| Auth         | Firebase Authentication        | JWT-based, verified server-side              |
-| Chatbot      | X.ai Grok API                  | RAG integration                              |
-| LinkedIn     | Third-party embed widget       | SociableKIT, Elfsight, or Juicer             |
-| Testing      | Vitest + React Testing Library | Unit + component tests; Supertest for API    |
-| E2E Testing  | Playwright                     | End-to-end tests against Vercel previews     |
-| Linting      | ESLint + Prettier              | Enforced via pre-commit hook                 |
-| Deployment   | Vercel (Monorepo)              | `client/` and `server/` as separate projects |
-| MCP Servers  | GitHub, DBHub, Playwright, Context7 | Direct repo, DB, E2E, and docs access  |
+| Layer        | Technology                          | Notes                                        |
+| ------------ | ----------------------------------- | -------------------------------------------- |
+| Frontend     | React 18+                           | Functional components, hooks only            |
+| Build Tool   | Vite                                | Dev server, HMR, production bundling         |
+| UI Framework | Bootstrap 5 (react-bootstrap)       | No custom CSS frameworks on top              |
+| State        | Redux Toolkit (RTK)                 | RTK Query for API calls                      |
+| Routing      | React Router v6+                    |                                              |
+| Backend      | Express.js 5                        | REST API, ES modules (`"type": "module"`)    |
+| SQL DB       | PostgreSQL (Neon Tech)              | Accessed via `pg`                            |
+| NoSQL DB     | Firestore                           | File storage + document metadata             |
+| Auth         | Firebase Authentication             | JWT-based, verified server-side              |
+| Chatbot      | X.ai Grok API                       | RAG integration                              |
+| LinkedIn     | Third-party embed widget            | SociableKIT, Elfsight, or Juicer             |
+| Testing      | Vitest + React Testing Library      | Unit + component tests; Supertest for API    |
+| E2E Testing  | Playwright                          | End-to-end tests against Vercel previews     |
+| Linting      | ESLint + Prettier                   | Enforced via pre-commit hook                 |
+| Deployment   | Vercel (Monorepo)                   | `client/` and `server/` as separate projects |
+| MCP Servers  | GitHub, DBHub, Playwright, Context7 | Direct repo, DB, E2E, and docs access        |
 
 ---
 
@@ -114,7 +114,8 @@ Ichnos_Protocol/
 │       ├── ci.yml                        # Lint + unit tests on every PR
 │       ├── e2e.yml                       # Playwright E2E — repository_dispatch (staging URL) + workflow_dispatch
 │       ├── promote-to-production.yml     # Approval-gated production promotion on push to release
-│       └── release-policy-check.yml     # Enforces release branch policy
+│       ├── release-policy-check.yml     # Enforces release branch policy
+│       └── sync-staging.yml              # Auto-sync main → staging (manual QA lane)
 ├── assets/                       # Brand assets (logo, images)
 ├── CLAUDE.md                     # This file
 ├── AGENTS.md                     # Shared agent conventions
@@ -508,11 +509,11 @@ E2E_SUPER_ADMIN_EMAIL=               # Must match the GitHub Actions secret valu
   - **Correct pattern**:
     ```js
     expect(() => fn()).toThrowError(
-      expect.objectContaining({ message: "fail" })
+      expect.objectContaining({ message: "fail" }),
     );
     // For async functions:
     await expect(() => fn()).rejects.toThrowError(
-      expect.objectContaining({ message: "fail" })
+      expect.objectContaining({ message: "fail" }),
     );
     ```
 
@@ -571,9 +572,11 @@ cd e2e && npx playwright show-report
 
 E2E tests run in a **separate workflow** (`e2e.yml`), not inside the CI workflow (`ci.yml`). This avoids wasting runner time polling for Vercel deployments.
 
-**Primary trigger**: `repository_dispatch` (`vercel.deployment.success`) — Vercel emits this event after each successful preview deployment when Repository Dispatch Events are enabled in the Vercel **server** project's Git settings. The workflow filters to only run on server deployments via `project.name` (Pattern B: trigger on the slower deployment). Since the server includes the Neon DB seed, by the time the dispatch fires, the API and database are ready. The client (faster to deploy) is verified via a readiness poll before tests run. Tests run against the stable staging domains configured via GitHub Actions repository variables (`E2E_BASE_URL` for the client, `E2E_API_BASE_URL` for the API), not the per-deployment hash URLs (which can become stale if Vercel cancels/supersedes a deployment). Vercel Deployment Protection is bypassed using the `VERCEL_AUTOMATION_BYPASS_SECRET` secret. Non-sensitive config (URLs) uses variables (`vars.*`) for log visibility; credentials use secrets (`secrets.*`). Chromium only. One concurrent run per project — newer deployments cancel in-progress runs.
+**Primary trigger**: `repository_dispatch` (`vercel.deployment.success`) — Vercel emits this event after each successful preview deployment when Repository Dispatch Events are enabled in the Vercel **server** project's Git settings. The workflow filters to only run on server deployments via `project.name` (Pattern B: trigger on the slower deployment). Tests run against the stable staging domains resolved exclusively from GitHub Actions repository variables (`vars.E2E_BASE_URL` for the client, `vars.E2E_API_BASE_URL` for the API), not the per-deployment hash URLs (which can become stale if Vercel cancels/supersedes a deployment). Before any tests execute, the workflow validates all resolved target URLs against a **fail-closed production-host denylist** defined as workflow-level `env` constants in `e2e.yml`. If the denylist constants are missing/empty or any target URL cannot be parsed, the run aborts. Hostname comparison uses **exact match** after lowercase normalization and port removal. The workflow polls `/api/health` on the API URL for the `seed.mode` readiness signal: `seeded` and `skipped` are accepted as ready states, `failed` is terminal (aborts the run), and `in_progress` triggers retry. Vercel Deployment Protection is bypassed using the `VERCEL_AUTOMATION_BYPASS_SECRET` secret. Non-sensitive config (URLs) uses variables (`vars.*`) for log visibility; credentials use secrets (`secrets.*`). Chromium only. One concurrent run per project — newer deployments cancel in-progress runs.
 
-**Secondary trigger**: `workflow_dispatch` — manual/ad-hoc runs against any `base_url` input; full browser suite available.
+**Note**: The `staging` branch has its own distinct Vercel preview URL that is **never** referenced by `vars.E2E_BASE_URL` or `vars.E2E_API_BASE_URL`. E2E targets remain ephemeral preview URLs — the staging manual-QA environment and E2E targets are intentionally separate.
+
+**Secondary trigger**: `workflow_dispatch` — manual/ad-hoc runs. Both trigger modes resolve target URLs exclusively from `vars.E2E_BASE_URL` and `vars.E2E_API_BASE_URL` — there is no manual URL input. The same fail-closed denylist safety gate applies. Full browser suite is available via the `browser_profile` input.
 
 **Commit status**: The workflow posts a commit status (`E2E Tests (Playwright)`) to the PR so results are visible alongside CI checks, even though E2E runs in a separate workflow.
 
@@ -586,7 +589,7 @@ E2E tests run in a **separate workflow** (`e2e.yml`), not inside the CI workflow
 - Use `test.describe` to group related tests. Use `test.beforeEach` for common setup (e.g., navigation).
 - For admin tests requiring authentication, use Playwright's `storageState` to persist and reuse auth state across tests.
 - Do not assert on CSS class names or internal IDs. Assert on visible text, roles, and user-facing behavior.
-- E2E tests are **not** blocking for commits. They run in CI on pull requests only.
+- E2E tests are **not** blocking for commits. Automated runs are triggered by `repository_dispatch` from Vercel preview deployments; manual/ad-hoc runs are available via `workflow_dispatch`.
 
 ---
 
@@ -677,6 +680,7 @@ GitHub Repository (Ichnos_Protocol)
 
 - **Preview deployments**: Vercel's native Git integration creates preview deployments automatically on every branch push and PR — no GitHub Actions workflow is involved in creating previews. Merges to `main` produce a validated preview, not a production deploy.
 - **Production promotion**: Triggered automatically on push/merge to `release` via `promote-to-production.yml`. The workflow pauses for human approval via the GitHub `production` environment before promoting the latest validated `main` preview to production — no rebuild occurs.
+- **Staging (manual QA)**: The `staging` branch is a long-lived parallel lane for manual QA — it is **not** part of the `main → release → production` promotion chain. `sync-staging.yml` force-pushes `main` to `staging` after every server `repository_dispatch (vercel.deployment.success)`, unconditionally (regardless of E2E pass/fail), so `staging` is always an exact copy of `main` with no divergent history. The push uses a PAT (`SYNC_PAT`) so Vercel's native Git integration detects it and deploys. Staging's Vercel preview uses **production Firebase** and **production Neon** credentials via branch-scoped env overrides, with `SKIP_E2E_SEED=true`. Manual QA actions on staging write to the production database — this is explicitly accepted. E2E targets (`vars.E2E_BASE_URL`, `vars.E2E_API_BASE_URL`) remain pointed at ephemeral preview URLs and are unaffected. `staging` does not gate any automated checks; it is not a valid PR source for `release`.
 - **Environment separation**: Use Vercel's environment scoping (Production, Preview, Development) to manage secrets per environment.
 - **CORS**: The server's `CORS_ORIGIN` must match the frontend's Vercel deployment URL (or use the `VERCEL_URL` environment variable for preview deployments).
 - **Domain**: Configure custom domains in Vercel project settings, not in code.
@@ -821,137 +825,46 @@ The following actions still require explicit user confirmation even in automated
 
 ---
 
-## 19. MCP Server Integrations
+## 19. Database MCP Server
 
-Claude Code has four MCP (Model Context Protocol) servers configured that provide direct access to external services. **Always prefer MCP tools over manual alternatives** when available.
+A local MCP server ([`@bytebase/dbhub`](https://github.com/bytebase/dbhub)) is configured in `.mcp.json` (gitignored) to give Claude direct read/write access to the Neon PostgreSQL database.
 
-### 19.1 Overview
+### Available Tools
 
-| MCP Server      | Package / Transport                  | Scope   | Purpose                                      | Priority Over                          |
-| --------------- | ------------------------------------ | ------- | -------------------------------------------- | -------------------------------------- |
-| **GitHub**      | HTTP (`api.githubcopilot.com`)       | User    | Full repo access: issues, PRs, code, commits | `gh` CLI, manual git remote operations |
-| **DBHub**       | `@bytebase/dbhub` (stdio)           | Project | Direct PostgreSQL query access               | Manual `psql` or SQL client            |
-| **Playwright**  | `@playwright/mcp` (stdio)           | User    | Browser automation and E2E test execution     | Manual `npx playwright test` commands  |
-| **Context7**    | `@upstash/context7-mcp` (stdio)     | User    | Up-to-date library documentation lookup      | Web search for API docs                |
+- **`mcp__db__execute_sql`** — Run any SQL query (SELECT, INSERT, UPDATE, DELETE, DDL) against the production Neon database.
+- **`mcp__db__search_objects`** — Search for database objects (tables, columns, indexes, constraints) by name or pattern.
 
-### 19.2 Setup Instructions
+### When to Use
 
-MCP servers are added via `claude mcp add` in a terminal **outside** of Claude Code. On Windows, wrap stdio commands with `cmd /c`.
+- **Investigating bugs**: Query production data directly to verify state, check row counts, or inspect specific records.
+- **Schema verification**: Confirm table structures, indexes, and constraints match expectations before writing migrations.
+- **Data analysis**: Run ad-hoc queries to answer questions about customer requests, uploaded documents, or other stored data.
+- **Migration validation**: After writing a migration, verify the schema changes were applied correctly.
 
-#### User-scoped servers (available across all projects)
+### Important Rules
 
-```bash
-# GitHub — configured via HTTP, requires a GitHub personal access token
-claude mcp add --transport http github https://api.githubcopilot.com/mcp \
-  --header "Authorization: Bearer <GITHUB_PAT>"
+- **Read-first by default.** Prefer SELECT queries for investigation. Only run mutating queries (INSERT, UPDATE, DELETE, DDL) when explicitly asked or when the task requires it.
+- **This is the production database.** Treat mutating operations with care — confirm with the user before running destructive queries (DELETE, DROP, TRUNCATE).
+- **The connection string is in `.mcp.json`** (gitignored) via the `DSN` env var. It is the same value as `DATABASE_URL` in `server/.env`. Both must be kept in sync manually — if the database credentials rotate, update both files.
 
-# Context7 — no API key required
-claude mcp add --transport stdio context7 -- cmd /c npx -y @upstash/context7-mcp@latest
+### Setup
 
-# Playwright — runs headless by default
-claude mcp add --transport stdio playwright -- cmd /c npx -y @playwright/mcp --headless
-```
+The MCP server is configured in `.mcp.json` at the repository root (gitignored). To set it up on a new machine:
 
-#### Project-scoped servers (per-project, reads from that project's config)
-
-```bash
-# DBHub — reads DATABASE_URL from server/.env via dotenv-cli
-# Run this from the project root directory
-claude mcp add --transport stdio db --scope project \
-  -- cmd /c "npx -y dotenv-cli -e server/.env -- npx -y @bytebase/dbhub"
-```
-
-DBHub is project-scoped because each project has its own `DATABASE_URL` in `server/.env`. The `dotenv-cli` package loads that file at startup and passes the env vars to `@bytebase/dbhub`, which reads `DATABASE_URL` automatically.
-
-#### Verification
-
-```bash
-claude mcp list              # check all servers and connection status
-claude mcp get <name>        # inspect a specific server
-```
-
-Inside Claude Code, run `/mcp` to verify connections. MCP configs are loaded at session startup — restart Claude Code after adding/removing servers.
-
-#### Management
-
-```bash
-claude mcp remove <name>                  # remove from default (local) scope
-claude mcp remove <name> --scope project  # remove from project scope
-claude mcp remove <name> --scope user     # remove from user scope
-```
-
-### 19.3 GitHub MCP (`github`)
-
-**Scope**: User — works across all repositories.
-
-**Repository**: `Khorolev/Ichnos_Protocol` — always use `owner: "Khorolev"`, `repo: "Ichnos_Protocol"` when calling GitHub MCP tools.
-
-**When to use** (prefer over `gh` CLI or raw git remote commands):
-
-- Reading issues and PRs: `issue_read`, `pull_request_read`, `list_issues`, `list_pull_requests`
-- Creating/updating issues and PRs: `issue_write`, `create_pull_request`, `update_pull_request`
-- Searching code across the repo: `search_code`
-- Reading file contents on remote branches: `get_file_contents`
-- Viewing commits, diffs, and PR reviews: `get_commit`, `pull_request_read` (method: `get_diff`)
-- Creating branches and pushing files directly: `create_branch`, `push_files`
-- Listing branches, tags, and releases: `list_branches`, `list_tags`, `list_releases`
-
-**When NOT to use**:
-
-- Local file reads/edits — use the Read/Edit tools instead
-- Local git operations (staging, committing) — use Bash with git
-- Running local builds, tests, or dev servers — use Bash
-
-### 19.4 DBHub — PostgreSQL (`db`)
-
-**Scope**: Project — each project connects to its own database via `DATABASE_URL` from `server/.env`.
-
-**How it works**: `dotenv-cli` loads `server/.env` at MCP server startup and passes all env vars (including `DATABASE_URL`) to `@bytebase/dbhub`. This means the database connection always matches the current project's configuration without hardcoding secrets in MCP config.
-
-**When to use**:
-
-- Inspecting the current database schema (list tables, describe columns, check constraints)
-- Running read-only queries to verify data after migrations or bug fixes
-- Checking `customer_requests` table structure and sample data
-- Validating that repository-layer SQL queries match the actual schema
-- Debugging data-related issues by examining live data
-
-**Safety rules**:
-
-- **Prefer read-only queries** (SELECT, `\d`, `\dt`). Never run DROP, TRUNCATE, or DELETE without explicit user confirmation.
-- Use this for schema inspection and data verification, **not** as a replacement for the repository layer in application code.
-- All application-level DB access still goes through `server/src/repositories/` — DBHub is a development/debugging tool.
-- Never expose query results containing PII in commit messages or logs.
-
-### 19.5 Playwright MCP (`playwright`)
-
-**Scope**: User — works across all projects.
-
-**Configuration**: Runs in headless mode by default.
-
-**When to use**:
-
-- Running E2E tests directly from Claude Code without needing a separate terminal
-- Writing and iterating on Playwright tests with immediate feedback on pass/fail
-- Debugging failing E2E tests by running them and inspecting results
-- Testing against localhost (`http://localhost:5173`) or Vercel preview URLs
-- Verifying UI behavior after frontend changes
-
-**Preferred over**: Manual `cd e2e && npx playwright test` commands when Claude needs to iterate on test results and fix issues in the same session.
-
-**Integration with Section 14.4**: All E2E test rules from Section 14.4 still apply. Playwright MCP is the execution mechanism, not a replacement for test structure conventions.
-
-### 19.6 Context7 (`context7`)
-
-**Scope**: User — works across all projects.
-
-**When to use**:
-
-- Looking up current API docs for project dependencies: React, Redux Toolkit, RTK Query, Express, Playwright, Firebase, react-bootstrap, Zod, Vite, Vitest, React Router, pg (node-postgres)
-- Resolving ambiguity about library API signatures, options, or return values rather than relying on training data
-- Checking for breaking changes or deprecated patterns before writing code
-- Verifying correct usage of hooks, middleware, or configuration options
-
-**Priority**: Use Context7 **before** falling back to web search for library documentation. Context7 returns the most relevant, version-aware documentation directly.
-
-**When NOT to use**: For project-specific code patterns — read the codebase directly instead. Context7 is for external library docs only.
+1. Copy `DATABASE_URL` from `server/.env`.
+2. Create `.mcp.json` in the repository root:
+   ```json
+   {
+     "mcpServers": {
+       "db": {
+         "type": "stdio",
+         "command": "npx",
+         "args": ["-y", "@bytebase/dbhub"],
+         "env": {
+           "DSN": "<paste DATABASE_URL value here>"
+         }
+       }
+     }
+   }
+   ```
+3. The `DSN` value must match `DATABASE_URL` in `server/.env`. If credentials rotate, update both files.

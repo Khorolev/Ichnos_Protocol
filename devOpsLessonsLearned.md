@@ -117,7 +117,7 @@ protection?" Then ensure the bypass is configured on every relevant project.
 | --------------------------------- | -------------- | ------------- |
 | curl readiness check (client URL) | Client         | Yes           |
 | Playwright browser navigation     | Client         | Yes           |
-| global-setup health poll (API)    | Server         | Yes           |
+| global-setup Firebase validation  | Server         | Yes           |
 | Playwright API calls via app      | Server         | Yes (via app) |
 
 ---
@@ -145,7 +145,7 @@ Simplify `global-setup.js` to only validate Firebase credentials.
 ```
 Workflow step 1: curl → staging-client URL (HTTP 200 check)
     ↓ passes
-Workflow step 2: curl → staging-api /api/health (JSON parsed, seed.seeded === true)
+Workflow step 2: curl → staging-api /api/health (JSON parsed, seed.mode ∈ {seeded, skipped})
     ↓ passes
 Playwright global-setup: Firebase credential validation only
     ↓ passes
@@ -252,20 +252,24 @@ active database connections. The seed script on the first deployment fails with
 `Connection terminated unexpectedly`.
 
 **Why it matters**: The E2E workflow's health-check step polls `/api/health` and
-checks `seed.seeded === true`. If the first deployment's seed fails, the health
-endpoint reports the error. If the workflow treats all seed errors as fatal, it
-exits immediately — even though the second deployment (which the staging URL now
-points to) is still seeding successfully.
+gates on `seed.mode`. The accepted terminal-ready states are `seeded` and `skipped`
+(tests proceed); `failed` causes an immediate workflow failure; `in_progress` keeps
+polling until the timeout. If the first deployment's seed fails, the health endpoint
+reports `seed.mode: "failed"`. However, the second deployment (which the staging URL
+now points to) may still be seeding successfully with `seed.mode: "in_progress"`.
 
 **Solution**: Distinguish **permanent** seed errors from **transient** ones:
 
-| Error type  | Example                                    | Action         |
-| ----------- | ------------------------------------------ | -------------- |
-| Permanent   | `missing required seed vars: E2E_ADMIN_UID`| Fail immediately |
-| Transient   | `Connection terminated unexpectedly`       | Keep retrying  |
+| `seed.mode` value | Example cause                              | Action         |
+| ------------------ | ------------------------------------------ | -------------- |
+| `failed`           | `missing required seed vars: E2E_ADMIN_UID`| Fail immediately |
+| `in_progress`      | `Connection terminated unexpectedly` (Neon branch churn) | Keep retrying  |
+| `seeded`           | Seed completed successfully                | Proceed to tests |
+| `skipped`          | `SKIP_E2E_SEED=true` or non-preview env    | Proceed to tests |
 
-The workflow retries on transient errors (Neon branch churn, connection resets)
-and only fails immediately on permanent config errors (missing env vars).
+The workflow retries while `seed.mode` is `in_progress` (Neon branch churn,
+connection resets) and only fails immediately when `seed.mode` is `failed`
+(permanent config errors like missing env vars).
 
 ---
 
@@ -294,7 +298,7 @@ Push → Client deploys (fast) → Server deploys + seeds DB (slow)
                                         ↓
                               Poll client URL (usually instant ✓)
                                         ↓
-                              Verify API health + seed (should pass ✓)
+                              Verify API health + seed.mode ∈ {seeded, skipped}
                                         ↓
                               Run Playwright tests
 ```
@@ -305,6 +309,8 @@ always ready when we check. No debounce, no sleep, no wasted CI time.
 **Vercel project configuration**:
 - **Server project**: Enable "Repository Dispatch Events" in Git settings.
 - **Client project**: Disable "Repository Dispatch Events" (no longer needed).
+
+Both `repository_dispatch` and `workflow_dispatch` now resolve E2E targets from `vars.E2E_BASE_URL` and `vars.E2E_API_BASE_URL`. The `workflow_dispatch` trigger no longer accepts a manual `base_url` input — eliminating split-target risk between manual and automated runs.
 
 **Edge case — push that only changes `client/` files**: The server doesn't redeploy,
 so no dispatch fires and no E2E run starts. This is acceptable: the server didn't
@@ -522,3 +528,67 @@ is expected, not a bug.
 
 **Lesson**: Treat the provisioning script as a local admin setup tool, not part of the
 CI/CD pipeline. Treat terminal-related errors as local environment/setup issues first.
+
+---
+
+## 19. Production-Host Denylist: Fail-Closed Safety Gate
+
+**Problem**: E2E URL variables (`E2E_BASE_URL`, `E2E_API_BASE_URL`) could accidentally
+point to production hostnames. Since E2E tests perform writes (seed data, form
+submissions, etc.), running against production would corrupt live data.
+
+**Solution**: `e2e.yml` defines canonical denylist constants (`PRODUCTION_HOSTS_CLIENT`,
+`PRODUCTION_HOSTS_API`) as workflow-level `env` values. A validation step runs before
+any tests and hard-fails if:
+
+- A target hostname exactly matches a denylist entry (after lowercase normalization and port removal)
+- A URL cannot be parsed to extract a hostname
+- A denylist constant is empty or missing
+
+**Key semantics**: Hostname comparison is exact match only — no substring, glob, or
+regex. Ports are stripped before comparison. All hostnames are lowercased.
+
+**Ownership**: The denylist values in `e2e.yml` are the **canonical source of truth**.
+All other docs (including this one) are descriptive only. Changes require
+maintainer-reviewed PRs.
+
+**Lesson**: When automated tests perform writes against configurable URLs, add a
+fail-closed safety gate at the workflow level. Fail-closed means: if the denylist is
+missing, empty, or unparseable — abort, don't proceed.
+
+---
+
+## 20. Staging Branch: Parallel Manual-QA Lane with Production Data
+
+**Problem**: E2E tests were pointing at a staging alias backed by ephemeral Neon
+branches. When the E2E target and the manual QA target are the same URL, either
+E2E seed data pollutes manual QA, or manual QA runs against an ephemeral DB that
+expires. The two use cases — automated E2E and manual QA — need different database
+backends but were overloading a single URL.
+
+**Solution**: Introduce a `staging` branch as a long-lived side branch for manual
+QA only. It is **not** in the promotion chain (`main → release → production` is
+unchanged). `staging` is auto-synced from `main` via `sync-staging.yml` after
+every server `repository_dispatch`.
+
+**Key properties**:
+
+| Property | Detail |
+| --- | --- |
+| Firebase credentials | Production (real login) |
+| Neon connection (`DATABASE_URL`) | Production (not an ephemeral branch) |
+| `SKIP_E2E_SEED` | `true` — prevents automated seed injection |
+| Manual QA writes | Go to the production DB — **explicitly accepted** |
+| `vars.E2E_BASE_URL` / `vars.E2E_API_BASE_URL` | Continue to target ephemeral previews — E2E is unaffected |
+| Promotion chain | `staging` is not a valid PR source for `release` |
+
+**Sync mechanism**: `sync-staging.yml` fires unconditionally on
+`repository_dispatch (vercel.deployment.success)` from the server project. It
+uses a PAT (`SYNC_PAT`) to push so Vercel's native Git integration picks up
+the change and deploys a new preview for the `staging` branch. The workflow
+force-pushes `main` to `staging`, so `staging` is always an exact copy of
+`main` with no divergent history.
+
+**Lesson**: When automated E2E and manual QA need different database backends,
+use separate branches with branch-scoped Vercel env overrides — don't overload
+a single URL for both purposes.

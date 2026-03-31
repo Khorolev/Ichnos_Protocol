@@ -74,6 +74,7 @@ app.get("/api/health", async (_req, res) => {
       seeded: seedStatus.seeded,
       error: seedStatus.error,
       attempts: seedStatus.attempts,
+      mode: seedStatus.mode,
     },
   });
 });
