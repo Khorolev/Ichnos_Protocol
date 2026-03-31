@@ -12,6 +12,7 @@
 [![E2E Tests (Playwright)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/e2e.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/e2e.yml)
 [![Promote to Production](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/promote-to-production.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/promote-to-production.yml)
 [![Release Policy Check](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/release-policy-check.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/release-policy-check.yml)
+[![Sync Staging](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/sync-staging.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/sync-staging.yml)
 
 ---
 
@@ -26,6 +27,7 @@
 - [Design System](#design-system)
 - [Tech Stack](#tech-stack)
 - [Getting Started](#getting-started)
+  - [Database MCP Server (Claude Code)](#database-mcp-server-claude-code)
 - [Project Structure](#project-structure)
 - [Environment Variables](#environment-variables)
 - [Deployment](#deployment)
@@ -301,6 +303,32 @@ cp server/.env.example server/.env
 
 See [Environment Variables](#environment-variables) for the full list.
 
+### Database MCP Server (Claude Code)
+
+Claude Code can query the Neon PostgreSQL database directly via a local MCP server. The configuration lives in `.mcp.json` (gitignored) and requires the same connection string used by the backend.
+
+**Setup:**
+
+1. Copy the `DATABASE_URL` value from `server/.env`.
+2. Create `.mcp.json` in the repository root:
+
+```json
+{
+  "mcpServers": {
+    "db": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@bytebase/dbhub"],
+      "env": {
+        "DSN": "<paste DATABASE_URL value here>"
+      }
+    }
+  }
+}
+```
+
+> **Note:** The `DSN` value in `.mcp.json` and `DATABASE_URL` in `server/.env` must be identical. `@bytebase/dbhub` uses the env var name `DSN`, not `DATABASE_URL`. If the database credentials rotate, update both files.
+
 ### Key Dependencies
 
 Current versions (as of last update):
@@ -362,7 +390,7 @@ cd e2e && npx playwright test --headed
 cd e2e && npx playwright show-report
 ```
 
-In CI, Playwright is triggered by `repository_dispatch` (`vercel.deployment.success`) from the server Vercel project and runs against stable staging URLs configured via GitHub Actions variables (`vars.E2E_BASE_URL` and `vars.E2E_API_BASE_URL`) — no need to start local servers.
+In CI, Playwright is triggered by `repository_dispatch` (`vercel.deployment.success`) from the server Vercel project and runs against stable staging URLs resolved exclusively from GitHub Actions variables (`vars.E2E_BASE_URL` and `vars.E2E_API_BASE_URL`) — no need to start local servers. Both `repository_dispatch` and `workflow_dispatch` modes resolve targets from the same variables; there is no manual URL input. A fail-closed production-host denylist (exact hostname match, canonical in `e2e.yml`) validates all target URLs before tests execute. The workflow uses `seed.mode` from `/api/health` for readiness — `seeded` or `skipped` are both accepted as ready states.
 
 ### Linting and Formatting
 
@@ -438,7 +466,8 @@ Ichnos_Protocol/
 │       ├── ci.yml                           # Lint + unit tests + client build verification (PRs to main)
 │       ├── e2e.yml                          # E2E Tests (Playwright) — repository_dispatch + workflow_dispatch
 │       ├── promote-to-production.yml        # Production promotion on push to release (approval-gated)
-│       └── release-policy-check.yml         # Policy gate: confirms PR head is main before release merge
+│       ├── release-policy-check.yml         # Policy gate: confirms PR head is main before release merge
+│       └── sync-staging.yml                 # Auto-sync main → staging (manual QA lane)
 ├── assets/                        # Brand assets (logo, images)
 ├── CLAUDE.md                      # Claude AI coding instructions
 ├── AGENTS.md                      # Shared agent conventions
@@ -492,11 +521,14 @@ The project follows a **2-branch deployment model**:
 feature/* → main (PR-gated: CI + Vercel Preview + E2E)
     → release (PR from main only, Release Policy Check required)
         → production (environment approval required, promote-only model)
+
+main ─── sync-staging.yml ───→ staging (parallel manual-QA lane, not in promotion chain)
 ```
 
-- **Preview deployments**: PRs targeting `main` get unique Vercel preview URLs for both frontend and backend; E2E tests are triggered by `repository_dispatch` (`vercel.deployment.success`) from the server project and run against stable staging URLs (`vars.E2E_BASE_URL` for client, `vars.E2E_API_BASE_URL` for API), not per-deployment preview URLs.
+- **Preview deployments**: PRs targeting `main` get unique Vercel preview URLs for both frontend and backend; E2E tests are triggered by `repository_dispatch` (`vercel.deployment.success`) from the server project and run against stable staging URLs resolved exclusively from `vars.E2E_BASE_URL` (client) and `vars.E2E_API_BASE_URL` (API), not per-deployment preview URLs. `workflow_dispatch` also resolves from the same variables — there is no manual URL override. A fail-closed production-host denylist (exact hostname match, canonical in `e2e.yml`) prevents tests from running against production. The workflow accepts `seed.mode` values of `seeded` or `skipped` from `/api/health` as ready states before running Playwright.
 - **Production deployments**: Merges to `release` trigger `promote-to-production.yml`, which discovers the latest READY `main` preview and promotes it — no rebuild. Requires human approval via the GitHub `production` environment.
 - **Environment variables**: Configured in each Vercel project's settings dashboard (Production, Preview, Development scopes). Never committed to the repository.
+- **Staging (manual QA)**: The `staging` branch is a long-lived parallel lane for manual QA. It is auto-synced from `main` after every server deployment via `sync-staging.yml`. Staging deploys as a Vercel preview with production Firebase and production Neon credentials (branch-scoped env overrides). `SKIP_E2E_SEED=true` prevents automated seed injection. Manual QA actions on staging write to the production database — this is explicitly accepted. `staging` does not gate any automated checks and is not a valid PR source for `release`. E2E targets (`vars.E2E_BASE_URL`, `vars.E2E_API_BASE_URL`) remain pointed at ephemeral preview URLs and are unaffected by staging.
 
 For the authoritative CI/CD reference, see [`DEPLOYMENT_GITHUB_ACTIONS.md`](DEPLOYMENT_GITHUB_ACTIONS.md). For infrastructure setup, see [`DEPLOYMENT.md`](DEPLOYMENT.md). For GitHub settings, see [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md). For Vercel settings, see [`VERCEL_SETTINGS.md`](VERCEL_SETTINGS.md).
 

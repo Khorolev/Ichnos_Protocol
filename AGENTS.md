@@ -142,7 +142,9 @@ cd server && vercel --prod   # deploy backend
   - **Filter**: The workflow guards on `contains(github.event.client_payload.project.name || '', 'server')` — a safety check since only the server emits dispatches.
   - **Target URLs**: Stable staging URLs from GitHub Actions Variables (`vars.E2E_BASE_URL` for client, `vars.E2E_API_BASE_URL` for API) — not per-deployment hash URLs.
   - **Client readiness**: The workflow polls `vars.E2E_BASE_URL` to verify the client is live before running Playwright.
-- `e2e.yml` also supports **manual/ad-hoc** runs via `workflow_dispatch` (requires a `base_url` input).
+  - **Seed readiness**: The workflow polls `/api/health` for `seed.mode` — `seeded` and `skipped` are accepted as ready states, `failed` is terminal, `in_progress` triggers retry.
+  - **Safety gate**: A fail-closed production-host denylist (exact hostname match, lowercase normalized, port removed) validates all target URLs before tests execute. Denylist constants are canonical in `e2e.yml`.
+- `e2e.yml` also supports **manual/ad-hoc** runs via `workflow_dispatch`. Both trigger modes resolve target URLs exclusively from `vars.E2E_BASE_URL` and `vars.E2E_API_BASE_URL` — there is no manual URL input. The same denylist safety gate applies.
 - Browsers: **Chromium only** for `repository_dispatch` CI runs; **full suite** (Chromium, Firefox, WebKit) for `workflow_dispatch` manual runs; Chromium-only locally.
 
 ## Git conventions
@@ -151,6 +153,7 @@ cd server && vercel --prod   # deploy backend
 - Types: `feat`, `fix`, `refactor`, `test`, `chore`, `docs`, `style`
 - Scopes: `client`, `server`, `db`, `chat`, `auth`, `admin`, `linkedin`
 - Branch per feature: `feature/<short-description>` from `main`
+- `staging` is a **long-lived parallel branch** for manual QA, auto-synced from `main` by `sync-staging.yml`. It is not in the promotion chain (`feature/* → main → release` is unchanged). Never open PRs targeting `staging`.
 
 ## Security essentials
 
@@ -201,6 +204,8 @@ cd server && vercel --prod   # deploy backend
 - Production promotion is triggered automatically on push to `release` and requires human approval via the GitHub `production` environment before the latest validated `main` preview is promoted.
 - Environment variables set in Vercel project settings, never committed.
 - `server/api/index.js` only re-exports the Express app. All setup stays in `server/src/app.js`.
+- **Staging manual-QA lane**: The `staging` branch produces a Vercel Preview deployment that uses **production Firebase** and **production Neon DB** via branch-scoped env overrides. `SKIP_E2E_SEED=true` prevents automated seed injection. Manual QA actions on `staging` write to the production database — this is explicitly accepted.
+- `sync-staging.yml` force-pushes `main` to `staging` after every server deployment (unconditional, same `repository_dispatch` trigger as `e2e.yml`, runs in parallel). Uses `SYNC_PAT` (not `GITHUB_TOKEN`) to trigger Vercel redeployment.
 
 ## CI/CD best practices
 
@@ -230,21 +235,29 @@ cd server && vercel --prod   # deploy backend
 - Production environment should have an approval gate configured in GitHub → Settings → Environments.
 - **Fork PR trust boundary**: Vercel's Git integration does not expose environment variables to builds from forks by default, preventing secret exfiltration via attacker-controlled code.
 - See `DEPLOYMENT_GITHUB_ACTIONS.md` for setup instructions.
+- The `staging` branch is an auto-synced parallel manual-QA lane that sits outside the automated pipeline. It uses production credentials for real-user QA. See `DEPLOYMENT_GITHUB_ACTIONS.md` for full details.
 
 ### Neon preview branches for E2E
 - Vercel's native Neon integration automatically creates a Neon preview branch for each Vercel preview deployment — no GitHub Actions step provisions or deletes branches.
 - E2E test data is seeded automatically by the server on preview startup. When `VERCEL_ENV === 'preview'` and E2E account env vars are present (`E2E_ADMIN_EMAIL`, `E2E_ADMIN_UID`), the server runs idempotent seed queries using its own `DATABASE_URL` (injected by the Neon-Vercel integration).
 - GitHub Actions does not interact with the database at all — no Neon API calls, no direct DB connections, no seed tokens.
 - E2E account env vars (`E2E_ADMIN_EMAIL`, `E2E_ADMIN_UID`, etc.) must be set as Vercel server environment variables scoped to **Preview** only.
+- Seeding can be suppressed by setting `SKIP_E2E_SEED=true` as a Vercel server Preview env var; `/api/health` then reports `seed.mode=skipped`.
+- `/api/health` exposes `seed.mode` (enum: `seeded | skipped | in_progress | failed`) as the canonical readiness signal for CI orchestration. The backward-compatible fields (`seed.seeded`, `seed.error`, `seed.attempts`) are retained alongside it.
 - For local/manual seeding outside Vercel, use `node server/scripts/seedE2EData.js`.
+- The `staging` branch does **not** use an ephemeral Neon branch — it connects directly to the production Neon database via a branch-scoped `DATABASE_URL` override. Any Neon ephemeral branch auto-created for the `staging` preview is unused and expires automatically.
 
 ### E2E URL targeting in GitHub Actions
 - E2E tests are triggered by `repository_dispatch (vercel.deployment.success)` from the **server** Vercel project (`ichnos-protocolserver`) via `e2e.yml`, not as a dependent job inside another workflow.
 - The workflow uses **project-name filtering** (`contains(project.name, 'server')`) as the event guard — not hostname pattern matching.
 - Tests target stable staging URLs via **GitHub Actions Variables** (`vars.E2E_BASE_URL`, `vars.E2E_API_BASE_URL`), not per-deployment hash URLs and not secrets.
 - Detection does not use `VERCEL_PROJECT_ID_CLIENT` or hostname matching.
-- `e2e.yml` also supports manual/ad-hoc runs via `workflow_dispatch`.
+- Both `repository_dispatch` and `workflow_dispatch` modes resolve targets from `vars.E2E_BASE_URL` / `vars.E2E_API_BASE_URL` — no manual URL input is accepted.
+- Production-host denylist constants (`PRODUCTION_HOSTS_CLIENT`, `PRODUCTION_HOSTS_API`) are canonical in the `e2e.yml` workflow `env` block. Updates require maintainer-reviewed PRs on the workflow file. Docs are descriptive only and must not introduce alternate policy sources.
+- The denylist gate is fail-closed: empty/missing constants or unparseable URLs abort the run. Hostname matching is exact-match after lowercase normalization and port removal.
+- API readiness is `seed.mode`-based: the workflow polls `/api/health` and accepts `seeded` or `skipped` as ready; `failed` triggers immediate failure.
 - E2E tests must target the **client** staging URL only, never the server.
+- `vars.E2E_BASE_URL` and `vars.E2E_API_BASE_URL` point to **ephemeral preview** targets — never to the `staging` branch URL. The `staging` environment is a separate manual-QA lane with its own distinct URL and production credentials.
 
 ### Secret-conditional steps
 - Any CI step that requires a secret must check for presence before running, not fail silently:

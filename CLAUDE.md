@@ -113,7 +113,8 @@ Ichnos_Protocol/
 │       ├── ci.yml                        # Lint + unit tests on every PR
 │       ├── e2e.yml                       # Playwright E2E — repository_dispatch (staging URL) + workflow_dispatch
 │       ├── promote-to-production.yml     # Approval-gated production promotion on push to release
-│       └── release-policy-check.yml     # Enforces release branch policy
+│       ├── release-policy-check.yml     # Enforces release branch policy
+│       └── sync-staging.yml              # Auto-sync main → staging (manual QA lane)
 ├── assets/                       # Brand assets (logo, images)
 ├── CLAUDE.md                     # This file
 ├── AGENTS.md                     # Shared agent conventions
@@ -570,9 +571,11 @@ cd e2e && npx playwright show-report
 
 E2E tests run in a **separate workflow** (`e2e.yml`), not inside the CI workflow (`ci.yml`). This avoids wasting runner time polling for Vercel deployments.
 
-**Primary trigger**: `repository_dispatch` (`vercel.deployment.success`) — Vercel emits this event after each successful preview deployment when Repository Dispatch Events are enabled in the Vercel **server** project's Git settings. The workflow filters to only run on server deployments via `project.name` (Pattern B: trigger on the slower deployment). Since the server includes the Neon DB seed, by the time the dispatch fires, the API and database are ready. The client (faster to deploy) is verified via a readiness poll before tests run. Tests run against the stable staging domains configured via GitHub Actions repository variables (`E2E_BASE_URL` for the client, `E2E_API_BASE_URL` for the API), not the per-deployment hash URLs (which can become stale if Vercel cancels/supersedes a deployment). Vercel Deployment Protection is bypassed using the `VERCEL_AUTOMATION_BYPASS_SECRET` secret. Non-sensitive config (URLs) uses variables (`vars.*`) for log visibility; credentials use secrets (`secrets.*`). Chromium only. One concurrent run per project — newer deployments cancel in-progress runs.
+**Primary trigger**: `repository_dispatch` (`vercel.deployment.success`) — Vercel emits this event after each successful preview deployment when Repository Dispatch Events are enabled in the Vercel **server** project's Git settings. The workflow filters to only run on server deployments via `project.name` (Pattern B: trigger on the slower deployment). Tests run against the stable staging domains resolved exclusively from GitHub Actions repository variables (`vars.E2E_BASE_URL` for the client, `vars.E2E_API_BASE_URL` for the API), not the per-deployment hash URLs (which can become stale if Vercel cancels/supersedes a deployment). Before any tests execute, the workflow validates all resolved target URLs against a **fail-closed production-host denylist** defined as workflow-level `env` constants in `e2e.yml`. If the denylist constants are missing/empty or any target URL cannot be parsed, the run aborts. Hostname comparison uses **exact match** after lowercase normalization and port removal. The workflow polls `/api/health` on the API URL for the `seed.mode` readiness signal: `seeded` and `skipped` are accepted as ready states, `failed` is terminal (aborts the run), and `in_progress` triggers retry. Vercel Deployment Protection is bypassed using the `VERCEL_AUTOMATION_BYPASS_SECRET` secret. Non-sensitive config (URLs) uses variables (`vars.*`) for log visibility; credentials use secrets (`secrets.*`). Chromium only. One concurrent run per project — newer deployments cancel in-progress runs.
 
-**Secondary trigger**: `workflow_dispatch` — manual/ad-hoc runs against any `base_url` input; full browser suite available.
+**Note**: The `staging` branch has its own distinct Vercel preview URL that is **never** referenced by `vars.E2E_BASE_URL` or `vars.E2E_API_BASE_URL`. E2E targets remain ephemeral preview URLs — the staging manual-QA environment and E2E targets are intentionally separate.
+
+**Secondary trigger**: `workflow_dispatch` — manual/ad-hoc runs. Both trigger modes resolve target URLs exclusively from `vars.E2E_BASE_URL` and `vars.E2E_API_BASE_URL` — there is no manual URL input. The same fail-closed denylist safety gate applies. Full browser suite is available via the `browser_profile` input.
 
 **Commit status**: The workflow posts a commit status (`E2E Tests (Playwright)`) to the PR so results are visible alongside CI checks, even though E2E runs in a separate workflow.
 
@@ -585,7 +588,7 @@ E2E tests run in a **separate workflow** (`e2e.yml`), not inside the CI workflow
 - Use `test.describe` to group related tests. Use `test.beforeEach` for common setup (e.g., navigation).
 - For admin tests requiring authentication, use Playwright's `storageState` to persist and reuse auth state across tests.
 - Do not assert on CSS class names or internal IDs. Assert on visible text, roles, and user-facing behavior.
-- E2E tests are **not** blocking for commits. They run in CI on pull requests only.
+- E2E tests are **not** blocking for commits. Automated runs are triggered by `repository_dispatch` from Vercel preview deployments; manual/ad-hoc runs are available via `workflow_dispatch`.
 
 ---
 
@@ -676,6 +679,7 @@ GitHub Repository (Ichnos_Protocol)
 
 - **Preview deployments**: Vercel's native Git integration creates preview deployments automatically on every branch push and PR — no GitHub Actions workflow is involved in creating previews. Merges to `main` produce a validated preview, not a production deploy.
 - **Production promotion**: Triggered automatically on push/merge to `release` via `promote-to-production.yml`. The workflow pauses for human approval via the GitHub `production` environment before promoting the latest validated `main` preview to production — no rebuild occurs.
+- **Staging (manual QA)**: The `staging` branch is a long-lived parallel lane for manual QA — it is **not** part of the `main → release → production` promotion chain. `sync-staging.yml` force-pushes `main` to `staging` after every server `repository_dispatch (vercel.deployment.success)`, unconditionally (regardless of E2E pass/fail), so `staging` is always an exact copy of `main` with no divergent history. The push uses a PAT (`SYNC_PAT`) so Vercel's native Git integration detects it and deploys. Staging's Vercel preview uses **production Firebase** and **production Neon** credentials via branch-scoped env overrides, with `SKIP_E2E_SEED=true`. Manual QA actions on staging write to the production database — this is explicitly accepted. E2E targets (`vars.E2E_BASE_URL`, `vars.E2E_API_BASE_URL`) remain pointed at ephemeral preview URLs and are unaffected. `staging` does not gate any automated checks; it is not a valid PR source for `release`.
 - **Environment separation**: Use Vercel's environment scoping (Production, Preview, Development) to manage secrets per environment.
 - **CORS**: The server's `CORS_ORIGIN` must match the frontend's Vercel deployment URL (or use the `VERCEL_URL` environment variable for preview deployments).
 - **Domain**: Configure custom domains in Vercel project settings, not in code.
@@ -816,3 +820,49 @@ The following actions still require explicit user confirmation even in automated
 - Modifying files outside `client/` and `server/` (root config, CI/CD, CLAUDE.md itself)
 - Running database migrations against production
 - Installing new top-level dependencies (devDependencies are fine)
+
+---
+
+## 19. Database MCP Server
+
+A local MCP server ([`@bytebase/dbhub`](https://github.com/bytebase/dbhub)) is configured in `.mcp.json` (gitignored) to give Claude direct read/write access to the Neon PostgreSQL database.
+
+### Available Tools
+
+- **`mcp__db__execute_sql`** — Run any SQL query (SELECT, INSERT, UPDATE, DELETE, DDL) against the production Neon database.
+- **`mcp__db__search_objects`** — Search for database objects (tables, columns, indexes, constraints) by name or pattern.
+
+### When to Use
+
+- **Investigating bugs**: Query production data directly to verify state, check row counts, or inspect specific records.
+- **Schema verification**: Confirm table structures, indexes, and constraints match expectations before writing migrations.
+- **Data analysis**: Run ad-hoc queries to answer questions about customer requests, uploaded documents, or other stored data.
+- **Migration validation**: After writing a migration, verify the schema changes were applied correctly.
+
+### Important Rules
+
+- **Read-first by default.** Prefer SELECT queries for investigation. Only run mutating queries (INSERT, UPDATE, DELETE, DDL) when explicitly asked or when the task requires it.
+- **This is the production database.** Treat mutating operations with care — confirm with the user before running destructive queries (DELETE, DROP, TRUNCATE).
+- **The connection string is in `.mcp.json`** (gitignored) via the `DSN` env var. It is the same value as `DATABASE_URL` in `server/.env`. Both must be kept in sync manually — if the database credentials rotate, update both files.
+
+### Setup
+
+The MCP server is configured in `.mcp.json` at the repository root (gitignored). To set it up on a new machine:
+
+1. Copy `DATABASE_URL` from `server/.env`.
+2. Create `.mcp.json` in the repository root:
+   ```json
+   {
+     "mcpServers": {
+       "db": {
+         "type": "stdio",
+         "command": "npx",
+         "args": ["-y", "@bytebase/dbhub"],
+         "env": {
+           "DSN": "<paste DATABASE_URL value here>"
+         }
+       }
+     }
+   }
+   ```
+3. The `DSN` value must match `DATABASE_URL` in `server/.env`. If credentials rotate, update both files.

@@ -21,7 +21,7 @@ const { Pool } = pg;
 
 const REQUIRED_VARS = ["DATABASE_URL", "E2E_ADMIN_EMAIL", "E2E_ADMIN_UID"];
 
-export const seedStatus = { seeded: false, error: null, attempts: 0 };
+export const seedStatus = { seeded: false, error: null, attempts: 0, mode: "in_progress" };
 
 /** Singleton promise — created on first call, shared across all callers. */
 let seedPromise = null;
@@ -46,6 +46,7 @@ export function resetSeedState() {
   seedStatus.seeded = false;
   seedStatus.error = null;
   seedStatus.attempts = 0;
+  seedStatus.mode = "in_progress";
 }
 
 /**
@@ -171,7 +172,15 @@ async function testConnection(pool) {
 export async function seedE2EOnPreview() {
   seedStatus.error = null;
 
+  if (process.env.SKIP_E2E_SEED === "true") {
+    seedStatus.mode = "skipped";
+    seedStatus.seeded = true;
+    console.log("[e2e-seed] Seed skipped (SKIP_E2E_SEED=true)");
+    return;
+  }
+
   if (process.env.VERCEL_ENV !== "preview") {
+    seedStatus.mode = "skipped";
     seedStatus.seeded = true;
     return;
   }
@@ -182,6 +191,7 @@ export async function seedE2EOnPreview() {
   if (missing.length > 0) {
     const msg = `Preview environment missing required seed vars: ${missing.join(", ")}`;
     seedStatus.error = msg;
+    seedStatus.mode = "failed";
     console.error(`[e2e-seed] ${msg}`);
     return;
   }
@@ -217,6 +227,7 @@ export async function seedE2EOnPreview() {
       await seedOptionalSuperAdmin(pool);
       seedStatus.seeded = true;
       seedStatus.error = null;
+      seedStatus.mode = "seeded";
       console.log("[e2e-seed] E2E seed complete");
       return;
     } catch (err) {
@@ -237,6 +248,7 @@ export async function seedE2EOnPreview() {
         await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
       } else {
         seedStatus.error = err.message;
+        seedStatus.mode = "failed";
         console.error(
           `[e2e-seed] E2E seed failed after ${attempt} attempt(s): ${err.message}`,
         );

@@ -24,7 +24,11 @@
 #   Tests run against stable staging domains (not per-deployment hash URLs).
 #
 # Secondary trigger: workflow_dispatch (manual/ad-hoc runs)
-#   Accepts any base_url input for on-demand testing.
+#   Uses the same vars.E2E_BASE_URL / vars.E2E_API_BASE_URL as dispatch mode.
+#
+# Safety: A production-host denylist gate validates all resolved URLs before
+#   any tests run. The gate is fail-closed — missing constants or unparseable
+#   URLs abort the workflow.
 #
 # Edge case — push that only changes client/ files:
 #   If only the client changes, the server does not redeploy → no dispatch → no
@@ -37,10 +41,6 @@ on:
     types: [vercel.deployment.success]
   workflow_dispatch:
     inputs:
-      base_url:
-        description: "Base URL to run Playwright tests against"
-        required: true
-        type: string
       browser_profile:
         description: "Browser profile: 'chromium' (default) or 'full'"
         required: false
@@ -59,15 +59,22 @@ on:
           - destructive
           - all
 
+# Production-host denylist constants. Changes to these values require
+# maintainer-reviewed PRs — they are the canonical safety gate preventing
+# E2E tests from running against production.
+env:
+  PRODUCTION_HOSTS_CLIENT: "ichnos-protocol.com www.ichnos-protocol.com"
+  PRODUCTION_HOSTS_API: "ichnos-protocolserver.vercel.app"
+
 permissions:
   contents: read
   statuses: write
 
 # One E2E run per project. If a new deployment arrives for the same
 # Vercel project, cancel the in-progress run (the old deployment is stale).
-# Falls back to base_url for manual runs.
+# Manual runs all target the same staging URLs so they cancel each other.
 concurrency:
-  group: e2e-${{ github.event.client_payload.project.name || inputs.base_url || github.run_id }}
+  group: e2e-${{ github.event.client_payload.project.name || 'manual' }}
   cancel-in-progress: true
 
 defaults:
@@ -80,15 +87,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
-    # For repository_dispatch: only run for SERVER deployments.
-    # The server is the slower deployment (includes Neon DB seed), so by the
-    # time this event fires, the API + DB are ready. The client (faster) is
-    # verified via a readiness poll step below.
+    # For repository_dispatch: only run for SERVER deployments from main.
+    # Skip staging branch deployments — staging is a mirror of main
+    # (force-pushed by sync-staging.yml) and must not trigger duplicate
+    # E2E runs or overwrite the commit status set by the original main run.
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (
         github.event_name == 'repository_dispatch' &&
-        contains(github.event.client_payload.project.name || '', 'server')
+        contains(github.event.client_payload.project.name || '', 'server') &&
+        (github.event.client_payload.deployment.meta.githubCommitRef || github.event.client_payload.branch || '') != 'staging'
       )
 
     steps:
@@ -99,23 +107,123 @@ jobs:
       - name: Resolve BASE_URL
         id: deploy
         run: |
+          URL="${{ vars.E2E_BASE_URL }}"
+          if [ -z "$URL" ]; then
+            echo "::error::vars.E2E_BASE_URL is not set. Configure it in GitHub Actions repository variables."
+            exit 1
+          fi
+          echo "base_url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Staging URL: $URL"
+
           if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-            # Use the stable staging domain — per-deployment hash URLs can
-            # become stale if Vercel cancels/supersedes the deployment.
-            URL="${{ vars.E2E_BASE_URL }}"
             SHA="${{ github.event.client_payload.deployment.meta.githubCommitSha || github.event.client_payload.commitSha || '' }}"
             REF="${{ github.event.client_payload.deployment.meta.githubCommitRef || github.event.client_payload.branch || '' }}"
-            echo "base_url=$URL" >> "$GITHUB_OUTPUT"
             echo "commit_sha=$SHA" >> "$GITHUB_OUTPUT"
-            echo "Staging URL: $URL"
             echo "Vercel payload URL: ${{ github.event.client_payload.url }}"
             echo "Commit SHA: $SHA"
             echo "Branch: $REF"
           else
-            echo "base_url=${{ inputs.base_url }}" >> "$GITHUB_OUTPUT"
             echo "commit_sha=" >> "$GITHUB_OUTPUT"
-            echo "Manual run against: ${{ inputs.base_url }}"
+            echo "Manual run against staging URL: $URL"
           fi
+
+      - name: Validate E2E target URLs against production denylist
+        env:
+          BASE_URL: ${{ steps.deploy.outputs.base_url }}
+          API_URL: ${{ vars.E2E_API_BASE_URL }}
+        run: |
+          # Fail-closed: denylist constants must be non-empty
+          if [ -z "$PRODUCTION_HOSTS_CLIENT" ]; then
+            echo "::error::PRODUCTION_HOSTS_CLIENT env constant is empty — cannot validate URLs safely."
+            exit 1
+          fi
+          if [ -z "$PRODUCTION_HOSTS_API" ]; then
+            echo "::error::PRODUCTION_HOSTS_API env constant is empty — cannot validate URLs safely."
+            exit 1
+          fi
+
+          # Extract bare hostname from a URL or hostname string using python3.
+          # Handles full URLs (https://host:port/path), bare hostnames, and
+          # host:port pairs. Returns lowercase hostname or empty string.
+          normalize_hostname() {
+            local input="$1"
+            python3 -c "
+          from urllib.parse import urlparse
+          import sys
+          raw = sys.argv[1].strip()
+          if not raw:
+              sys.exit(0)
+          # If input has no scheme, urlparse puts everything in 'path' — add a scheme
+          if '://' not in raw:
+              raw = 'https://' + raw
+          parsed = urlparse(raw)
+          host = (parsed.hostname or '').lower()
+          print(host)
+          " "$input" 2>/dev/null || true
+          }
+
+          # Tokenize and validate a denylist constant. Splits on whitespace,
+          # normalizes each token to a bare hostname, and fails if any token
+          # cannot be normalized or if zero valid hostnames result.
+          validate_denylist() {
+            local name="$1"
+            local raw="$2"
+            local -n _out=$3
+            _out=()
+            local token normalized
+            for token in $raw; do
+              # Skip pure whitespace tokens (shouldn't happen with unquoted expansion, but defensive)
+              token=$(echo "$token" | xargs 2>/dev/null || true)
+              [ -z "$token" ] && continue
+              normalized=$(normalize_hostname "$token")
+              if [ -z "$normalized" ]; then
+                echo "::error::${name} contains entry '${token}' that cannot be normalized to a bare hostname."
+                exit 1
+              fi
+              _out+=("$normalized")
+            done
+            if [ ${#_out[@]} -eq 0 ]; then
+              echo "::error::${name} produced zero valid hostnames after tokenization — cannot validate URLs safely."
+              exit 1
+            fi
+            echo "${name} denylist (${#_out[@]} entries): ${_out[*]}"
+          }
+
+          # Build validated denylist arrays
+          declare -a CLIENT_DENYLIST API_DENYLIST
+          validate_denylist "PRODUCTION_HOSTS_CLIENT" "$PRODUCTION_HOSTS_CLIENT" CLIENT_DENYLIST
+          validate_denylist "PRODUCTION_HOSTS_API" "$PRODUCTION_HOSTS_API" API_DENYLIST
+
+          # Normalize target URLs
+          CLIENT_HOST=$(normalize_hostname "$BASE_URL")
+          if [ -z "$CLIENT_HOST" ]; then
+            echo "::error::Failed to parse hostname from BASE_URL: $BASE_URL"
+            exit 1
+          fi
+
+          API_HOST=$(normalize_hostname "$API_URL")
+          if [ -z "$API_HOST" ]; then
+            echo "::error::Failed to parse hostname from API_URL: $API_URL"
+            exit 1
+          fi
+
+          # Check client URL against production denylist
+          for host in "${CLIENT_DENYLIST[@]}"; do
+            if [ "$CLIENT_HOST" = "$host" ]; then
+              echo "::error::BASE_URL hostname '$CLIENT_HOST' matches production denylist entry '$host'. E2E tests must not run against production."
+              exit 1
+            fi
+          done
+
+          # Check API URL against production denylist
+          for host in "${API_DENYLIST[@]}"; do
+            if [ "$API_HOST" = "$host" ]; then
+              echo "::error::API_URL hostname '$API_HOST' matches production denylist entry '$host'. E2E tests must not run against production."
+              exit 1
+            fi
+          done
+
+          echo "URL safety check passed: client=$CLIENT_HOST, api=$API_HOST"
 
       - name: Set pending commit status
         if: steps.deploy.outputs.commit_sha != ''
@@ -195,8 +303,9 @@ jobs:
       # Since the dispatch fires from the server project AFTER deployment
       # succeeds, the API should be healthy. This step confirms readiness
       # and that the Neon ephemeral DB seed completed successfully.
-      # Transient errors (Neon branch churn) are retried; permanent errors
-      # (missing env vars) fail immediately.
+      # seed.mode is the canonical control signal: seeded/skipped → done,
+      # failed → fail immediately, in_progress → keep polling.
+      # seed.error is used only for diagnostic messages, not control flow.
       - name: Verify API readiness and DB seed
         env:
           API_URL: ${{ vars.E2E_API_BASE_URL }}
@@ -215,10 +324,9 @@ jobs:
           while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
             BODY=$(curl "${CURL_ARGS[@]}" "$HEALTH_URL" 2>/dev/null || true)
             STATUS=$(echo "$BODY" | jq -r '.status // empty' 2>/dev/null || true)
-            SEEDED=$(echo "$BODY" | jq -r '.seed.seeded // empty' 2>/dev/null || true)
+            SEED_MODE=$(echo "$BODY" | jq -r '.seed.mode // empty' 2>/dev/null || true)
             SEED_ERR=$(echo "$BODY" | jq -r '.seed.error // empty' 2>/dev/null || true)
             SEED_ATTEMPTS=$(echo "$BODY" | jq -r '.seed.attempts // empty' 2>/dev/null || true)
-            VERCEL_ENV=$(echo "$BODY" | jq -r '.vercelEnv // empty' 2>/dev/null || true)
 
             # Log full response on first check for diagnostics
             if [ "$FIRST_CHECK" = "true" ]; then
@@ -228,25 +336,26 @@ jobs:
             fi
 
             if [ "$STATUS" = "ok" ]; then
-              if [ "$SEEDED" = "true" ]; then
-                echo "API healthy and seed complete."
-                exit 0
-              fi
-              if [ -n "$SEED_ERR" ] && [ "$SEED_ERR" != "null" ]; then
-                # Permanent errors (missing config) → fail immediately.
-                # Transient errors (connection issues from Neon branch churn) → retry.
-                case "$SEED_ERR" in
-                  *"missing required seed vars"*)
-                    echo "::error::Seed failed on server: $SEED_ERR"
-                    exit 1
-                    ;;
-                  *)
-                    echo "Transient seed error (server attempt ${SEED_ATTEMPTS}): $SEED_ERR — retrying..."
-                    ;;
-                esac
-              else
-                echo "API healthy but seed in progress (server attempt ${SEED_ATTEMPTS})..."
-              fi
+              # seed.mode is the canonical control signal:
+              #   seeded / skipped → success, stop polling
+              #   failed           → terminal, fail immediately
+              #   in_progress / "" → keep polling
+              case "$SEED_MODE" in
+                seeded|skipped)
+                  echo "API healthy and seed complete (mode=$SEED_MODE)."
+                  exit 0
+                  ;;
+                failed)
+                  echo "::error::Seed failed terminally (mode=$SEED_MODE, server attempt ${SEED_ATTEMPTS}): $SEED_ERR"
+                  exit 1
+                  ;;
+                in_progress|"")
+                  echo "API healthy but seed not done (mode=${SEED_MODE:-pending}, server attempt ${SEED_ATTEMPTS})..."
+                  ;;
+                *)
+                  echo "Unknown seed.mode '$SEED_MODE' (server attempt ${SEED_ATTEMPTS}) — treating as in-progress, retrying..."
+                  ;;
+              esac
             else
               echo "Attempt $((ATTEMPTS + 1))/$MAX_ATTEMPTS: non-JSON or error response — retrying in 5s..."
             fi

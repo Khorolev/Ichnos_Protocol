@@ -1,0 +1,66 @@
+# Sync main → staging — auto-triggered after every server preview deployment.
+#
+# Purpose:
+#   After each successful server deployment to the preview environment, this
+#   workflow force-pushes `main` to `staging` so that `staging` is always an
+#   exact copy of `main` with no divergent history.
+#
+# Why unconditional (no E2E gate):
+#   The sync runs regardless of whether E2E tests pass or fail. This keeps
+#   `staging` in lockstep with `main` at all times. The policy can be tightened
+#   later to gate on E2E results if needed.
+#
+# Why SYNC_PAT instead of GITHUB_TOKEN:
+#   Pushes made with the default GITHUB_TOKEN do not trigger Vercel's native
+#   git integration. Using a Personal Access Token (SYNC_PAT) ensures that the
+#   force-push to `staging` is detected by Vercel, which then creates a preview
+#   deployment with branch-scoped environment overrides.
+#
+# Trigger strategy:
+#   Same `repository_dispatch` event as `e2e.yml` — fired by the Vercel server
+#   project after a successful preview deployment. Both workflows run in
+#   parallel from the same event; they are fully independent.
+name: Sync main → staging
+
+on:
+  repository_dispatch:
+    types: [vercel.deployment.success]
+
+permissions:
+  contents: read
+
+# Prevent concurrent pushes from conflicting on the staging branch.
+# If a new deployment arrives while a sync is in progress, cancel the old one.
+concurrency:
+  group: sync-staging
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  sync:
+    name: Sync main → staging
+    runs-on: ubuntu-latest
+
+    # Only run for SERVER deployments from main — skip staging deployments
+    # to prevent a feedback loop (this workflow pushes to staging, which
+    # triggers a Vercel deployment, which fires repository_dispatch again).
+    if: >-
+      github.event_name == 'repository_dispatch' &&
+      contains(github.event.client_payload.project.name || '', 'server') &&
+      (github.event.client_payload.deployment.meta.githubCommitRef || github.event.client_payload.branch || '') != 'staging'
+
+    steps:
+      - name: Checkout main (full clone with SYNC_PAT)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_PAT }}
+
+      - name: Force-push main to staging
+        run: |
+          echo "Force-pushing main to staging..."
+          git push origin main:staging --force
