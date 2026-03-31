@@ -8,16 +8,16 @@ Complete configuration guide for the Ichnos Protocol Vercel projects (`ichnos-cl
 
 ## Overview — What Must Be Configured
 
-| Area | What | Why |
-|---|---|---|
-| **Production Branch** | Set to `release` on both projects | The 2-branch model promotes to production via `release`, not `main` |
-| **Git Auto-Deploy** | Preview auto-deploy **enabled** via native Vercel integration; production auto-deploy managed via `promote-to-production.yml` | Vercel automatically deploys preview environments for every pull request, feeding the E2E pipeline; production promotion remains manual |
-| **Server Environment Variables** | Runtime secrets and config for the Express backend | The serverless function needs database, Firebase, AI, email, and CORS config |
-| **Client Environment Variables** | Build-time config for the Vite frontend | The Vite build injects Firebase, API, and widget config at build time |
-| **Old Alias Cleanup** | Remove any previously configured aliases for removed environments | Stale aliases (e.g., for `staging`) waste quota and cause confusion |
-| **Token and ID Lookup** | Know where to find the 4 Vercel values needed as GitHub secrets | These are set as GitHub repository secrets, not Vercel environment variables |
-| **Local Project Linking** | One-time `cd server && vercel link` to link the server directory to the correct Vercel project | Required by the E2E provisioning script to sync Preview env vars via Vercel CLI |
-| **Staging Branch Env Config** | Branch-scoped overrides for the `staging` branch on both projects | Staging previews use production Firebase and Neon credentials for manual QA |
+| Area                             | What                                                                                                                          | Why                                                                                                                                     |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **Production Branch**            | Set to `release` on both projects                                                                                             | The 2-branch model promotes to production via `release`, not `main`                                                                     |
+| **Git Auto-Deploy**              | Preview auto-deploy **enabled** via native Vercel integration; production auto-deploy managed via `promote-to-production.yml` | Vercel automatically deploys preview environments for every pull request, feeding the E2E pipeline; production promotion remains manual |
+| **Server Environment Variables** | Runtime secrets and config for the Express backend                                                                            | The serverless function needs database, Firebase, AI, email, and CORS config                                                            |
+| **Client Environment Variables** | Build-time config for the Vite frontend                                                                                       | The Vite build injects Firebase, API, and widget config at build time                                                                   |
+| **Old Alias Cleanup**            | Remove any previously configured aliases for removed environments                                                             | Stale aliases (e.g., for `staging`) waste quota and cause confusion                                                                     |
+| **Token and ID Lookup**          | Know where to find the 4 Vercel values needed as GitHub secrets                                                               | These are set as GitHub repository secrets, not Vercel environment variables                                                            |
+| **Local Project Linking**        | One-time `cd server && vercel link` to link the server directory to the correct Vercel project                                | Required by the E2E provisioning script to sync Preview env vars via Vercel CLI                                                         |
+| **Staging Branch Env Config**    | Branch-scoped overrides for the `staging` branch on both projects                                                             | Staging previews use production Firebase and Neon credentials for manual QA                                                             |
 
 ---
 
@@ -53,31 +53,31 @@ Environment variables are configured in each Vercel project's settings dashboard
 
 Set in **Vercel Dashboard → ichnos-protocolserver → Settings → Environment Variables**:
 
-| Variable | Environments | Description |
-|---|---|---|
-| `DATABASE_URL` | Production, Preview | PostgreSQL connection string (Neon Tech) |
-| `FIREBASE_PROJECT_ID` | Production, Preview | Firebase project ID |
-| `FIREBASE_PRIVATE_KEY` | Production, Preview | Firebase service account private key (with newlines preserved) |
-| `FIREBASE_CLIENT_EMAIL` | Production, Preview | Firebase service account client email |
+| Variable                  | Environments        | Description                                                                           |
+| ------------------------- | ------------------- | ------------------------------------------------------------------------------------- |
+| `DATABASE_URL`            | Production, Preview | PostgreSQL connection string (Neon Tech)                                              |
+| `FIREBASE_PROJECT_ID`     | Production, Preview | Firebase project ID                                                                   |
+| `FIREBASE_PRIVATE_KEY`    | Production, Preview | Firebase service account private key (with newlines preserved)                        |
+| `FIREBASE_CLIENT_EMAIL`   | Production, Preview | Firebase service account client email                                                 |
 | `FIREBASE_STORAGE_BUCKET` | Production, Preview | Firebase Storage bucket name (optional — derived from `FIREBASE_PROJECT_ID` if unset) |
-| `XAI_API_KEY` | Production, Preview | X.ai Grok API key for RAG chatbot |
-| `XAI_API_ENDPOINT` | Production, Preview | X.ai API endpoint URL (default: `https://api.x.ai/v1/chat/completions`) |
-| `CORS_ORIGIN` | Production | Frontend production URL (e.g., `https://ichnos-protocol.com`) |
-| `CORS_ORIGIN` | Preview | Frontend preview URL (or use `VERCEL_URL` dynamically) |
-| `CRON_SECRET` | Production, Preview | Shared secret for Vercel cron job authentication |
-| `RESEND_API_KEY` | Production, Preview | Resend API key for transactional email |
-| `ADMIN_EMAILS` | Production, Preview | Comma-separated admin email addresses for notifications |
-| `CALENDLY_LINK` | Production, Preview | Calendly booking link |
-| `CONTACT_CONSENT_VERSION` | Production, Preview | GDPR consent version string (default: `v1`) |
-| `CONTACT_CONSENT_TEXT` | Production, Preview | GDPR consent text shown to users (optional) |
-| `PRIVACY_POLICY_URL` | Production, Preview | Link to privacy policy page (optional) |
-| `E2E_ADMIN_EMAIL` | Preview | Admin test account email (required for auto-seed on startup) |
-| `E2E_ADMIN_UID` | Preview | Admin test account Firebase UID (required for auto-seed on startup) |
-| `E2E_USER_EMAIL` | Preview | Regular user test account email (optional auto-seed) |
-| `E2E_USER_UID` | Preview | Regular user test account Firebase UID (optional auto-seed) |
-| `E2E_SUPER_ADMIN_EMAIL` | Preview | Super-admin test account email (optional auto-seed) |
-| `E2E_SUPER_ADMIN_UID` | Preview | Super-admin test account Firebase UID (optional auto-seed) |
-| `SKIP_E2E_SEED` | Preview | Set to `true` to suppress E2E seed writes; `/api/health` reports `seed.mode=skipped` |
+| `XAI_API_KEY`             | Production, Preview | X.ai Grok API key for RAG chatbot                                                     |
+| `XAI_API_ENDPOINT`        | Production, Preview | X.ai API endpoint URL (default: `https://api.x.ai/v1/chat/completions`)               |
+| `CORS_ORIGIN`             | Production          | Frontend production URL (e.g., `https://ichnos-protocol.com`)                         |
+| `CORS_ORIGIN`             | Preview             | Frontend preview URL (or use `VERCEL_URL` dynamically)                                |
+| `CRON_SECRET`             | Production, Preview | Shared secret for Vercel cron job authentication                                      |
+| `RESEND_API_KEY`          | Production, Preview | Resend API key for transactional email                                                |
+| `ADMIN_EMAILS`            | Production, Preview | Comma-separated admin email addresses for notifications                               |
+| `CALENDLY_LINK`           | Production, Preview | Calendly booking link                                                                 |
+| `CONTACT_CONSENT_VERSION` | Production, Preview | GDPR consent version string (default: `v1`)                                           |
+| `CONTACT_CONSENT_TEXT`    | Production, Preview | GDPR consent text shown to users (optional)                                           |
+| `PRIVACY_POLICY_URL`      | Production, Preview | Link to privacy policy page (optional)                                                |
+| `E2E_ADMIN_EMAIL`         | Preview             | Admin test account email (required for auto-seed on startup)                          |
+| `E2E_ADMIN_UID`           | Preview             | Admin test account Firebase UID (required for auto-seed on startup)                   |
+| `E2E_USER_EMAIL`          | Preview             | Regular user test account email (optional auto-seed)                                  |
+| `E2E_USER_UID`            | Preview             | Regular user test account Firebase UID (optional auto-seed)                           |
+| `E2E_SUPER_ADMIN_EMAIL`   | Preview             | Super-admin test account email (optional auto-seed)                                   |
+| `E2E_SUPER_ADMIN_UID`     | Preview             | Super-admin test account Firebase UID (optional auto-seed)                            |
+| `SKIP_E2E_SEED`           | Preview             | Set to `true` to suppress E2E seed writes; `/api/health` reports `seed.mode=skipped`  |
 
 > These vars are read by `server/scripts/seedE2EOnPreview.js` at server startup when `VERCEL_ENV === 'preview'`. The seed script reports status via `seed.mode` in the `/api/health` response (enum: `seeded | skipped | in_progress | failed`). The E2E workflow uses `seed.mode` as its canonical readiness signal: `seeded` and `skipped` are accepted as ready states; `failed` triggers immediate workflow failure.
 
@@ -85,17 +85,17 @@ Set in **Vercel Dashboard → ichnos-protocolserver → Settings → Environment
 
 Set in **Vercel Dashboard → ichnos-client → Settings → Environment Variables**:
 
-| Variable | Environments | Description |
-|---|---|---|
-| `VITE_API_BASE_URL` | Production | Backend production URL |
-| `VITE_API_BASE_URL` | Preview | Backend preview URL |
-| `VITE_FIREBASE_API_KEY` | Production, Preview | Firebase Web API key |
-| `VITE_FIREBASE_AUTH_DOMAIN` | Production, Preview | Firebase auth domain |
-| `VITE_FIREBASE_PROJECT_ID` | Production, Preview | Firebase project ID |
-| `VITE_FIREBASE_STORAGE_BUCKET` | Production, Preview | Firebase Storage bucket |
+| Variable                            | Environments        | Description                  |
+| ----------------------------------- | ------------------- | ---------------------------- |
+| `VITE_API_BASE_URL`                 | Production          | Backend production URL       |
+| `VITE_API_BASE_URL`                 | Preview             | Backend preview URL          |
+| `VITE_FIREBASE_API_KEY`             | Production, Preview | Firebase Web API key         |
+| `VITE_FIREBASE_AUTH_DOMAIN`         | Production, Preview | Firebase auth domain         |
+| `VITE_FIREBASE_PROJECT_ID`          | Production, Preview | Firebase project ID          |
+| `VITE_FIREBASE_STORAGE_BUCKET`      | Production, Preview | Firebase Storage bucket      |
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | Production, Preview | Firebase messaging sender ID |
-| `VITE_FIREBASE_APP_ID` | Production, Preview | Firebase app ID |
-| `VITE_CALENDLY_URL` | Production, Preview | Calendly booking embed URL |
+| `VITE_FIREBASE_APP_ID`              | Production, Preview | Firebase app ID              |
+| `VITE_CALENDLY_URL`                 | Production, Preview | Calendly booking embed URL   |
 
 > **Reminder:** All client environment variables must be prefixed with `VITE_` to be exposed to the Vite build process.
 
@@ -117,12 +117,12 @@ The current 2-branch model does not use additional aliased environments. Preview
 
 Quick reference for finding the Vercel values needed as GitHub repository secrets:
 
-| Value | Where to Find |
-|---|---|
-| `VERCEL_TOKEN` | Vercel → Settings → Tokens → Create (or use an existing token) |
-| `VERCEL_ORG_ID` | Vercel → Settings → General → "Your ID" (for personal accounts) or "Team ID" (for team accounts) |
-| `VERCEL_PROJECT_ID_CLIENT` | Vercel → ichnos-client → Settings → General → "Project ID" |
-| `VERCEL_PROJECT_ID_SERVER` | Vercel → ichnos-protocolserver → Settings → General → "Project ID" |
+| Value                      | Where to Find                                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------------------------ |
+| `VERCEL_TOKEN`             | Vercel → Settings → Tokens → Create (or use an existing token)                                   |
+| `VERCEL_ORG_ID`            | Vercel → Settings → General → "Your ID" (for personal accounts) or "Team ID" (for team accounts) |
+| `VERCEL_PROJECT_ID_CLIENT` | Vercel → ichnos-client → Settings → General → "Project ID"                                       |
+| `VERCEL_PROJECT_ID_SERVER` | Vercel → ichnos-protocolserver → Settings → General → "Project ID"                               |
 
 > These four values are set as **GitHub repository secrets** (not Vercel environment variables). They are used by GitHub Actions workflows to authenticate and target Vercel CLI commands. See [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md) §2 for where to add them.
 
@@ -149,14 +149,14 @@ When prompted, select the `ichnos-protocolserver` Vercel project. The linked pro
 
 The provisioning script syncs the following E2E env vars to Vercel Server Preview scope only:
 
-| Variable                  | Description                            |
-| ------------------------- | -------------------------------------- |
-| `E2E_ADMIN_EMAIL`         | Admin test account email               |
-| `E2E_ADMIN_UID`           | Admin test account Firebase UID        |
-| `E2E_USER_EMAIL`          | Regular user test account email        |
-| `E2E_USER_UID`            | Regular user test account Firebase UID |
-| `E2E_SUPER_ADMIN_EMAIL`   | Super-admin test account email         |
-| `E2E_SUPER_ADMIN_UID`     | Super-admin test account Firebase UID  |
+| Variable                | Description                            |
+| ----------------------- | -------------------------------------- |
+| `E2E_ADMIN_EMAIL`       | Admin test account email               |
+| `E2E_ADMIN_UID`         | Admin test account Firebase UID        |
+| `E2E_USER_EMAIL`        | Regular user test account email        |
+| `E2E_USER_UID`          | Regular user test account Firebase UID |
+| `E2E_SUPER_ADMIN_EMAIL` | Super-admin test account email         |
+| `E2E_SUPER_ADMIN_UID`   | Super-admin test account Firebase UID  |
 
 > **Important:** Vercel Preview environment variable changes only take effect on **new preview deployments**. After syncing, trigger a new preview deployment or redeploy an existing one for changes to take effect. The provisioning script prints a reminder after each successful sync.
 >
@@ -183,28 +183,28 @@ The `sync-staging.yml` workflow auto-merges `main` into `staging` after every se
 
 ### ichnos-protocolserver — Branch-Scoped Overrides
 
-| Variable | Scope | Value | Why |
-|---|---|---|---|
-| `DATABASE_URL` | Preview + Git branch: `staging` | Production Neon connection string | Manual QA reads/writes against production data |
-| `SKIP_E2E_SEED` | Preview + Git branch: `staging` | `true` | Prevents automated E2E seed injection into production DB |
-| `CORS_ORIGIN` | Preview + Git branch: `staging` | Staging client Vercel preview URL | Server must accept requests from the staging frontend origin |
-| `FIREBASE_PROJECT_ID` | Preview + Git branch: `staging` | Production Firebase project ID | Real user authentication for manual QA |
-| `FIREBASE_PRIVATE_KEY` | Preview + Git branch: `staging` | Production Firebase private key | Real user authentication for manual QA |
-| `FIREBASE_CLIENT_EMAIL` | Preview + Git branch: `staging` | Production Firebase client email | Real user authentication for manual QA |
+| Variable                | Scope                           | Value                             | Why                                                          |
+| ----------------------- | ------------------------------- | --------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `DATABASE_URL`          | Preview + Git branch: `staging` | Production Neon connection string | Manual QA reads/writes against production data               |
+| `SKIP_E2E_SEED`         | Preview + Git branch: `staging` | `true`                            | Prevents automated E2E seed injection into production DB     |
+| `CORS_ORIGIN`           | Preview + Git branch: `staging` | Staging client Vercel preview URL | Server must accept requests from the staging frontend origin |
+| `FIREBASE_PROJECT_ID`   | Preview + Git branch: `staging` | Production Firebase project ID    | Real user authentication for manual QA                       |
+| `FIREBASE_PRIVATE_KEY`  | Preview + Git branch: `staging` | Production Firebase private key   | Real user authentication for manual QA                       |
+| `FIREBASE_CLIENT_EMAIL` | Preview + Git branch: `staging` | Production Firebase client email  | Real user authentication for manual QA                       | Set to `testing@ichnos-protocol.com`, its password is `QualityAssurance` |
 
 > When a push lands on `staging`, Vercel applies the global Preview variables first, then applies the branch-specific overrides. Only the keys listed above replace their Preview equivalents — everything else (rate limiting, E2E account vars, etc.) inherits from the global Preview scope. No variable duplication is required.
 
 ### ichnos-client — Branch-Scoped Overrides
 
-| Variable | Scope | Value |
-|---|---|---|
-| `VITE_API_BASE_URL` | Preview + Git branch: `staging` | Staging server preview URL (must match the `CORS_ORIGIN` set on the server above) |
-| `VITE_FIREBASE_API_KEY` | Preview + Git branch: `staging` | Production Firebase web API key |
-| `VITE_FIREBASE_AUTH_DOMAIN` | Preview + Git branch: `staging` | Production Firebase auth domain |
-| `VITE_FIREBASE_PROJECT_ID` | Preview + Git branch: `staging` | Production Firebase project ID |
-| `VITE_FIREBASE_STORAGE_BUCKET` | Preview + Git branch: `staging` | Production Firebase storage bucket |
-| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Preview + Git branch: `staging` | Production Firebase sender ID |
-| `VITE_FIREBASE_APP_ID` | Preview + Git branch: `staging` | Production Firebase app ID |
+| Variable                            | Scope                           | Value                                                                             |
+| ----------------------------------- | ------------------------------- | --------------------------------------------------------------------------------- |
+| `VITE_API_BASE_URL`                 | Preview + Git branch: `staging` | Staging server preview URL (must match the `CORS_ORIGIN` set on the server above) |
+| `VITE_FIREBASE_API_KEY`             | Preview + Git branch: `staging` | Production Firebase web API key                                                   |
+| `VITE_FIREBASE_AUTH_DOMAIN`         | Preview + Git branch: `staging` | Production Firebase auth domain                                                   |
+| `VITE_FIREBASE_PROJECT_ID`          | Preview + Git branch: `staging` | Production Firebase project ID                                                    |
+| `VITE_FIREBASE_STORAGE_BUCKET`      | Preview + Git branch: `staging` | Production Firebase storage bucket                                                |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Preview + Git branch: `staging` | Production Firebase sender ID                                                     |
+| `VITE_FIREBASE_APP_ID`              | Preview + Git branch: `staging` | Production Firebase app ID                                                        |
 
 > **Why `VITE_API_BASE_URL` is required:** Every client API slice (`authApi`, `adminApi`, `contactApi`, `chatApi`, `gdprApi`) reads `import.meta.env.VITE_API_BASE_URL` to route all network traffic. Without a branch-scoped override, the staging client build inherits the global Preview value, which points to the generic preview server — not the staging server. Since the staging server's `CORS_ORIGIN` is set to the staging client URL, requests from the staging client to the wrong backend will either fail CORS or hit a server with non-production credentials. The `VITE_API_BASE_URL` override value must be the same staging server URL used as the `CORS_ORIGIN` on `ichnos-protocolserver` above.
 
