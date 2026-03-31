@@ -34,23 +34,24 @@ The site includes public-facing pages (landing, team, services/products), an AI-
 
 ## 2. Tech Stack
 
-| Layer        | Technology                     | Notes                                        |
-| ------------ | ------------------------------ | -------------------------------------------- |
-| Frontend     | React 18+                      | Functional components, hooks only            |
-| Build Tool   | Vite                           | Dev server, HMR, production bundling         |
-| UI Framework | Bootstrap 5 (react-bootstrap)  | No custom CSS frameworks on top              |
-| State        | Redux Toolkit (RTK)            | RTK Query for API calls                      |
-| Routing      | React Router v6+               |                                              |
-| Backend      | Express.js 5                   | REST API, ES modules (`"type": "module"`)    |
-| SQL DB       | PostgreSQL (Neon Tech)         | Accessed via `pg`                            |
-| NoSQL DB     | Firestore                      | File storage + document metadata             |
-| Auth         | Firebase Authentication        | JWT-based, verified server-side              |
-| Chatbot      | X.ai Grok API                  | RAG integration                              |
-| LinkedIn     | Third-party embed widget       | SociableKIT, Elfsight, or Juicer             |
-| Testing      | Vitest + React Testing Library | Unit + component tests; Supertest for API    |
-| E2E Testing  | Playwright                     | End-to-end tests against Vercel previews     |
-| Linting      | ESLint + Prettier              | Enforced via pre-commit hook                 |
-| Deployment   | Vercel (Monorepo)              | `client/` and `server/` as separate projects |
+| Layer        | Technology                          | Notes                                        |
+| ------------ | ----------------------------------- | -------------------------------------------- |
+| Frontend     | React 18+                           | Functional components, hooks only            |
+| Build Tool   | Vite                                | Dev server, HMR, production bundling         |
+| UI Framework | Bootstrap 5 (react-bootstrap)       | No custom CSS frameworks on top              |
+| State        | Redux Toolkit (RTK)                 | RTK Query for API calls                      |
+| Routing      | React Router v6+                    |                                              |
+| Backend      | Express.js 5                        | REST API, ES modules (`"type": "module"`)    |
+| SQL DB       | PostgreSQL (Neon Tech)              | Accessed via `pg`                            |
+| NoSQL DB     | Firestore                           | File storage + document metadata             |
+| Auth         | Firebase Authentication             | JWT-based, verified server-side              |
+| Chatbot      | X.ai Grok API                       | RAG integration                              |
+| LinkedIn     | Third-party embed widget            | SociableKIT, Elfsight, or Juicer             |
+| Testing      | Vitest + React Testing Library      | Unit + component tests; Supertest for API    |
+| E2E Testing  | Playwright                          | End-to-end tests against Vercel previews     |
+| Linting      | ESLint + Prettier                   | Enforced via pre-commit hook                 |
+| Deployment   | Vercel (Monorepo)                   | `client/` and `server/` as separate projects |
+| MCP Servers  | GitHub, DBHub, Playwright, Context7 | Direct repo, DB, E2E, and docs access        |
 
 ---
 
@@ -508,11 +509,11 @@ E2E_SUPER_ADMIN_EMAIL=               # Must match the GitHub Actions secret valu
   - **Correct pattern**:
     ```js
     expect(() => fn()).toThrowError(
-      expect.objectContaining({ message: "fail" })
+      expect.objectContaining({ message: "fail" }),
     );
     // For async functions:
     await expect(() => fn()).rejects.toThrowError(
-      expect.objectContaining({ message: "fail" })
+      expect.objectContaining({ message: "fail" }),
     );
     ```
 
@@ -788,6 +789,7 @@ When working on this project, Claude must:
 13. **Validate inputs** at the boundary: Zod on the server, form validation on the client.
 14. **When creating a new page**, wire up the route in the router, add it to the navigation if public, and protect it if admin-only.
 15. **Run a mental test.** Before presenting code, mentally trace through the user flow to catch obvious issues.
+16. **Use MCP integrations first.** Prefer GitHub MCP for repo operations, DBHub for database inspection, Playwright MCP for E2E tests, and Context7 for library docs. See Section 19 for details.
 
 ### Traycer Plan Execution Rules
 
