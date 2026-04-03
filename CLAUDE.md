@@ -1,10 +1,8 @@
-@AGENTS.md
-
 # CLAUDE.md — Ichnos Protocol Website
 
-> This file contains Claude-specific rules and detailed project context.
-> Shared, tool-agnostic conventions are in `AGENTS.md` (auto-imported above).
-> Both files must stay aligned — update `AGENTS.md` when conventions change here.
+> Claude-specific rules and project context for the Ichnos Protocol codebase.
+> Traycer AI reads `AGENTS.md` for planning; Claude reads only this file for execution.
+> Keep both files aligned — if conventions change here, update `AGENTS.md` too.
 
 Always create yolo artifacts at the end of each task to ensure correct orchestration with planning agent
 
@@ -51,77 +49,20 @@ The site includes public-facing pages (landing, team, services/products), an AI-
 | E2E Testing  | Playwright                          | End-to-end tests against Vercel previews     |
 | Linting      | ESLint + Prettier                   | Enforced via pre-commit hook                 |
 | Deployment   | Vercel (Monorepo)                   | `client/` and `server/` as separate projects |
-| MCP Servers  | GitHub, DBHub, Playwright, Context7 | Direct repo, DB, E2E, and docs access        |
+| MCP Servers  | GitHub, Neon, Vercel, DBHub, Playwright, Context7 | Repo, DB, deployment, E2E, docs access |
 
 ---
 
 ## 3. Repository Structure
 
-This is a **monorepo** with two top-level packages:
+Monorepo: `client/` (React frontend) + `server/` (Express backend) + `e2e/` (Playwright).
 
-```
-Ichnos_Protocol/
-├── client/                       # React frontend
-│   ├── public/
-│   ├── src/
-│   │   ├── app/                  # Store configuration, root providers
-│   │   │   ├── store.js
-│   │   │   └── rootReducer.js
-│   │   ├── components/           # Atomic Design hierarchy
-│   │   │   ├── atoms/            # Buttons, inputs, labels, icons
-│   │   │   ├── molecules/        # Form groups, card headers, nav items
-│   │   │   ├── organisms/        # Navbar, footer, chatbot widget, forms
-│   │   │   ├── templates/        # Page layouts (public, admin)
-│   │   │   └── pages/            # Route-level components (thin wrappers)
-│   │   ├── features/             # Redux slices + RTK Query APIs
-│   │   │   ├── auth/
-│   │   │   ├── chat/
-│   │   │   ├── linkedin/
-│   │   │   ├── requests/
-│   │   │   └── services/
-│   │   ├── hooks/                # Custom reusable hooks
-│   │   ├── helpers/              # Pure utility/helper functions
-│   │   ├── constants/            # App-wide constants and config
-│   │   ├── routes/               # Route definitions and guards
-│   │   └── index.jsx             # Entry point
-│   ├── .env.example
-│   ├── vercel.json               # Vercel frontend config (Vite, SPA rewrites)
-│   ├── vite.config.js
-│   └── package.json
-├── server/                       # Express backend
-│   ├── api/
-│   │   └── index.js              # Vercel serverless entry point (wraps Express)
-│   ├── src/
-│   │   ├── config/               # DB connections, Firebase admin init, env
-│   │   ├── controllers/          # Route handlers (thin — delegate to services)
-│   │   ├── services/             # Business logic
-│   │   ├── repositories/         # Data access (SQL queries, Firestore ops)
-│   │   ├── middleware/           # Auth verification, error handler, validation
-│   │   ├── routes/               # Express router definitions
-│   │   ├── helpers/              # Pure utility functions
-│   │   ├── validators/           # Request validation schemas (Zod)
-│   │   └── app.js                # Express app setup
-│   ├── .env.example
-│   ├── vercel.json               # Vercel backend config (serverless, rewrites)
-│   └── package.json
-├── e2e/                          # End-to-end tests (Playwright)
-│   ├── tests/                    # Test specs
-│   ├── fixtures/                 # Test data and auth state
-│   ├── playwright.config.js      # Playwright configuration
-│   └── package.json              # Playwright dependencies
-├── .github/
-│   └── workflows/
-│       ├── ci.yml                        # Lint + unit tests on every PR
-│       ├── e2e.yml                       # Playwright E2E — repository_dispatch (staging URL) + workflow_dispatch
-│       ├── promote-to-production.yml     # Approval-gated production promotion on push to release
-│       ├── release-policy-check.yml     # Enforces release branch policy
-│       └── sync-staging.yml              # Auto-sync main → staging (manual QA lane)
-├── assets/                       # Brand assets (logo, images)
-├── CLAUDE.md                     # This file
-├── AGENTS.md                     # Shared agent conventions
-├── .gitignore
-└── README.md
-```
+**Key directories** (use the filesystem to explore — don't memorize):
+- `client/src/components/` — Atomic Design: `atoms/`, `molecules/`, `organisms/`, `templates/`, `pages/`
+- `client/src/features/` — Redux slices + RTK Query APIs (auth, chat, contact, admin, gdpr, linkedin)
+- `client/src/hooks/`, `helpers/`, `constants/` — reusable logic
+- `server/src/` — `controllers/` → `services/` → `repositories/` (strict layer order)
+- `server/api/index.js` — Vercel serverless entry (thin wrapper, all setup in `src/app.js`)
 
 ---
 
@@ -323,41 +264,11 @@ Rules:
 
 ## 10. LinkedIn Feed Integration
 
-### Background
-
-LinkedIn's official Posts API (Community Management API) requires OAuth 2.0 approval, a verified company page, and a review process geared toward marketing platforms — not small company websites. The approval is opaque and non-trivial. Native RSS feeds for company posts do not exist. Scraping violates LinkedIn's Terms of Service.
-
-### Recommended Approach: Third-Party Embed Widget
-
-Use a third-party widget service that handles the LinkedIn integration and provides an auto-updating embeddable feed. Recommended options (in priority order):
-
-| Service         | Free Tier              | Paid From | Notes                                 |
-| --------------- | ---------------------- | --------- | ------------------------------------- |
-| **SociableKIT** | 2 sources, 3K views/mo | ~$5/mo    | LinkedIn Page Posts widget; auto-sync |
-| **Elfsight**    | Limited                | ~$6/mo    | Drag-and-drop builder; many layouts   |
-| **Juicer**      | 1 widget, 200 views/mo | $5/mo     | Multi-platform aggregator; clean UI   |
-
-### Implementation Rules
-
-- The LinkedIn feed is an **organism** component: `LinkedInFeed.jsx` in `components/organisms/`.
-- Embed the widget via a dedicated wrapper component. Do **not** paste raw `<script>` tags directly into JSX.
-- Load the third-party script **lazily** (dynamic import or `useEffect` with script injection) to avoid blocking page load.
-- The widget configuration (container ID, data source URL) lives in `constants/` or environment variables, not hardcoded in the component.
-- If the widget fails to load, render a **graceful fallback**: a "Follow us on LinkedIn" link/button pointing to the company page.
-- Feature directory: `features/linkedin/` — holds any slice logic if needed (e.g., tracking load state).
-
-### Fallback: Manual Embeds
-
-If the third-party service becomes unavailable, LinkedIn allows embedding individual posts via `<iframe>`. This is manual (one embed per post) and does not auto-update, but serves as a zero-dependency fallback.
-
-### Future: Direct API Integration
-
-If the company later obtains Community Management API access, the implementation can be upgraded:
-
-- Backend caches posts via a cron job (`GET /api/linkedin/posts`), stored in PostgreSQL or in-memory cache.
-- Frontend fetches from the backend cache via RTK Query.
-- The `LinkedInFeed` organism switches from widget embed to rendering cached post data with custom styling.
-- This change should be isolated to the `linkedin` feature and the `LinkedInFeed` organism — no other components should need modification.
+- Third-party embed widget (SociableKIT or similar) — no direct LinkedIn API.
+- `LinkedInFeed.jsx` organism wraps the widget. Load script lazily via `useEffect`.
+- Widget config (container ID, data source URL) in `constants/` or env vars, not hardcoded.
+- Graceful fallback: "Follow us on LinkedIn" link if widget fails to load.
+- Feature directory: `features/linkedin/`.
 
 ---
 
@@ -385,72 +296,11 @@ Rules:
 
 ## 12. Environment Variables
 
-All secrets and configuration live in `.env` files. **Never commit `.env` files.**
-
-### Client (`client/.env`)
-
-```
-VITE_API_BASE_URL=
-VITE_FIREBASE_API_KEY=
-VITE_FIREBASE_AUTH_DOMAIN=
-VITE_FIREBASE_PROJECT_ID=
-VITE_FIREBASE_STORAGE_BUCKET=
-VITE_FIREBASE_MESSAGING_SENDER_ID=
-VITE_FIREBASE_APP_ID=
-VITE_LINKEDIN_WIDGET_ID=             # Third-party widget embed ID (SociableKIT / Elfsight)
-VITE_LINKEDIN_PAGE_URL=              # Company LinkedIn page URL (fallback link)
-```
-
-### Server (`server/.env`)
-
-```
-PORT=
-DATABASE_URL=                    # Neon Tech PostgreSQL connection string
-FIREBASE_SERVICE_ACCOUNT_KEY=    # Path to service account JSON or JSON string
-XAI_API_KEY=                     # X.ai Grok API key
-XAI_API_BASE_URL=
-CORS_ORIGIN=                     # Frontend URL
-```
-
-### GitHub Actions Variables (visible, not masked)
-
-Configured in **GitHub → Settings → Secrets and variables → Actions → Variables tab**. These are non-sensitive values that should be visible in logs for debugging.
-
-```
-E2E_BASE_URL=                        # Stable staging client URL (e.g. https://staging-client.ichnos-protocol.com)
-E2E_API_BASE_URL=                    # Stable staging API URL (e.g. https://staging-api.ichnos-protocol.com)
-```
-
-### GitHub Actions Secrets (masked, write-only)
-
-Configured in **GitHub → Settings → Secrets and variables → Actions → Secrets tab**. These are sensitive values that are masked in logs.
-
-```
-E2E_ADMIN_EMAIL=                     # Firebase admin test user email
-E2E_ADMIN_PASSWORD=                  # Firebase admin test user password
-E2E_USER_EMAIL=                      # Firebase regular test user email
-E2E_USER_PASSWORD=                   # Firebase regular test user password
-E2E_SUPER_ADMIN_EMAIL=               # Firebase super admin test user email
-E2E_SUPER_ADMIN_PASSWORD=            # Firebase super admin test user password
-FIREBASE_API_KEY=                    # Firebase API key (client-side, for E2E auth)
-VERCEL_AUTOMATION_BYPASS_SECRET=     # Vercel Deployment Protection bypass secret (from Vercel → Settings → Deployment Protection → Protection Bypass for Automation)
-```
-
-### Vercel Server Project — Environment Variables (Preview scope)
-
-The server's E2E seed script (`server/scripts/seedE2EOnPreview.js`) runs at cold start on Vercel preview deployments. It needs its own env vars set in **Vercel → Server project → Settings → Environment Variables**, scoped to **Preview** only. These are separate from GitHub Actions secrets — GitHub secrets are only available to the CI runner, not to the deployed Vercel server.
-
-```
-# Required — seed fails without these (DATABASE_URL and VERCEL_ENV are set automatically)
-E2E_ADMIN_EMAIL=                     # Must match the GitHub Actions secret value
-E2E_ADMIN_UID=                       # Firebase UID of admin test user (from Firebase Console → Authentication → Users)
-
-# Optional — seed skips these users if not set
-E2E_USER_UID=                        # Firebase UID of regular test user
-E2E_USER_EMAIL=                      # Must match the GitHub Actions secret value
-E2E_SUPER_ADMIN_UID=                 # Firebase UID of super-admin test user
-E2E_SUPER_ADMIN_EMAIL=               # Must match the GitHub Actions secret value
-```
+- **Never commit `.env` files.** All secrets live in `.env` files (gitignored).
+- Check `client/.env.example` and `server/.env.example` for the canonical list of required variables.
+- When introducing a new env var, update the corresponding `.env.example` in the same commit.
+- Client vars are prefixed with `VITE_` (exposed at build time). Server vars are runtime-only.
+- GitHub Actions secrets, Vercel env vars, and local `.env` files are three separate environments — see `AGENTS.md` and `devOpsLessonsLearned.md` for the full credential mapping.
 
 ---
 
@@ -519,77 +369,14 @@ E2E_SUPER_ADMIN_EMAIL=               # Must match the GitHub Actions secret valu
 
 ### 14.4 End-to-End Testing: Playwright
 
-Playwright runs full browser-based tests against the actual deployed application.
-
-#### Directory Structure
-
-```
-e2e/
-├── tests/                    # Test specs
-│   ├── landing.spec.js       # Landing page flows
-│   ├── services.spec.js      # Services page flows
-│   ├── team.spec.js          # Team page flows
-│   ├── chatbot.spec.js       # Chatbot interaction flows
-│   └── admin.spec.js         # Admin dashboard flows (authenticated)
-├── fixtures/                 # Test data and auth state
-├── playwright.config.js      # Playwright configuration
-└── package.json              # Playwright dependencies (separate from client/server)
-```
-
-#### Configuration
-
-- **Config file**: `e2e/playwright.config.js`.
-- **Base URL**: Read from `BASE_URL` environment variable. Defaults to `http://localhost:5173` for local dev.
-- **Browsers**: Chromium only for `repository_dispatch` CI runs; full suite (Chromium, Firefox, WebKit) for `workflow_dispatch` manual runs; Chromium only locally (unless `E2E_BROWSER_PROFILE=full` is set).
-- **Retries**: 0 locally, 2 in CI.
-- **Timeouts**: 30s per test, 5s per action.
-
-#### Local Development Workflow
-
-Run both client and server locally, then execute Playwright:
-
-```bash
-# Terminal 1: Start backend
-cd server && npm run dev
-
-# Terminal 2: Start frontend
-cd client && npm run dev
-
-# Terminal 3: Run E2E tests against localhost
-cd e2e && npx playwright test
-
-# Run a single test file
-cd e2e && npx playwright test tests/landing.spec.js
-
-# Run in headed mode (visible browser)
-cd e2e && npx playwright test --headed
-
-# Open the HTML report
-cd e2e && npx playwright show-report
-```
-
-#### CI Workflow: Playwright Against Vercel Preview Deployments
-
-E2E tests run in a **separate workflow** (`e2e.yml`), not inside the CI workflow (`ci.yml`). This avoids wasting runner time polling for Vercel deployments.
-
-**Primary trigger**: `repository_dispatch` (`vercel.deployment.success`) — Vercel emits this event after each successful preview deployment when Repository Dispatch Events are enabled in the Vercel **server** project's Git settings. The workflow filters to only run on server deployments via `project.name` (Pattern B: trigger on the slower deployment). Tests run against the stable staging domains resolved exclusively from GitHub Actions repository variables (`vars.E2E_BASE_URL` for the client, `vars.E2E_API_BASE_URL` for the API), not the per-deployment hash URLs (which can become stale if Vercel cancels/supersedes a deployment). Before any tests execute, the workflow validates all resolved target URLs against a **fail-closed production-host denylist** defined as workflow-level `env` constants in `e2e.yml`. If the denylist constants are missing/empty or any target URL cannot be parsed, the run aborts. Hostname comparison uses **exact match** after lowercase normalization and port removal. The workflow polls `/api/health` on the API URL for the `seed.mode` readiness signal: `seeded` and `skipped` are accepted as ready states, `failed` is terminal (aborts the run), and `in_progress` triggers retry. Vercel Deployment Protection is bypassed using the `VERCEL_AUTOMATION_BYPASS_SECRET` secret. Non-sensitive config (URLs) uses variables (`vars.*`) for log visibility; credentials use secrets (`secrets.*`). Chromium only. One concurrent run per project — newer deployments cancel in-progress runs.
-
-**Note**: The `staging` branch has its own distinct Vercel preview URL that is **never** referenced by `vars.E2E_BASE_URL` or `vars.E2E_API_BASE_URL`. E2E targets remain ephemeral preview URLs — the staging manual-QA environment and E2E targets are intentionally separate.
-
-**Secondary trigger**: `workflow_dispatch` — manual/ad-hoc runs. Both trigger modes resolve target URLs exclusively from `vars.E2E_BASE_URL` and `vars.E2E_API_BASE_URL` — there is no manual URL input. The same fail-closed denylist safety gate applies. Full browser suite is available via the `browser_profile` input.
-
-**Commit status**: The workflow posts a commit status (`E2E Tests (Playwright)`) to the PR so results are visible alongside CI checks, even though E2E runs in a separate workflow.
-
-#### E2E Test Rules
-
 - E2E tests live in `e2e/tests/` — never co-located with source code.
-- Name specs by page or user flow: `<page>.spec.js` or `<flow>.spec.js`.
+- **Local**: Start client + server, then `cd e2e && npx playwright test` (or `--headed` for visible browser).
+- Name specs by page or flow: `<page>.spec.js` or `<flow>.spec.js`.
 - Use Playwright's `page` fixture, not direct DOM manipulation.
 - Tests must be **independent**: no shared state, no test ordering dependencies.
-- Use `test.describe` to group related tests. Use `test.beforeEach` for common setup (e.g., navigation).
-- For admin tests requiring authentication, use Playwright's `storageState` to persist and reuse auth state across tests.
-- Do not assert on CSS class names or internal IDs. Assert on visible text, roles, and user-facing behavior.
-- E2E tests are **not** blocking for commits. Automated runs are triggered by `repository_dispatch` from Vercel preview deployments; manual/ad-hoc runs are available via `workflow_dispatch`.
+- Assert on visible text, roles, and user-facing behavior — not CSS classes or internal IDs.
+- For admin tests, use Playwright's `storageState` to persist auth state.
+- E2E tests are **not** blocking for commits. CI pipeline details are in `AGENTS.md`.
 
 ---
 
@@ -636,139 +423,21 @@ Before every commit, verify:
 
 ## 16. Deployment (Vercel Monorepo)
 
-This project is deployed on **Vercel** as a monorepo with two separate Vercel projects linked to the same Git repository.
+Two Vercel projects from one repo: `ichnos-client` (Vite static) and `ichnos-protocolserver` (Express serverless via `@vercel/node`).
 
-### Architecture
+### Rules Claude must follow when writing code
 
-```
-GitHub Repository (Ichnos_Protocol)
-    │
-    ├── Vercel Project: ichnos-client
-    │   ├── Root Directory: client/
-    │   ├── Framework: Vite
-    │   └── Output: Static site (dist/)
-    │
-    └── Vercel Project: ichnos-protocolserver
-        ├── Root Directory: server/
-        ├── Runtime: @vercel/node
-        └── Entry: api/index.js (wraps Express app)
-```
+- **`server/api/index.js` must stay thin**: only imports and re-exports the Express app. All setup in `server/src/app.js`.
+- **Environment variables**: set in Vercel project settings, never committed. Client vars prefixed `VITE_`.
+- **CORS**: `CORS_ORIGIN` must match the frontend URL.
+- **Cold starts**: keep server dependencies lean for faster serverless startup.
+- **Local dev uses `npm run dev`** — the Vercel wrapper is only for deployed environments.
 
-### Frontend (`client/`)
-
-- **Framework preset**: Vite.
-- **Build command**: `npm run build` (outputs to `dist/`).
-- **SPA routing**: All routes rewrite to `/index.html` via `vercel.json`.
-- **Environment variables**: Set in Vercel project settings (never committed). Prefix with `VITE_`.
-
-### Backend (`server/`)
-
-- **Serverless functions**: Express app is wrapped and exported from `server/api/index.js` as a Vercel serverless function using `@vercel/node`.
-- **Rewrites**: All incoming requests route to the single serverless function, which uses Express routing internally.
-- **Environment variables**: Set in Vercel project settings (`DATABASE_URL`, `FIREBASE_SERVICE_ACCOUNT_KEY`, `XAI_API_KEY`, etc.).
-- **Cold starts**: Be aware of serverless cold start latency. Keep dependencies lean.
-
-### Vercel Configuration Files
-
-| File                  | Purpose                                                       |
-| --------------------- | ------------------------------------------------------------- |
-| `client/vercel.json`  | Vite framework, build output, SPA rewrites                    |
-| `server/vercel.json`  | Serverless build config, `@vercel/node` runtime, API rewrites |
-| `server/api/index.js` | Thin wrapper exporting the Express app for Vercel serverless  |
-
-### Deployment Rules
-
-- **Preview deployments**: Vercel's native Git integration creates preview deployments automatically on every branch push and PR — no GitHub Actions workflow is involved in creating previews. Merges to `main` produce a validated preview, not a production deploy.
-- **Production promotion**: Triggered automatically on push/merge to `release` via `promote-to-production.yml`. The workflow pauses for human approval via the GitHub `production` environment before promoting the latest validated `main` preview to production — no rebuild occurs.
-- **Staging (manual QA)**: The `staging` branch is a long-lived parallel lane for manual QA — it is **not** part of the `main → release → production` promotion chain. `sync-staging.yml` force-pushes `main` to `staging` after every server `repository_dispatch (vercel.deployment.success)`, unconditionally (regardless of E2E pass/fail), so `staging` is always an exact copy of `main` with no divergent history. The push uses a PAT (`SYNC_PAT`) so Vercel's native Git integration detects it and deploys. Staging's Vercel preview uses **production Firebase** and **production Neon** credentials via branch-scoped env overrides, with `SKIP_E2E_SEED=true`. Manual QA actions on staging write to the production database — this is explicitly accepted. E2E targets (`vars.E2E_BASE_URL`, `vars.E2E_API_BASE_URL`) remain pointed at ephemeral preview URLs and are unaffected. `staging` does not gate any automated checks; it is not a valid PR source for `release`.
-- **Environment separation**: Use Vercel's environment scoping (Production, Preview, Development) to manage secrets per environment.
-- **CORS**: The server's `CORS_ORIGIN` must match the frontend's Vercel deployment URL (or use the `VERCEL_URL` environment variable for preview deployments).
-- **Domain**: Configure custom domains in Vercel project settings, not in code.
-- **`server/api/index.js` must stay thin**: It only imports and re-exports the Express app. No logic, no middleware, no configuration. All Express setup lives in `server/src/app.js`.
-- **Local development still uses `npm run dev`**: The Vercel serverless wrapper is only used in deployed environments.
-
-### Vercel CLI (Optional, for Manual Deploys)
-
-```bash
-# Install Vercel CLI
-npm i -g vercel
-
-# Deploy frontend preview
-cd client && vercel
-
-# Deploy backend preview
-cd server && vercel
-
-# Deploy to production
-cd client && vercel --prod
-cd server && vercel --prod
-```
+CI/CD pipeline details (promotion, staging sync, E2E triggers) are in `AGENTS.md`.
 
 ---
 
-## 17. Traycer AI Integration
-
-This project uses **Traycer AI** as the planning and orchestration layer. Traycer handles Epics, Phase breakdowns, and detailed implementation plans. **Claude CLI executes the plans.**
-
-### Workflow Overview
-
-```
-User Intent
-    │
-    ▼
-[Traycer: Epic Definition] ─── High-level feature description
-    │
-    ▼
-[Traycer: Phase Breakdown] ─── Ordered phases, each scoped to ≤ 3 files
-    │
-    ▼
-[Traycer: Phase Planning] ─── File-level implementation plan (Markdown)
-    │                          with symbol refs, step sequence, rationale
-    ▼
-[Claude CLI: Execution] ─── Implements the plan for the current phase
-    │
-    ▼
-[Traycer: Verification] ─── Compares output to plan, flags issues
-    │                         (Critical / Major / Minor / Outdated)
-    ▼
-[Fix / Next Phase] ─── Iterate or advance
-```
-
-### Phase Constraints
-
-- Each phase is scoped to a **maximum of 3 files**. This keeps context tight and changes reviewable.
-- Phases are **sequential** — complete one fully before starting the next.
-- Each phase should result in a **working, testable increment** (no half-implemented features spanning phases).
-
-### Plan Format
-
-Traycer produces **Markdown plans** containing:
-
-- File analysis and codebase structure context
-- Symbol references (specific classes, functions, variables)
-- Sequential implementation steps with file-by-file instructions
-- Rationale for each change
-- Mermaid diagrams (when architectural clarity is needed)
-
-Plans arrive via:
-
-- **Clipboard paste** into Claude CLI prompt
-- **CLI handoff**: `claude "$TRAYCER_PROMPT"` or via `$TRAYCER_PROMPT_TMP_FILE` for large plans
-- **YOLO mode**: `claude --dangerously-skip-permissions "$TRAYCER_PROMPT"` (auto-approve all tool calls)
-
-### Environment Variables (set by Traycer during handoff)
-
-| Variable                      | Purpose                                 |
-| ----------------------------- | --------------------------------------- |
-| `$TRAYCER_PROMPT`             | The plan/instructions text              |
-| `$TRAYCER_PROMPT_TMP_FILE`    | Path to temp file with the plan (large) |
-| `$TRAYCER_PHASE_ID`           | Current phase identifier                |
-| `$TRAYCER_PHASE_BREAKDOWN_ID` | Phase list persistence identifier       |
-| `$TRAYCER_TASK_ID`            | Full task iteration tracker             |
-
----
-
-## 18. Claude-Specific Instructions
+## 17. Claude-Specific Instructions
 
 ### General Rules
 
@@ -789,7 +458,7 @@ When working on this project, Claude must:
 13. **Validate inputs** at the boundary: Zod on the server, form validation on the client.
 14. **When creating a new page**, wire up the route in the router, add it to the navigation if public, and protect it if admin-only.
 15. **Run a mental test.** Before presenting code, mentally trace through the user flow to catch obvious issues.
-16. **Use MCP integrations first.** Prefer GitHub MCP for repo operations, DBHub for database inspection, Playwright MCP for E2E tests, and Context7 for library docs. See Section 19 for details.
+16. **Use MCP integrations first.** Prefer GitHub MCP for repo operations, Neon MCP for database queries and schema inspection, Vercel MCP for deployment logs and env vars, Playwright MCP for E2E tests, and Context7 for library docs. See Section 18 for details.
 
 ### Traycer Plan Execution Rules
 
@@ -825,46 +494,60 @@ The following actions still require explicit user confirmation even in automated
 
 ---
 
-## 19. Database MCP Server
+## 18. MCP Servers
 
-A local MCP server ([`@bytebase/dbhub`](https://github.com/bytebase/dbhub)) is configured in `.mcp.json` (gitignored) to give Claude direct read/write access to the Neon PostgreSQL database.
+MCP (Model Context Protocol) servers give Claude direct access to external
+services. Use them instead of manual CLI commands or copy-pasting data.
 
-### Available Tools
+### 18.1 Available Servers
 
-- **`mcp__db__execute_sql`** — Run any SQL query (SELECT, INSERT, UPDATE, DELETE, DDL) against the production Neon database.
-- **`mcp__db__search_objects`** — Search for database objects (tables, columns, indexes, constraints) by name or pattern.
+| MCP Server | Scope | Transport | Auth | What it does |
+|------------|-------|-----------|------|-------------|
+| **GitHub** | Project | Remote | PAT | PRs, issues, commits, code search, file contents |
+| **Neon** | User | Remote (`https://mcp.neon.tech/mcp`) | OAuth | PostgreSQL queries, schema, branches, migrations |
+| **Vercel** | User | Remote (`https://mcp.vercel.com`) | OAuth | Deployment logs, env vars, project settings |
+| **DBHub** | Project | Local stdio (`.mcp.json`) | Connection string | Direct SQL to Neon DB (legacy — prefer Neon MCP) |
+| **Playwright** | Project | Local | — | E2E test execution, browser automation |
+| **Context7** | User | Remote | — | Library/framework documentation lookup |
 
-### When to Use
+**Scope**: "User" = configured in `~/.claude.json` (persists across projects). "Project" = configured in `.mcp.json` or `.claude/settings.json` (per-repo).
 
-- **Investigating bugs**: Query production data directly to verify state, check row counts, or inspect specific records.
-- **Schema verification**: Confirm table structures, indexes, and constraints match expectations before writing migrations.
-- **Data analysis**: Run ad-hoc queries to answer questions about customer requests, uploaded documents, or other stored data.
-- **Migration validation**: After writing a migration, verify the schema changes were applied correctly.
+### 18.2 When to Use Which
 
-### Important Rules
+| Task | Use this MCP |
+|------|-------------|
+| Debug a deployment failure | **Vercel** — check function logs, deployment status |
+| Check environment variables on staging/production | **Vercel** — list/inspect env vars per project |
+| Query production data to investigate a bug | **Neon** or **DBHub** — run SELECT queries |
+| Verify DB tables/migrations exist | **Neon** — `execute_sql` or schema tools |
+| Create/manage Neon database branches | **Neon** — branch management tools |
+| Review a PR, check CI status, search code | **GitHub** — PR, issue, commit, code search tools |
+| Look up library/framework API docs | **Context7** — documentation query |
+| Run or debug E2E tests | **Playwright** — browser automation |
 
-- **Read-first by default.** Prefer SELECT queries for investigation. Only run mutating queries (INSERT, UPDATE, DELETE, DDL) when explicitly asked or when the task requires it.
-- **This is the production database.** Treat mutating operations with care — confirm with the user before running destructive queries (DELETE, DROP, TRUNCATE).
-- **The connection string is in `.mcp.json`** (gitignored) via the `DSN` env var. It is the same value as `DATABASE_URL` in `server/.env`. Both must be kept in sync manually — if the database credentials rotate, update both files.
+### 18.3 Neon MCP (Database)
 
-### Setup
+**Endpoint**: `https://mcp.neon.tech/mcp`
+**Auth**: OAuth (browser popup on first use)
+**Setup**: `claude mcp add --transport http --scope user neon https://mcp.neon.tech/mcp`
 
-The MCP server is configured in `.mcp.json` at the repository root (gitignored). To set it up on a new machine:
+Provides ~20 tools covering the full database lifecycle: query execution, schema inspection, branch management, migrations, connection strings, and documentation.
 
-1. Copy `DATABASE_URL` from `server/.env`.
-2. Create `.mcp.json` in the repository root:
-   ```json
-   {
-     "mcpServers": {
-       "db": {
-         "type": "stdio",
-         "command": "npx",
-         "args": ["-y", "@bytebase/dbhub"],
-         "env": {
-           "DSN": "<paste DATABASE_URL value here>"
-         }
-       }
-     }
-   }
-   ```
-3. The `DSN` value must match `DATABASE_URL` in `server/.env`. If credentials rotate, update both files.
+**Important rules**:
+- **Read-first by default.** Prefer SELECT queries for investigation. Only run mutating queries when explicitly asked.
+- **This connects to the production database.** Confirm with the user before destructive queries (DELETE, DROP, TRUNCATE).
+
+### 18.4 Vercel MCP (Deployments)
+
+**Endpoint**: `https://mcp.vercel.com`
+**Auth**: OAuth (browser popup on first use)
+**Setup**: `claude mcp add --transport http --scope user vercel https://mcp.vercel.com`
+
+For project-specific context (auto-fills team/project params), use:
+`https://mcp.vercel.com/<teamSlug>/<projectSlug>`
+
+**Key tools**: search docs, list/inspect deployments, view function logs, manage env vars, check project settings.
+
+### 18.5 DBHub (Legacy Database Access)
+
+Local MCP server in `.mcp.json` (gitignored). Prefer Neon MCP (§18.3) for new work. DBHub is a fallback when Neon MCP is unavailable. Setup: copy `DATABASE_URL` from `server/.env` into `.mcp.json` as the `DSN` env var.

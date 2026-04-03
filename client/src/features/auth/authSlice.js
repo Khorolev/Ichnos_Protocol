@@ -6,6 +6,10 @@ const initialState = {
   isAdmin: false,
   loading: false,
   error: null,
+  modalMode: null,
+  profileState: null,
+  authSuccess: false,
+  enforcedLogout: false,
 };
 
 const authSlice = createSlice({
@@ -19,8 +23,8 @@ const authSlice = createSlice({
     setAdmin(state, action) {
       state.isAdmin = action.payload;
     },
-    logout() {
-      return initialState;
+    logout(state) {
+      return { ...initialState, enforcedLogout: state.enforcedLogout };
     },
     setLoading(state, action) {
       state.loading = action.payload;
@@ -28,10 +32,42 @@ const authSlice = createSlice({
     setError(state, action) {
       state.error = action.payload;
     },
+    openAuthModal(state, action) {
+      state.modalMode = action.payload;
+      state.enforcedLogout = false;
+    },
+    closeAuthModal(state) {
+      if (state.modalMode !== 'complete-profile') {
+        state.modalMode = null;
+      }
+    },
+    forceCloseAuthModal(state) {
+      state.modalMode = null;
+    },
+    setProfileState(state, action) {
+      state.profileState = action.payload;
+    },
+    setAuthSuccess(state, action) {
+      state.authSuccess = action.payload;
+    },
+    setEnforcedLogout(state, action) {
+      state.enforcedLogout = action.payload;
+    },
   },
 });
 
-export const { setUser, setAdmin, logout, setLoading, setError } =
-  authSlice.actions;
+export const {
+  setUser,
+  setAdmin,
+  logout,
+  setLoading,
+  setError,
+  openAuthModal,
+  closeAuthModal,
+  forceCloseAuthModal,
+  setProfileState,
+  setAuthSuccess,
+  setEnforcedLogout,
+} = authSlice.actions;
 
 export default authSlice.reducer;

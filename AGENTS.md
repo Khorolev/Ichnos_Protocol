@@ -269,6 +269,37 @@ cd server && vercel --prod   # deploy backend
   fi
   ```
 
+## MCP Servers (AI Agent Integrations)
+
+MCP (Model Context Protocol) servers give AI agents direct access to external
+services — no manual copy-paste of URLs, credentials, or API responses.
+
+### Available servers by agent
+
+| MCP Server | Claude Code | Traycer | What it does |
+|------------|:-----------:|:-------:|-------------|
+| **GitHub** | ✅ | ✅ | Repo operations: PRs, issues, commits, code search, file contents |
+| **Neon** | ✅ | ✅ | PostgreSQL: SQL queries, schema inspection, branch management, migrations |
+| **Vercel** | ✅ | ❌ (OAuth not supported) | Deployments: logs, env vars, project settings, promotion |
+| **DBHub** | ✅ | — | Direct SQL access to Neon DB (legacy, see Neon MCP) |
+| **Playwright** | ✅ | — | E2E test execution and browser automation |
+| **Context7** | ✅ | — | Library/framework documentation lookup |
+
+### When to use which
+
+- **Debugging a deployment failure** → Vercel MCP (Claude) for logs + Neon MCP for DB state
+- **Investigating a data bug** → Neon MCP to query production data directly
+- **Reviewing a PR or checking CI** → GitHub MCP
+- **Checking if DB tables/migrations exist** → Neon MCP (`search_objects` or `execute_sql`)
+- **Looking up library API docs** → Context7 MCP
+
+### Setup
+
+- **GitHub MCP**: Pre-configured in Claude Code. Traycer uses remote endpoint with PAT auth.
+- **Neon MCP**: Remote server at `https://mcp.neon.tech/mcp`. Auth via OAuth (Claude) or API key (Traycer). Get API key from Neon Console → Settings → API Keys.
+- **Vercel MCP**: Remote server at `https://mcp.vercel.com`. Auth via OAuth (Claude Code only — Vercel restricts to approved clients). Added via `claude mcp add --transport http --scope user vercel https://mcp.vercel.com`.
+- **DBHub**: Local stdio server configured in `.mcp.json` (gitignored). See CLAUDE.md §19 for setup.
+
 ## Development workflow
 
 - One feature at a time. Branch, implement, test, review, merge, deploy.

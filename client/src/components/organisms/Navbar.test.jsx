@@ -34,6 +34,8 @@ const loggedOutState = {
     isAdmin: false,
     loading: false,
     error: null,
+    modalMode: null,
+    profileState: null,
   },
 };
 
@@ -44,6 +46,8 @@ const loggedInState = {
     isAdmin: false,
     loading: false,
     error: null,
+    modalMode: null,
+    profileState: null,
   },
 };
 
@@ -106,15 +110,15 @@ describe('Navbar', () => {
     expect(screen.getByRole('button', { name: 'Login' })).toBeInTheDocument();
   });
 
-  it('opens auth modal when Login button is clicked', async () => {
+  it('dispatches openAuthModal when Login button is clicked', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<Navbar onMenuToggle={vi.fn()} />, {
+    const { store } = renderWithProviders(<Navbar onMenuToggle={vi.fn()} />, {
       preloadedState: loggedOutState,
     });
 
     await user.click(screen.getByRole('button', { name: 'Login' }));
 
-    expect(screen.getByText('Welcome Back')).toBeInTheDocument();
+    expect(store.getState().auth.modalMode).toBe('login');
   });
 
   it('shows UserMenu when authenticated', () => {

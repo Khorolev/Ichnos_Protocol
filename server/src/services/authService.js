@@ -7,6 +7,8 @@
 import firebaseAdmin from "../config/firebase.js";
 import * as userRepository from "../repositories/userRepository.js";
 
+const REQUIRED_PROFILE_FIELDS = ["name", "surname", "email"];
+
 function buildError(message, statusCode) {
   const error = new Error(message);
   error.statusCode = statusCode;
@@ -17,6 +19,17 @@ function extractAdminFlag(customClaims) {
   return customClaims?.admin === true;
 }
 
+export function computeProfileState(profile) {
+  const missingRequiredFields = REQUIRED_PROFILE_FIELDS.filter(
+    (field) => !profile?.[field] || !String(profile[field]).trim(),
+  );
+
+  return {
+    isProfileComplete: missingRequiredFields.length === 0,
+    missingRequiredFields,
+  };
+}
+
 export async function syncProfile(firebaseUid, profileData) {
   let user = await userRepository.getUserById(firebaseUid);
 
@@ -24,16 +37,30 @@ export async function syncProfile(firebaseUid, profileData) {
     user = await userRepository.createUser(firebaseUid);
   }
 
-  const profile = await userRepository.upsertProfile(
-    firebaseUid,
-    profileData,
-  );
-  await userRepository.updateUserActivity(firebaseUid);
-
   const firebaseUser = await firebaseAdmin.auth().getUser(firebaseUid);
   const isAdmin = extractAdminFlag(firebaseUser.customClaims);
 
-  return { user, profile, isAdmin };
+  const mergedProfile = {
+    name: user?.name,
+    surname: user?.surname,
+    phone: user?.phone,
+    company: user?.company,
+    linkedin: user?.linkedin,
+    ...Object.fromEntries(
+      Object.entries(profileData).filter(([, v]) => v !== undefined),
+    ),
+    email: firebaseUser.email,
+  };
+
+  const profile = await userRepository.upsertProfile(
+    firebaseUid,
+    mergedProfile,
+  );
+  await userRepository.updateUserActivity(firebaseUid);
+
+  const profileState = computeProfileState(profile);
+
+  return { user, profile, isAdmin, profileState };
 }
 
 export async function verifyToken(idToken) {
@@ -52,8 +79,10 @@ export async function getUser(firebaseUid) {
 
   const firebaseUser = await firebaseAdmin.auth().getUser(firebaseUid);
   const isAdmin = extractAdminFlag(firebaseUser.customClaims);
+  const canonicalUser = { ...user, email: firebaseUser.email ?? user.email };
+  const profileState = computeProfileState(canonicalUser);
 
-  return { user, isAdmin };
+  return { user: canonicalUser, isAdmin, profileState };
 }
 
 export async function updateProfile(firebaseUid, updates) {

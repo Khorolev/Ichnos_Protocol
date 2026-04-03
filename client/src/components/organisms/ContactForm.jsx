@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import Modal from "react-bootstrap/Modal";
 import Form from "react-bootstrap/Form";
@@ -11,9 +11,12 @@ import {
   useAddQuestionMutation,
 } from "../../features/contact/contactApi";
 import { closeModal, setFormData } from "../../features/contact/contactSlice";
+import {
+  openAuthModal,
+  setAuthSuccess,
+} from "../../features/auth/authSlice";
 import Button from "../atoms/Button";
 import ContactFormProfile from "../molecules/ContactFormProfile";
-import AuthModal from "./AuthModal";
 import CalendlyModal from "./CalendlyModal";
 
 export default function ContactForm() {
@@ -22,6 +25,8 @@ export default function ContactForm() {
   const requestId = useSelector((s) => s.contact.requestId);
   const savedFormData = useSelector((s) => s.contact.formData);
   const isAuthenticated = useSelector((s) => s.auth.isAuthenticated);
+  const authSuccess = useSelector((s) => s.auth.authSuccess);
+  const enforcedLogout = useSelector((s) => s.auth.enforcedLogout);
 
   const { data: meData } = useGetMeQuery(undefined, { skip: !isAuthenticated });
   const [submitContact, { isLoading: isSubmitting }] =
@@ -33,13 +38,31 @@ export default function ContactForm() {
   const [consent, setConsent] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
-  const [authModalOpen, setAuthModalOpen] = useState(
-    () => isOpen && !isAuthenticated,
-  );
   const [calendlyOpen, setCalendlyOpen] = useState(false);
   const [pendingSubmit, setPendingSubmit] = useState(false);
 
   const profile = meData?.data?.profile;
+
+  useEffect(() => {
+    if (enforcedLogout) {
+      setPendingSubmit(false);
+      return;
+    }
+    if (isOpen && !isAuthenticated) {
+      dispatch(openAuthModal('login'));
+    }
+  }, [isOpen, isAuthenticated, enforcedLogout, dispatch]);
+
+  useEffect(() => {
+    if (enforcedLogout) return;
+    if (authSuccess && pendingSubmit) {
+      const restored = savedFormData.questions || questions;
+      setPendingSubmit(false);
+      dispatch(setAuthSuccess(false));
+      doSubmit(restored);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authSuccess, enforcedLogout]);
 
   const handleQuestionChange = (index, value) => {
     setQuestions((prev) => prev.map((q, i) => (i === index ? value : q)));
@@ -74,19 +97,10 @@ export default function ContactForm() {
     if (!isAuthenticated) {
       dispatch(setFormData({ questions, consent }));
       setPendingSubmit(true);
-      setAuthModalOpen(true);
+      dispatch(openAuthModal('login'));
       return;
     }
     doSubmit(questions);
-  };
-
-  const handleAuthSuccess = () => {
-    setAuthModalOpen(false);
-    if (pendingSubmit) {
-      const restored = savedFormData.questions || questions;
-      setPendingSubmit(false);
-      doSubmit(restored);
-    }
   };
 
   const handleClose = () => {
@@ -157,11 +171,6 @@ export default function ContactForm() {
           )}
         </Modal.Body>
       </Modal>
-      <AuthModal
-        isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
-        onSuccess={handleAuthSuccess}
-      />
       <CalendlyModal
         isOpen={calendlyOpen}
         onClose={() => setCalendlyOpen(false)}
