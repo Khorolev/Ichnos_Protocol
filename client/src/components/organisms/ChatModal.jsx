@@ -21,7 +21,10 @@ import {
 } from "../../features/chat/chatApi";
 import { mapHistoryToMessages } from "../../helpers/chatMessageMapper";
 import { DAILY_MESSAGE_LIMIT } from "../../constants/chat";
-import AuthModal from "./AuthModal";
+import {
+  openAuthModal,
+  setAuthSuccess,
+} from "../../features/auth/authSlice";
 import ChatMessage from "../molecules/ChatMessage";
 import ChatInputArea from "../molecules/ChatInputArea";
 import Button from "../atoms/Button";
@@ -31,12 +34,12 @@ export default function ChatModal() {
   const { isOpen, messages, loading, error, dailyCount } = useSelector(
     (state) => state.chat,
   );
-  const { isAuthenticated } = useSelector((state) => state.auth);
+  const { isAuthenticated, authSuccess, enforcedLogout } = useSelector(
+    (state) => state.auth,
+  );
 
   const [input, setInput] = useState("");
-  const [authModalOpen, setAuthModalOpen] = useState(false);
   const [pendingMessage, setPendingMessage] = useState("");
-  const [authJustSucceeded, setAuthJustSucceeded] = useState(false);
   const listRef = useRef(null);
 
   const [sendMessage] = useSendMessageMutation();
@@ -45,8 +48,14 @@ export default function ChatModal() {
   });
 
   useEffect(() => {
-    if (isOpen && !isAuthenticated) setAuthModalOpen(true);
-  }, [isOpen, isAuthenticated]);
+    if (enforcedLogout) {
+      setPendingMessage("");
+      return;
+    }
+    if (isOpen && !isAuthenticated) {
+      dispatch(openAuthModal('login'));
+    }
+  }, [isOpen, isAuthenticated, enforcedLogout, dispatch]);
 
   useEffect(() => {
     if (historyData?.data && isOpen) {
@@ -61,14 +70,15 @@ export default function ChatModal() {
   }, [messages.length, loading]);
 
   useEffect(() => {
-    if (authJustSucceeded && isAuthenticated && pendingMessage) {
+    if (enforcedLogout) return;
+    if (authSuccess && pendingMessage) {
       const msg = pendingMessage;
       setPendingMessage("");
-      setAuthJustSucceeded(false);
+      dispatch(setAuthSuccess(false));
       doSend(msg);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authJustSucceeded, isAuthenticated]);
+  }, [authSuccess, enforcedLogout]);
 
   const doSend = async (content) => {
     dispatch(
@@ -111,16 +121,11 @@ export default function ChatModal() {
 
     if (!isAuthenticated) {
       setPendingMessage(content);
-      setAuthModalOpen(true);
+      dispatch(openAuthModal('login'));
       return;
     }
 
     doSend(content);
-  };
-
-  const handleAuthSuccess = () => {
-    setAuthModalOpen(false);
-    setAuthJustSucceeded(true);
   };
 
   const handleContactRedirect = () => {
@@ -131,86 +136,79 @@ export default function ChatModal() {
   const isRateLimited = error === "rate_limit";
 
   return (
-    <>
-      <Modal
-        show={isOpen}
-        onHide={() => dispatch(toggleModal())}
-        size="lg"
-        scrollable
-      >
-        <Modal.Header closeButton>
-          <Modal.Title>Chat with Ichnos AI</Modal.Title>
-        </Modal.Header>
-        <Modal.Body className="d-flex flex-column" style={{ height: "60vh" }}>
-          <p className="small text-muted mb-2">
-            Conversations are stored to improve our service.{" "}
-            <a href="/privacy" target="_blank" rel="noopener noreferrer">
-              Privacy Policy
-            </a>
-          </p>
+    <Modal
+      show={isOpen}
+      onHide={() => dispatch(toggleModal())}
+      size="lg"
+      scrollable
+    >
+      <Modal.Header closeButton>
+        <Modal.Title>Chat with Ichnos AI</Modal.Title>
+      </Modal.Header>
+      <Modal.Body className="d-flex flex-column" style={{ height: "60vh" }}>
+        <p className="small text-muted mb-2">
+          Conversations are stored to improve our service.{" "}
+          <a href="/privacy" target="_blank" rel="noopener noreferrer">
+            Privacy Policy
+          </a>
+        </p>
 
-          <div
-            ref={listRef}
-            className="flex-grow-1 overflow-auto d-flex flex-column mb-2"
-          >
-            {messages.map((msg, i) => (
-              <ChatMessage key={i} {...msg} />
-            ))}
-            {messages.length > 0 &&
-              renderInquiryButton(messages, handleContactRedirect)}
-            {loading && (
-              <div className="align-self-start mb-2">
-                <Spinner animation="border" size="sm" />
-              </div>
-            )}
-            {error === "rate_limit" && (
-              <Alert variant="warning" className="mt-2">
-                You have reached your daily message limit. Please try again
-                tomorrow.
-              </Alert>
-            )}
-            {error === "ai_unavailable" && (
-              <Alert variant="warning" className="mt-2">
-                Our AI assistant is temporarily unavailable. You can still leave
-                your question and we will respond within 24 hours.
-                <div className="mt-2">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={handleContactRedirect}
-                  >
-                    Leave your question
-                  </Button>
-                </div>
-              </Alert>
-            )}
-            {error === "generic" && (
-              <Alert variant="danger" className="mt-2">
-                Something went wrong. Please try again.
-              </Alert>
-            )}
-          </div>
-
-          <Badge bg="secondary" className="align-self-start mb-2">
-            Messages today: {dailyCount} / {DAILY_MESSAGE_LIMIT}
-          </Badge>
-
-          {!isRateLimited && (
-            <ChatInputArea
-              value={input}
-              onChange={setInput}
-              onSend={() => handleSend()}
-              disabled={loading}
-            />
+        <div
+          ref={listRef}
+          className="flex-grow-1 overflow-auto d-flex flex-column mb-2"
+        >
+          {messages.map((msg, i) => (
+            <ChatMessage key={i} {...msg} />
+          ))}
+          {messages.length > 0 &&
+            renderInquiryButton(messages, handleContactRedirect)}
+          {loading && (
+            <div className="align-self-start mb-2">
+              <Spinner animation="border" size="sm" />
+            </div>
           )}
-        </Modal.Body>
-      </Modal>
-      <AuthModal
-        isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
-        onSuccess={handleAuthSuccess}
-      />
-    </>
+          {error === "rate_limit" && (
+            <Alert variant="warning" className="mt-2">
+              You have reached your daily message limit. Please try again
+              tomorrow.
+            </Alert>
+          )}
+          {error === "ai_unavailable" && (
+            <Alert variant="warning" className="mt-2">
+              Our AI assistant is temporarily unavailable. You can still leave
+              your question and we will respond within 24 hours.
+              <div className="mt-2">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleContactRedirect}
+                >
+                  Leave your question
+                </Button>
+              </div>
+            </Alert>
+          )}
+          {error === "generic" && (
+            <Alert variant="danger" className="mt-2">
+              Something went wrong. Please try again.
+            </Alert>
+          )}
+        </div>
+
+        <Badge bg="secondary" className="align-self-start mb-2">
+          Messages today: {dailyCount} / {DAILY_MESSAGE_LIMIT}
+        </Badge>
+
+        {!isRateLimited && (
+          <ChatInputArea
+            value={input}
+            onChange={setInput}
+            onSend={() => handleSend()}
+            disabled={loading}
+          />
+        )}
+      </Modal.Body>
+    </Modal>
   );
 }
 

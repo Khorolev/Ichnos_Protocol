@@ -34,29 +34,50 @@ describe("syncProfileSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects missing name", () => {
+  it("accepts missing name (now optional)", () => {
     const result = syncProfileSchema.safeParse({
       firebaseUid: "uid-1",
       surname: "Doe",
       email: "a@b.com",
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
-  it("rejects missing surname", () => {
+  it("accepts missing surname (now optional)", () => {
     const result = syncProfileSchema.safeParse({
       firebaseUid: "uid-1",
       name: "John",
       email: "a@b.com",
     });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
-  it("rejects missing email", () => {
+  it("accepts missing email (now optional)", () => {
     const result = syncProfileSchema.safeParse({
       firebaseUid: "uid-1",
       name: "John",
       surname: "Doe",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts payload with only firebaseUid", () => {
+    const result = syncProfileSchema.safeParse({ firebaseUid: "uid-1" });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects empty-string name when provided", () => {
+    const result = syncProfileSchema.safeParse({
+      firebaseUid: "uid-1",
+      name: "",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects empty-string surname when provided", () => {
+    const result = syncProfileSchema.safeParse({
+      firebaseUid: "uid-1",
+      surname: "",
     });
     expect(result.success).toBe(false);
   });

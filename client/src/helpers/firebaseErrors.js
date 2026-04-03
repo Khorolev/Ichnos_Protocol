@@ -12,3 +12,14 @@ const ERROR_MAP = {
 export function formatFirebaseError(error) {
   return ERROR_MAP[error?.code] || 'An unexpected error occurred.';
 }
+
+export function formatSyncError(error) {
+  const status = error?.status;
+  if (status === 'FETCH_ERROR' || status === 'TIMEOUT_ERROR') {
+    return 'Unable to reach the server. Please try again.';
+  }
+  if (typeof status === 'number' && status >= 500) {
+    return 'An unexpected server error occurred.';
+  }
+  return 'An unexpected error occurred.';
+}

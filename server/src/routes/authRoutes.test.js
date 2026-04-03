@@ -51,6 +51,7 @@ describe("auth routes", () => {
         })
         .mockResolvedValueOnce({ rowCount: 1 });
       mockGetFirebaseUser.mockResolvedValue({
+        email: "john@example.com",
         customClaims: { admin: false },
       });
 
@@ -61,6 +62,8 @@ describe("auth routes", () => {
       expect(res.status).toBe(200);
       expect(res.body.data.profile.name).toBe("John");
       expect(res.body.data.isAdmin).toBe(false);
+      expect(res.body.data.profileState.isProfileComplete).toBe(true);
+      expect(res.body.data.profileState.missingRequiredFields).toEqual([]);
       expect(res.body.message).toBe("Profile synced");
     });
 
@@ -72,7 +75,10 @@ describe("auth routes", () => {
           rows: [{ user_id: "uid-1", ...validProfile }],
         })
         .mockResolvedValueOnce({ rowCount: 1 });
-      mockGetFirebaseUser.mockResolvedValue({ customClaims: undefined });
+      mockGetFirebaseUser.mockResolvedValue({
+        email: "john@example.com",
+        customClaims: undefined,
+      });
 
       const res = await request(app)
         .post("/api/auth/sync-profile")
@@ -89,6 +95,32 @@ describe("auth routes", () => {
 
       expect(res.status).toBe(400);
       expect(res.body.message).toBe("Validation failed");
+    });
+
+    it("returns 200 with profileState for partial profile", async () => {
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ firebase_uid: "uid-1" }] })
+        .mockResolvedValueOnce({
+          rows: [{ user_id: "uid-1", email: "test@firebase.com" }],
+        })
+        .mockResolvedValueOnce({ rowCount: 1 });
+      mockGetFirebaseUser.mockResolvedValue({
+        email: "test@firebase.com",
+        customClaims: {},
+      });
+
+      const res = await request(app)
+        .post("/api/auth/sync-profile")
+        .send({ firebaseUid: "uid-1" });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.profileState.isProfileComplete).toBe(false);
+      expect(res.body.data.profileState.missingRequiredFields).toContain(
+        "name",
+      );
+      expect(res.body.data.profileState.missingRequiredFields).toContain(
+        "surname",
+      );
     });
 
     it("returns 400 on validation failure", async () => {
@@ -135,23 +167,57 @@ describe("auth routes", () => {
   });
 
   describe("GET /api/auth/me", () => {
-    it("returns 200 with user data and admin flag", async () => {
+    it("returns 200 with user data, admin flag, and profileState", async () => {
       mockVerifyIdToken.mockResolvedValue(decodedToken);
       mockQuery.mockResolvedValueOnce({
-        rows: [{ firebase_uid: "uid-1", name: "John", surname: "Doe" }],
+        rows: [
+          {
+            firebase_uid: "uid-1",
+            name: "John",
+            surname: "Doe",
+            email: "john@example.com",
+          },
+        ],
       });
       mockGetFirebaseUser.mockResolvedValue({
         customClaims: { admin: true },
       });
 
-      const res = await request(app)
-        .get("/api/auth/me")
-        .set(authHeader());
+      const res = await request(app).get("/api/auth/me").set(authHeader());
 
       expect(res.status).toBe(200);
       expect(res.body.data.user.name).toBe("John");
       expect(res.body.data.isAdmin).toBe(true);
+      expect(res.body.data.profileState.isProfileComplete).toBe(true);
+      expect(res.body.data.profileState.missingRequiredFields).toEqual([]);
       expect(res.body.message).toBe("User retrieved");
+    });
+
+    it("returns profileState with missing fields for incomplete profile", async () => {
+      mockVerifyIdToken.mockResolvedValue(decodedToken);
+      mockQuery.mockResolvedValueOnce({
+        rows: [
+          {
+            firebase_uid: "uid-1",
+            name: null,
+            surname: null,
+            email: null,
+          },
+        ],
+      });
+      mockGetFirebaseUser.mockResolvedValue({
+        customClaims: {},
+      });
+
+      const res = await request(app).get("/api/auth/me").set(authHeader());
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.profileState.isProfileComplete).toBe(false);
+      expect(res.body.data.profileState.missingRequiredFields).toEqual([
+        "name",
+        "surname",
+        "email",
+      ]);
     });
 
     it("returns 401 without auth token", async () => {
@@ -169,6 +235,56 @@ describe("auth routes", () => {
         .set(authHeader());
 
       expect(res.status).toBe(404);
+    });
+
+    it("uses Firebase email when DB email is null", async () => {
+      mockVerifyIdToken.mockResolvedValue(decodedToken);
+      mockQuery.mockResolvedValueOnce({
+        rows: [
+          {
+            firebase_uid: "uid-1",
+            name: "John",
+            surname: "Doe",
+            email: null,
+          },
+        ],
+      });
+      mockGetFirebaseUser.mockResolvedValue({
+        email: "canonical@firebase.com",
+        customClaims: {},
+      });
+
+      const res = await request(app).get("/api/auth/me").set(authHeader());
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.user.email).toBe("canonical@firebase.com");
+      expect(res.body.data.profileState.isProfileComplete).toBe(true);
+      expect(res.body.data.profileState.missingRequiredFields).toEqual([]);
+    });
+
+    it("uses Firebase email over outdated DB email", async () => {
+      mockVerifyIdToken.mockResolvedValue(decodedToken);
+      mockQuery.mockResolvedValueOnce({
+        rows: [
+          {
+            firebase_uid: "uid-1",
+            name: "John",
+            surname: "Doe",
+            email: "old@example.com",
+          },
+        ],
+      });
+      mockGetFirebaseUser.mockResolvedValue({
+        email: "new@firebase.com",
+        customClaims: { admin: true },
+      });
+
+      const res = await request(app).get("/api/auth/me").set(authHeader());
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.user.email).toBe("new@firebase.com");
+      expect(res.body.data.isAdmin).toBe(true);
+      expect(res.body.data.profileState.isProfileComplete).toBe(true);
     });
   });
 

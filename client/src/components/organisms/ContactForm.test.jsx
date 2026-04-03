@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
@@ -47,18 +47,6 @@ vi.mock("../../config/firebase", () => ({
   auth: { currentUser: null },
 }));
 
-vi.mock("./AuthModal", () => ({
-  default: function MockAuthModal({ isOpen, onSuccess, onClose }) {
-    if (!isOpen) return null;
-    return (
-      <div data-testid="auth-modal">
-        <button onClick={onSuccess}>Mock Auth Success</button>
-        <button onClick={onClose}>Mock Auth Close</button>
-      </div>
-    );
-  },
-}));
-
 vi.mock("./CalendlyModal", () => ({
   default: function MockCalendlyModal({ isOpen }) {
     if (!isOpen) return null;
@@ -76,6 +64,10 @@ function createStore(overrides = {}) {
         isAdmin: false,
         loading: false,
         error: null,
+        modalMode: null,
+        profileState: null,
+        authSuccess: false,
+        enforcedLogout: false,
         ...overrides.auth,
       },
       contact: {
@@ -125,7 +117,7 @@ describe("ContactForm", () => {
     expect(screen.getByText("john@test.com")).toBeInTheDocument();
   });
 
-  it("opens AuthModal when unauthenticated user opens form", async () => {
+  it("dispatches openAuthModal when unauthenticated user opens form", async () => {
     const { default: ContactForm } = await import("./ContactForm");
     const store = createStore({
       auth: { isAuthenticated: false, user: null },
@@ -138,7 +130,67 @@ describe("ContactForm", () => {
       </Provider>,
     );
 
-    expect(screen.getByTestId("auth-modal")).toBeInTheDocument();
+    expect(store.getState().auth.modalMode).toBe("login");
+  });
+
+  it("does not reopen auth modal after enforced logout", async () => {
+    const { default: ContactForm } = await import("./ContactForm");
+    const store = createStore({
+      auth: { isAuthenticated: false, user: null, enforcedLogout: true },
+    });
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <ContactForm />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    expect(store.getState().auth.modalMode).toBeNull();
+  });
+
+  it("clears pendingSubmit on enforced logout so later login does not replay", async () => {
+    const user = userEvent.setup();
+    const { default: ContactForm } = await import("./ContactForm");
+    const store = createStore({
+      auth: { isAuthenticated: false, user: null, enforcedLogout: false },
+    });
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <ContactForm />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    // Simulate unauthenticated submission to create pending work
+    const textarea = screen.getByLabelText("Question 1");
+    await user.type(textarea, "My pending question");
+    const checkbox = screen.getByRole("checkbox");
+    await user.click(checkbox);
+    await user.click(screen.getByRole("button", { name: "Submit Inquiry" }));
+
+    // Enforced logout should clear the pending submit (mirrors AuthModal.handleLogout)
+    act(() => {
+      store.dispatch({ type: "auth/setEnforcedLogout", payload: true });
+      store.dispatch({ type: "auth/forceCloseAuthModal" });
+    });
+
+    // Simulate a later auth success — pending work must NOT replay
+    act(() => {
+      store.dispatch({ type: "auth/setEnforcedLogout", payload: false });
+      store.dispatch({ type: "auth/setUser", payload: { uid: "u1" } });
+      store.dispatch({ type: "auth/setAuthSuccess", payload: true });
+    });
+
+    await waitFor(() => {
+      expect(mockUnwrap).not.toHaveBeenCalled();
+    });
+
+    // Auth modal should not have reopened from stale pending action
+    expect(store.getState().auth.modalMode).toBeNull();
   });
 
   it("calls submitContact with correct payload on valid submit", async () => {

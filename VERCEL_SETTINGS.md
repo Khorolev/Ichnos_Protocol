@@ -87,8 +87,6 @@ Set in **Vercel Dashboard → ichnos-client → Settings → Environment Variabl
 
 | Variable                            | Environments        | Description                  |
 | ----------------------------------- | ------------------- | ---------------------------- |
-| `VITE_API_BASE_URL`                 | Production          | Backend production URL       |
-| `VITE_API_BASE_URL`                 | Preview             | Backend preview URL          |
 | `VITE_FIREBASE_API_KEY`             | Production, Preview | Firebase Web API key         |
 | `VITE_FIREBASE_AUTH_DOMAIN`         | Production, Preview | Firebase auth domain         |
 | `VITE_FIREBASE_PROJECT_ID`          | Production, Preview | Firebase project ID          |
@@ -198,7 +196,6 @@ The `sync-staging.yml` workflow auto-merges `main` into `staging` after every se
 
 | Variable                            | Scope                           | Value                                                                             |
 | ----------------------------------- | ------------------------------- | --------------------------------------------------------------------------------- |
-| `VITE_API_BASE_URL`                 | Preview + Git branch: `staging` | Staging server preview URL (must match the `CORS_ORIGIN` set on the server above) |
 | `VITE_FIREBASE_API_KEY`             | Preview + Git branch: `staging` | Production Firebase web API key                                                   |
 | `VITE_FIREBASE_AUTH_DOMAIN`         | Preview + Git branch: `staging` | Production Firebase auth domain                                                   |
 | `VITE_FIREBASE_PROJECT_ID`          | Preview + Git branch: `staging` | Production Firebase project ID                                                    |
@@ -206,9 +203,9 @@ The `sync-staging.yml` workflow auto-merges `main` into `staging` after every se
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | Preview + Git branch: `staging` | Production Firebase sender ID                                                     |
 | `VITE_FIREBASE_APP_ID`              | Preview + Git branch: `staging` | Production Firebase app ID                                                        |
 
-> **Why `VITE_API_BASE_URL` is required:** Every client API slice (`authApi`, `adminApi`, `contactApi`, `chatApi`, `gdprApi`) reads `import.meta.env.VITE_API_BASE_URL` to route all network traffic. Without a branch-scoped override, the staging client build inherits the global Preview value, which points to the generic preview server — not the staging server. Since the staging server's `CORS_ORIGIN` is set to the staging client URL, requests from the staging client to the wrong backend will either fail CORS or hit a server with non-production credentials. The `VITE_API_BASE_URL` override value must be the same staging server URL used as the `CORS_ORIGIN` on `ichnos-protocolserver` above.
+> `/api/*` requests are rewritten to the production server via the static `client/vercel.json` rewrite. Staging intentionally uses this same production server rewrite — the production server already connects to the production Neon DB and Firebase (matching the staging branch-scoped overrides above), so no separate staging API endpoint is needed. Do not commit a different `destination` on the `staging` branch; `sync-staging.yml` force-pushes `main` into `staging`, which would overwrite any such change on the next sync.
 
-> These overrides ensure the staging client build connects to the production Firebase project and routes API traffic to the staging server, allowing real user login and correct request routing during manual QA. Feature-branch and `main` previews are unaffected — they continue using the global Preview values (test Firebase, generic preview API).
+> These overrides ensure the staging client build connects to the production Firebase project. Feature-branch and `main` previews are unaffected — they continue using the global Preview values (test Firebase).
 
 ### Prerequisites — SYNC_PAT GitHub Secret
 
@@ -230,7 +227,7 @@ The ephemeral branch is unused and will expire automatically per Neon's free-tie
 ### Staging Verification Checklist
 
 - [ ] **Server overrides** — All 6 variables (`DATABASE_URL`, `SKIP_E2E_SEED`, `CORS_ORIGIN`, `FIREBASE_PROJECT_ID`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_CLIENT_EMAIL`) set on `ichnos-protocolserver` with scope **Preview + Git branch: `staging`**
-- [ ] **Client overrides** — All 7 variables (`VITE_API_BASE_URL` + 6 `VITE_FIREBASE_*`) set on `ichnos-client` with scope **Preview + Git branch: `staging`**
+- [ ] **Client overrides** — All 6 `VITE_FIREBASE_*` variables set on `ichnos-client` with scope **Preview + Git branch: `staging`**
 - [ ] **`SKIP_E2E_SEED`** — Confirmed set to `true` (prevents seed injection into production DB)
 - [ ] **`CORS_ORIGIN`** — Value matches the staging client preview URL exactly
 - [ ] **`DATABASE_URL`** — Value matches the production Neon connection string (not an ephemeral branch URL)
@@ -238,7 +235,7 @@ The ephemeral branch is unused and will expire automatically per Neon's free-tie
 - [ ] **Override scoping** — All overrides are scoped to **Preview + Git branch: `staging`**, not global Preview
 - [ ] **Feature branch isolation** — Push a `feature/*` branch and confirm its preview uses the default (non-production) env vars
 - [ ] **`/api/health`** — Deploy `staging` and confirm response shows `seed.mode: skipped`
-- [ ] **API routing** — Open browser DevTools (Network tab), perform an action that triggers an API call (e.g., page load, login), and confirm requests are sent to the staging server URL — not a generic preview or production API URL
+- [ ] **API routing** — `/api/*` requests are rewritten via `vercel.json` to the production server URL; confirm staging API calls route correctly
 - [ ] **Login test** — Access the staging client preview URL and log in with a real production user account
 
 ---
@@ -252,7 +249,7 @@ Use this checklist when setting up new Vercel projects or verifying existing one
 - [ ] **Server environment variables** — All variables set with correct environment scoping (§2)
 - [ ] **Client environment variables** — All variables set with correct environment scoping (§2)
 - [ ] **CORS_ORIGIN** — Production value matches the frontend production URL; preview value is configured for preview URLs (§2)
-- [ ] **VITE_API_BASE_URL** — Production value matches the backend production URL; preview value matches the backend preview URL (§2)
+- [ ] **API rewrite** — `client/vercel.json` contains a `/api/:path*` rewrite to the production server URL and a `/(.*) → /index.html` SPA catch-all
 - [ ] **Repository Dispatch Events** — Enabled on `ichnos-protocolserver` in Vercel Git settings; disabled (or left disabled) on `ichnos-client` (§1)
 - [ ] **E2E auto-seed env vars** — Set on ichnos-protocolserver, Preview scope only: `E2E_ADMIN_EMAIL`, `E2E_ADMIN_UID`, and optionally `E2E_USER_*`, `E2E_SUPER_ADMIN_*` (§2)
 - [ ] **SKIP_E2E_SEED** — If needed for non-ephemeral preview DB scenarios, set to `true` on ichnos-protocolserver, Preview scope only (§2)
@@ -260,6 +257,6 @@ Use this checklist when setting up new Vercel projects or verifying existing one
 - [ ] **Vercel IDs** — All four IDs (`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID_CLIENT`, `VERCEL_PROJECT_ID_SERVER`) are set as GitHub repository secrets (§4)
 - [ ] **Local project linking** — `server/.vercel/project.json` exists, its `projectName` field is present (re-link with latest Vercel CLI if missing), and the name is exactly `ichnos-protocolserver` (§5)
 - [ ] **Staging server overrides** — All 6 server branch-scoped overrides set on `ichnos-protocolserver` for `staging` (§6)
-- [ ] **Staging client overrides** — All 7 client branch-scoped overrides (`VITE_API_BASE_URL` + 6 `VITE_FIREBASE_*`) set on `ichnos-client` for `staging` (§6)
+- [ ] **Staging client overrides** — All 6 `VITE_FIREBASE_*` branch-scoped overrides set on `ichnos-client` for `staging` (§6)
 - [ ] **`SYNC_PAT` secret** — GitHub Actions secret `SYNC_PAT` exists with `contents: write` scope (§6)
 - [ ] **Staging `/api/health`** — Returns `seed.mode: skipped` after deploying `staging` (§6)

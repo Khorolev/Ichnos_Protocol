@@ -4,7 +4,20 @@ import { onAuthStateChanged } from 'firebase/auth';
 
 import { auth } from '../config/firebase';
 import { authApi } from '../features/auth/authApi';
-import { setUser, setAdmin, logout, setLoading } from '../features/auth/authSlice';
+import {
+  setUser,
+  setAdmin,
+  logout,
+  setLoading,
+  setProfileState,
+  openAuthModal,
+} from '../features/auth/authSlice';
+import {
+  isCompletionRequired,
+  markCompletionShown,
+  wasCompletionShown,
+  clearCompletionShown,
+} from '../helpers/profileCompletion';
 
 export const useAuthInit = () => {
   const dispatch = useDispatch();
@@ -22,14 +35,34 @@ export const useAuthInit = () => {
           if (!error && data) {
             dispatch(setUser(data.data.user));
             dispatch(setAdmin(data.data.isAdmin || false));
+
+            const profile = data.data.profileState;
+            if (profile) {
+              dispatch(setProfileState(profile));
+            }
+
+            const isAdminRoute =
+              window.location.pathname.startsWith('/admin');
+
+            if (
+              !isAdminRoute &&
+              isCompletionRequired(profile) &&
+              !wasCompletionShown()
+            ) {
+              dispatch(openAuthModal('complete-profile'));
+              markCompletionShown();
+            }
           } else {
             dispatch(logout());
+            clearCompletionShown();
           }
         } catch {
           dispatch(logout());
+          clearCompletionShown();
         }
       } else {
         dispatch(logout());
+        clearCompletionShown();
       }
       dispatch(setLoading(false));
     });

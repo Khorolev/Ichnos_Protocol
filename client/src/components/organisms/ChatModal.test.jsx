@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Provider } from "react-redux";
 import { MemoryRouter } from "react-router-dom";
@@ -31,18 +31,6 @@ vi.mock("../../config/firebase", () => ({
   auth: { currentUser: null },
 }));
 
-vi.mock("./AuthModal", () => ({
-  default: function MockAuthModal({ isOpen, onSuccess, onClose }) {
-    if (!isOpen) return null;
-    return (
-      <div data-testid="auth-modal">
-        <button onClick={onSuccess}>Mock Auth Success</button>
-        <button onClick={onClose}>Mock Auth Close</button>
-      </div>
-    );
-  },
-}));
-
 vi.mock("../../features/contact/contactSlice", () => ({
   openModal: vi.fn(() => ({ type: "contact/openModal" })),
 }));
@@ -57,6 +45,10 @@ function createStore(overrides = {}) {
         isAdmin: false,
         loading: false,
         error: null,
+        modalMode: null,
+        profileState: null,
+        authSuccess: false,
+        enforcedLogout: false,
         ...overrides.auth,
       },
       chat: {
@@ -118,9 +110,11 @@ describe("ChatModal", () => {
     expect(screen.getByText("Messages today: 2 / 3")).toBeInTheDocument();
   });
 
-  it("opens auth modal for unauthenticated users when modal opens", async () => {
+  it("dispatches openAuthModal for unauthenticated users when modal opens", async () => {
     const { default: ChatModal } = await import("./ChatModal");
-    const store = createStore({ auth: { isAuthenticated: false, user: null } });
+    const store = createStore({
+      auth: { isAuthenticated: false, user: null },
+    });
 
     render(
       <Provider store={store}>
@@ -130,7 +124,7 @@ describe("ChatModal", () => {
       </Provider>,
     );
 
-    expect(screen.getByTestId("auth-modal")).toBeInTheDocument();
+    expect(store.getState().auth.modalMode).toBe("login");
   });
 
   it("dispatches user message and AI reply from result.data on send success", async () => {
@@ -270,6 +264,97 @@ describe("ChatModal", () => {
     await waitFor(() => {
       expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
     });
+  });
+
+  it("does not reopen auth modal after enforced logout", async () => {
+    const { default: ChatModal } = await import("./ChatModal");
+    const store = createStore({
+      auth: { isAuthenticated: false, user: null, enforcedLogout: true },
+    });
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <ChatModal />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    expect(store.getState().auth.modalMode).toBeNull();
+  });
+
+  it("clears pending message on enforced logout", async () => {
+    const { default: ChatModal } = await import("./ChatModal");
+    const store = createStore({
+      auth: { isAuthenticated: false, user: null, enforcedLogout: false },
+    });
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <ChatModal />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    act(() => {
+      store.dispatch({ type: "auth/setEnforcedLogout", payload: true });
+    });
+
+    act(() => {
+      store.dispatch({ type: "auth/setEnforcedLogout", payload: false });
+      store.dispatch({ type: "auth/setUser", payload: { uid: "u1" } });
+      store.dispatch({ type: "auth/setAuthSuccess", payload: true });
+    });
+
+    await waitFor(() => {
+      expect(store.getState().auth.authSuccess).toBe(true);
+    });
+  });
+
+  it("does not auto-resume deferred work after enforced logout and later login", async () => {
+    const user = userEvent.setup();
+    mockUnwrap.mockResolvedValue({
+      data: { answer: "AI response", dailyCount: 1 },
+    });
+
+    const { default: ChatModal } = await import("./ChatModal");
+    const store = createStore({
+      auth: { isAuthenticated: false, user: null },
+    });
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <ChatModal />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    // Simulate unauthenticated send to create pending work
+    const textarea = screen.getByPlaceholderText("Type your message...");
+    await user.type(textarea, "Pending question");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    // Enforced logout should clear the pending message (mirrors AuthModal.handleLogout)
+    act(() => {
+      store.dispatch({ type: "auth/setEnforcedLogout", payload: true });
+      store.dispatch({ type: "auth/forceCloseAuthModal" });
+    });
+
+    // Simulate a later auth success — pending work must NOT replay
+    act(() => {
+      store.dispatch({ type: "auth/setEnforcedLogout", payload: false });
+      store.dispatch({ type: "auth/setUser", payload: { uid: "u1" } });
+      store.dispatch({ type: "auth/setAuthSuccess", payload: true });
+    });
+
+    await waitFor(() => {
+      expect(mockUnwrap).not.toHaveBeenCalled();
+    });
+
+    // Auth modal should not have reopened from stale pending action
+    expect(store.getState().auth.modalMode).toBeNull();
   });
 
   it("hides input area when rate limited", async () => {
