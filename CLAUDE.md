@@ -51,7 +51,7 @@ The site includes public-facing pages (landing, team, services/products), an AI-
 | E2E Testing  | Playwright                          | End-to-end tests against Vercel previews     |
 | Linting      | ESLint + Prettier                   | Enforced via pre-commit hook                 |
 | Deployment   | Vercel (Monorepo)                   | `client/` and `server/` as separate projects |
-| MCP Servers  | GitHub, DBHub, Playwright, Context7 | Direct repo, DB, E2E, and docs access        |
+| MCP Servers  | GitHub, Neon, Vercel, DBHub, Playwright, Context7 | Repo, DB, deployment, E2E, docs access |
 
 ---
 
@@ -789,7 +789,7 @@ When working on this project, Claude must:
 13. **Validate inputs** at the boundary: Zod on the server, form validation on the client.
 14. **When creating a new page**, wire up the route in the router, add it to the navigation if public, and protect it if admin-only.
 15. **Run a mental test.** Before presenting code, mentally trace through the user flow to catch obvious issues.
-16. **Use MCP integrations first.** Prefer GitHub MCP for repo operations, DBHub for database inspection, Playwright MCP for E2E tests, and Context7 for library docs. See Section 19 for details.
+16. **Use MCP integrations first.** Prefer GitHub MCP for repo operations, Neon MCP for database queries and schema inspection, Vercel MCP for deployment logs and env vars, Playwright MCP for E2E tests, and Context7 for library docs. See Section 19 for details.
 
 ### Traycer Plan Execution Rules
 
@@ -825,31 +825,69 @@ The following actions still require explicit user confirmation even in automated
 
 ---
 
-## 19. Database MCP Server
+## 19. MCP Server Integrations
 
-A local MCP server ([`@bytebase/dbhub`](https://github.com/bytebase/dbhub)) is configured in `.mcp.json` (gitignored) to give Claude direct read/write access to the Neon PostgreSQL database.
+MCP (Model Context Protocol) servers give Claude direct access to external
+services. Use them instead of manual CLI commands or copy-pasting data.
 
-### Available Tools
+### 19.1 Available Servers
 
-- **`mcp__db__execute_sql`** — Run any SQL query (SELECT, INSERT, UPDATE, DELETE, DDL) against the production Neon database.
-- **`mcp__db__search_objects`** — Search for database objects (tables, columns, indexes, constraints) by name or pattern.
+| MCP Server | Scope | Transport | Auth | What it does |
+|------------|-------|-----------|------|-------------|
+| **GitHub** | Project | Remote | PAT | PRs, issues, commits, code search, file contents |
+| **Neon** | User | Remote (`https://mcp.neon.tech/mcp`) | OAuth | PostgreSQL queries, schema, branches, migrations |
+| **Vercel** | User | Remote (`https://mcp.vercel.com`) | OAuth | Deployment logs, env vars, project settings |
+| **DBHub** | Project | Local stdio (`.mcp.json`) | Connection string | Direct SQL to Neon DB (legacy — prefer Neon MCP) |
+| **Playwright** | Project | Local | — | E2E test execution, browser automation |
+| **Context7** | User | Remote | — | Library/framework documentation lookup |
 
-### When to Use
+**Scope**: "User" = configured in `~/.claude.json` (persists across projects). "Project" = configured in `.mcp.json` or `.claude/settings.json` (per-repo).
 
-- **Investigating bugs**: Query production data directly to verify state, check row counts, or inspect specific records.
-- **Schema verification**: Confirm table structures, indexes, and constraints match expectations before writing migrations.
-- **Data analysis**: Run ad-hoc queries to answer questions about customer requests, uploaded documents, or other stored data.
-- **Migration validation**: After writing a migration, verify the schema changes were applied correctly.
+### 19.2 When to Use Which
 
-### Important Rules
+| Task | Use this MCP |
+|------|-------------|
+| Debug a deployment failure | **Vercel** — check function logs, deployment status |
+| Check environment variables on staging/production | **Vercel** — list/inspect env vars per project |
+| Query production data to investigate a bug | **Neon** or **DBHub** — run SELECT queries |
+| Verify DB tables/migrations exist | **Neon** — `execute_sql` or schema tools |
+| Create/manage Neon database branches | **Neon** — branch management tools |
+| Review a PR, check CI status, search code | **GitHub** — PR, issue, commit, code search tools |
+| Look up library/framework API docs | **Context7** — documentation query |
+| Run or debug E2E tests | **Playwright** — browser automation |
 
-- **Read-first by default.** Prefer SELECT queries for investigation. Only run mutating queries (INSERT, UPDATE, DELETE, DDL) when explicitly asked or when the task requires it.
-- **This is the production database.** Treat mutating operations with care — confirm with the user before running destructive queries (DELETE, DROP, TRUNCATE).
-- **The connection string is in `.mcp.json`** (gitignored) via the `DSN` env var. It is the same value as `DATABASE_URL` in `server/.env`. Both must be kept in sync manually — if the database credentials rotate, update both files.
+### 19.3 Neon MCP (Database)
 
-### Setup
+**Endpoint**: `https://mcp.neon.tech/mcp`
+**Auth**: OAuth (browser popup on first use)
+**Setup**: `claude mcp add --transport http --scope user neon https://mcp.neon.tech/mcp`
 
-The MCP server is configured in `.mcp.json` at the repository root (gitignored). To set it up on a new machine:
+Provides ~20 tools covering the full database lifecycle: query execution, schema inspection, branch management, migrations, connection strings, and documentation.
+
+**Important rules**:
+- **Read-first by default.** Prefer SELECT queries for investigation. Only run mutating queries when explicitly asked.
+- **This connects to the production database.** Confirm with the user before destructive queries (DELETE, DROP, TRUNCATE).
+
+### 19.4 Vercel MCP (Deployments)
+
+**Endpoint**: `https://mcp.vercel.com`
+**Auth**: OAuth (browser popup on first use)
+**Setup**: `claude mcp add --transport http --scope user vercel https://mcp.vercel.com`
+
+For project-specific context (auto-fills team/project params), use:
+`https://mcp.vercel.com/<teamSlug>/<projectSlug>`
+
+**Key tools**: search docs, list/inspect deployments, view function logs, manage env vars, check project settings.
+
+**Important**: Vercel MCP requires OAuth and only works with approved clients. Claude Code is approved. Traycer is **not** currently supported (Vercel rejects the OAuth flow).
+
+### 19.5 DBHub (Legacy Database Access)
+
+A local MCP server ([`@bytebase/dbhub`](https://github.com/bytebase/dbhub)) configured in `.mcp.json` (gitignored). Provides `mcp__db__execute_sql` and `mcp__db__search_objects`.
+
+**Note**: Prefer the Neon MCP (§19.3) for new work — it has broader capabilities (branch management, migrations, docs). DBHub remains available as a fallback for direct SQL when Neon MCP is not configured.
+
+**Setup** (for new machines or when Neon MCP is unavailable):
 
 1. Copy `DATABASE_URL` from `server/.env`.
 2. Create `.mcp.json` in the repository root:
@@ -868,3 +906,15 @@ The MCP server is configured in `.mcp.json` at the repository root (gitignored).
    }
    ```
 3. The `DSN` value must match `DATABASE_URL` in `server/.env`. If credentials rotate, update both files.
+
+### 19.6 Traycer MCP Availability
+
+Traycer AI (the planning/orchestration layer) has its own MCP support. Currently available:
+
+| MCP Server | Traycer Support | Notes |
+|------------|:--------------:|-------|
+| **GitHub** | ✅ | Remote endpoint with PAT auth (`Authorization: Bearer ghp_...`) |
+| **Neon** | ✅ | Remote endpoint with API key auth (`Authorization: Bearer neon_api_key_...`). Get key from Neon Console → Settings → API Keys. |
+| **Vercel** | ❌ | OAuth required, Traycer not in Vercel's approved client list |
+
+This means Traycer can directly query the database and manage GitHub repos during planning, but deployment operations (Vercel logs, env vars) must go through Claude Code.
