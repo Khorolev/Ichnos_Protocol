@@ -1,71 +1,157 @@
-# DevOps Lessons Learned — E2E Testing Pipeline
+# Deployment & E2E Testing — Lessons Learned
 
-> Hard-won knowledge from setting up Playwright E2E tests against Vercel preview
-> deployments with Neon ephemeral databases, Firebase Auth, and GitHub Actions.
-
----
-
-## 1. Vercel Deployment Protection Blocks Everything
-
-**Problem**: Vercel's Deployment Protection returns `401` on all preview/staging
-URLs when accessed without authentication — including from CI runners, curl
-health checks, and Playwright browsers.
-
-**What we missed**: Protection applies to **every Vercel project independently**.
-In a monorepo with separate client and server projects, you must configure the
-bypass secret on **both** projects.
-
-**Where the bypass must be sent**:
-
-| Caller                         | How to send                                                  |
-| ------------------------------ | ------------------------------------------------------------ |
-| curl (workflow readiness poll) | `-H "x-vercel-protection-bypass: $SECRET"`                   |
-| Playwright (browser)           | `extraHTTPHeaders` in `playwright.config.js`                 |
-
-**Do NOT use Node.js `fetch()` for bypass**: The Fetch spec strips custom headers on
-cross-origin redirects. Vercel's Deployment Protection redirects to `vercel.com/sso-api`,
-causing the bypass header to be lost. Query params also fail. Use `curl` in the workflow
-instead — it preserves headers across redirects.
-
-**Key detail**: Playwright also needs `x-vercel-set-bypass-cookie: samesitenone`
-so subsequent navigations (asset loads, client-side routing) inherit the bypass
-via cookie — headers alone only work for the initial request.
-
-**Setup checklist**:
-
-- [ ] Enable "Protection Bypass for Automation" on the **client** Vercel project
-- [ ] Enable "Protection Bypass for Automation" on the **server** Vercel project
-- [ ] Use the **same secret value** for both projects (simplifies GitHub config)
-- [ ] Add `VERCEL_AUTOMATION_BYPASS_SECRET` as a GitHub Actions secret
-- [ ] Send the header in **every** place that makes HTTP requests to Vercel
+> A beginner-friendly reference for deploying monorepo web apps with E2E testing.
+> Written from real mistakes made on the Ichnos Protocol project (React + Express
+> on Vercel, Neon PostgreSQL, Firebase Auth, Playwright, GitHub Actions).
+>
+> Use this as a **template spec** for future projects. Each section explains
+> what went wrong, why, and the simple rule to follow instead.
 
 ---
 
-## 2. Per-Deployment Hash URLs Are Unreliable
+## Table of Contents
 
-**Problem**: Vercel's `repository_dispatch` payload contains a per-deployment
-hash URL like `ichnos-protocol-abc123-user-projects.vercel.app`. These URLs
-can return `404 DEPLOYMENT_NOT_FOUND` if Vercel cancels/supersedes the build
-before the E2E workflow reaches it.
-
-**Root cause**: When you push multiple commits or Vercel rebuilds, older
-deployments are cancelled. The `repository_dispatch` event may still fire with
-the cancelled deployment's URL.
-
-**Solution**: Use your **stable custom staging domain** (`staging-client.ichnos-protocol.com`)
-which always points to the latest successful preview deployment. Store it as a
-**GitHub Actions Variable** (`vars.E2E_BASE_URL`) — not a secret — so the value is
-visible in logs and easy to verify. See §8 for the variables-vs-secrets distinction.
+1. [How This Document Is Organized](#how-this-document-is-organized)
+2. [The Golden Rules](#the-golden-rules)
+3. [Part A — Deployment Architecture](#part-a--deployment-architecture)
+4. [Part B — E2E Testing Pipeline](#part-b--e2e-testing-pipeline)
+5. [Part C — Secrets & Credentials Management](#part-c--secrets--credentials-management)
+6. [Part D — Database & Seeding](#part-d--database--seeding)
+7. [Part E — Same-Origin API Routing](#part-e--same-origin-api-routing)
+8. [Quick Reference Checklists](#quick-reference-checklists)
 
 ---
 
-## 3. repository_dispatch Fires Multiple Times Per Push
+## How This Document Is Organized
 
-**Problem**: A single `git push` can trigger multiple Vercel deployments
-(e.g., one per commit, or redundant builds), each firing its own
-`repository_dispatch` event. This causes duplicate E2E runs.
+Each lesson follows the same format:
 
-**Solution**: Use a **concurrency group** keyed on something stable:
+- **What went wrong** — the symptom we saw
+- **Why it happened** — the root cause (the actual mistake)
+- **The simple rule** — what to do instead in future projects
+- **Example** — concrete code or config when helpful
+
+Lessons are grouped by topic, not chronologically. If you're setting up a new
+project, read the Golden Rules first, then the relevant Part for your task.
+
+---
+
+## The Golden Rules
+
+These five rules would have prevented 80% of the problems we hit. Memorize them.
+
+### Rule 1: Test every HTTP call manually before automating it
+
+Before writing CI/CD workflow code, open a terminal and `curl` every URL your
+pipeline will call. Use the exact same headers. If it fails locally, it will
+fail in CI — but you'll find out in 5 seconds instead of 20 minutes.
+
+### Rule 2: Log raw data before writing logic around it
+
+Webhook payloads, API responses, environment variables — always dump them first.
+Don't assume what fields exist based on documentation. Documentation describes
+the *intended* schema; the actual data may differ.
+
+### Rule 3: Use stable URLs, never dynamic deployment hashes
+
+Vercel generates a unique URL for every deployment (`app-abc123.vercel.app`).
+These URLs break when Vercel cancels/supersedes a build. Use custom domain
+aliases that always point to the latest deployment.
+
+### Rule 4: Know which platform each credential belongs to
+
+There are typically 3+ platforms that need credentials (CI runner, frontend
+hosting, backend hosting). A secret set in one platform is invisible to the
+others. Map every credential to every platform that needs it.
+
+### Rule 5: Browser API calls should use same-origin routing
+
+Don't make the browser call a different domain for API requests. Use a proxy
+(Vite dev proxy for local, platform rewrites for deployed). This eliminates
+CORS issues, deployment protection cookie problems, and environment-specific
+networking bugs.
+
+---
+
+## Part A — Deployment Architecture
+
+### A1. Monorepo = Separate Deployment Projects = Separate Auth Boundaries
+
+**What went wrong**: We configured Vercel's deployment protection bypass on the
+client project but forgot the server project. API calls returned `401` in CI
+even though the client was accessible.
+
+**Why it happened**: In a monorepo with two Vercel projects (client + server),
+each project has **independent** deployment protection. Configuring one doesn't
+affect the other.
+
+**The simple rule**: For every HTTP call in your pipeline, ask: *"Which
+deployment project does this URL belong to? Does that project have its own
+authentication?"* Make an inventory:
+
+| Call | Target project | Needs auth? |
+|------|---------------|-------------|
+| curl health check | Server | Yes |
+| Browser navigation | Client | Yes |
+| API calls from browser | Server | Yes |
+| Firebase Auth calls | Firebase (external) | No |
+
+Then configure the bypass/auth on **every** project in the inventory.
+
+### A2. Per-Deployment Hash URLs Are Unreliable
+
+**What went wrong**: The CI pipeline used Vercel's auto-generated hash URLs
+(like `app-abc123.vercel.app`) from webhook payloads. These URLs returned
+`404 DEPLOYMENT_NOT_FOUND` randomly.
+
+**Why it happened**: When you push multiple commits, Vercel cancels older
+builds. The webhook fires with the cancelled build's URL, which no longer
+exists by the time CI tries to use it.
+
+**The simple rule**: Set up a **stable custom domain** for your staging
+environment (e.g., `staging-client.example.com`). This always points to the
+latest successful deployment. Store the URL as a CI variable (not a secret —
+see C2), and never parse URLs from webhook payloads.
+
+### A3. Trigger CI on the Slower Deployment
+
+**What went wrong**: E2E tests were triggered by the client deployment (fast).
+By the time tests started, the server was still deploying. Tests hit connection
+errors and wasted minutes retrying.
+
+**Why it happened**: We triggered on the wrong event. The client deploys in
+~30 seconds; the server + database setup takes ~90 seconds.
+
+**The simple rule**: In a monorepo, trigger E2E tests from the **slower**
+deployment's webhook. Then poll the faster deployment to confirm it's ready.
+
+```
+Push → Client deploys (fast) → Server deploys (slow)
+                                       ↓
+                             Server webhook fires
+                                       ↓
+                             CI starts, polls client (usually instant ✓)
+                                       ↓
+                             Run tests
+```
+
+**Example** (GitHub Actions):
+```yaml
+on:
+  repository_dispatch:
+    types: [vercel.deployment.success]  # Fired by server project
+```
+
+### A4. Deduplicate CI Runs with Concurrency Groups
+
+**What went wrong**: A single `git push` triggered multiple Vercel deployments,
+each firing a webhook, each starting an E2E run. We had 3-4 identical CI runs
+competing.
+
+**Why it happened**: Vercel fires one webhook per deployment, and pushes with
+multiple commits can trigger multiple deployments.
+
+**The simple rule**: Use a concurrency group with `cancel-in-progress: true`:
 
 ```yaml
 concurrency:
@@ -73,522 +159,422 @@ concurrency:
   cancel-in-progress: true
 ```
 
-`project.name` is always present in the Vercel payload and is the same across
-all deployments for the same project. With `cancel-in-progress: true`, only
-the latest dispatch runs.
+Only the latest run survives. Older runs are automatically cancelled.
 
-**What didn't work**: Keying on `deployment.meta.githubCommitRef` or
-`deployment.meta.githubCommitSha` — these fields were **empty** in the actual
-payload despite being referenced in some documentation.
+### A5. Protect Against Accidentally Targeting Production
+
+**What went wrong**: E2E tests write data (seed records, form submissions). If
+the test URL variable accidentally points to production, live data gets
+corrupted.
+
+**The simple rule**: Add a **production hostname denylist** at the start of your
+CI workflow. Hard-fail if the test URL matches any production domain.
+
+```yaml
+env:
+  PRODUCTION_HOSTS: "myapp.com www.myapp.com api.myapp.com"
+```
+
+Key details:
+- Use **exact hostname match** (not substring or regex)
+- **Fail-closed**: if the denylist is missing or empty, abort — don't proceed
+- The denylist in the workflow file is the source of truth
 
 ---
 
-## 4. Always Dump Webhook Payloads First
+## Part B — E2E Testing Pipeline
 
-**Problem**: We assumed the `repository_dispatch` payload contained specific
-fields (`deployment.meta.githubCommitSha`, `deployment.meta.githubCommitRef`)
-based on documentation. In practice, they were empty.
+### B1. Never Use Node.js `fetch()` to Bypass Deployment Protection
 
-**Lesson**: Before writing any logic around a webhook payload, add a debug step:
+**What went wrong**: We used `fetch()` in Playwright's `global-setup.js` to
+poll the server's health endpoint. It failed silently — the server returned
+Vercel's HTML auth page instead of JSON.
+
+**Why it happened**: The Fetch API spec **strips custom headers on cross-origin
+redirects**. Vercel's deployment protection redirects to `vercel.com/sso-api`,
+causing the bypass header to be lost. This is a browser/Node.js spec behavior,
+not a Vercel bug.
+
+**The simple rule**: Use `curl` in the CI workflow for all deployment readiness
+checks. `curl -L` preserves headers across redirects. Keep `global-setup.js`
+minimal — only validate credentials that Playwright needs (e.g., Firebase
+tokens), not server availability.
+
+**Architecture**:
+```
+Workflow:   curl → client URL (HTTP 200?)
+Workflow:   curl → /api/health (JSON? seed ready?)
+global-setup.js:  Firebase credential validation only
+Playwright: tests run
+```
+
+### B2. Playwright Needs Both Bypass Header and Cookie
+
+**What went wrong**: Playwright's first page navigation worked, but subsequent
+navigations (asset loads, client-side routing) returned `401`.
+
+**Why it happened**: The bypass header only works for explicit HTTP requests.
+Browser-initiated requests (images, scripts, navigation) can't carry custom
+headers. You need Vercel to set a **bypass cookie** so subsequent requests
+inherit the authentication.
+
+**The simple rule**: Send both headers in Playwright config:
+
+```js
+extraHTTPHeaders: {
+  'x-vercel-protection-bypass': process.env.BYPASS_SECRET,
+  'x-vercel-set-bypass-cookie': 'samesitenone',
+}
+```
+
+The first header authenticates. The second tells Vercel to set a cookie for
+all future requests from that browser session.
+
+### B3. Always Dump Webhook Payloads Before Building Logic
+
+**What went wrong**: We wrote conditional logic assuming the webhook payload
+contained `deployment.meta.githubCommitSha`. The field was empty in practice.
+
+**Why it happened**: We trusted the documentation without verifying. The actual
+payload didn't match the documented schema.
+
+**The simple rule**: Add a debug step as your **first** action in any
+event-driven workflow:
 
 ```yaml
-- name: Dump payload (debug)
+- name: Dump payload
   run: echo '${{ toJSON(github.event.client_payload) }}' | jq '.'
 ```
 
-Inspect the **actual** data before building logic around it. Documentation
-describes the intended schema; the actual payload may differ.
+Read the actual data. Then write logic.
+
+### B4. Separate E2E Targets from Manual QA Targets
+
+**What went wrong**: E2E tests and manual QA both targeted the same staging
+URL. E2E seed data polluted manual QA sessions. Manual QA ran against
+ephemeral databases that expired mid-test.
+
+**Why it happened**: Two different use cases (automated testing vs. human
+testing) were overloaded onto a single URL.
+
+**The simple rule**: Use separate branches with different database backends:
+
+| Purpose | Branch | Database | Seed? |
+|---------|--------|----------|-------|
+| E2E (automated) | `main` previews | Ephemeral (Neon branch) | Yes |
+| Manual QA | `staging` | Production | No (`SKIP_E2E_SEED=true`) |
+
+Auto-sync staging from main after each deployment so it always has the latest
+code but uses production data for realistic manual testing.
+
+### B5. Pre-Flight Checklist Before Any Pipeline Change
+
+Before committing CI/E2E workflow changes:
+
+1. `curl` every URL with the same headers CI will use
+2. List every HTTP request and confirm credentials for each
+3. Dump raw webhook/API data before writing conditionals
+4. Use stable URLs, not hash URLs
+5. Test the bypass secret against **both** Vercel projects
+6. Verify all secrets/variables are set in GitHub before pushing
 
 ---
 
-## 5. Monorepo = Separate Auth Boundaries
+## Part C — Secrets & Credentials Management
 
-**Problem**: In a monorepo with split Vercel projects (client + server), each
-project has its own Deployment Protection. The bypass secret configured on the
-client project does not apply to the server project.
+### C1. Three Platforms Need Credentials — Don't Confuse Them
 
-**Lesson**: For every HTTP call in the E2E pipeline, ask:
-"Which Vercel project does this URL belong to? Does that project have its own
-protection?" Then ensure the bypass is configured on every relevant project.
+**What went wrong**: We set `E2E_ADMIN_UID` as a GitHub Actions secret. The
+server's seed script (running on Vercel) couldn't find it and failed with
+"missing required seed vars."
 
-**Inventory of HTTP calls in our pipeline**:
+**Why it happened**: GitHub Actions secrets are only available to the CI runner
+process. The Vercel server runtime is a completely separate environment.
 
-| Call                              | Target project | Needs bypass? |
-| --------------------------------- | -------------- | ------------- |
-| curl readiness check (client URL) | Client         | Yes           |
-| Playwright browser navigation     | Client         | Yes           |
-| global-setup Firebase validation  | Server         | Yes           |
-| Playwright API calls via app      | Server         | Yes (via app) |
+**The simple rule**: Map every credential to every platform that needs it:
 
----
+| Platform | Where to configure | Who uses it |
+|----------|-------------------|-------------|
+| CI runner (GitHub Actions) | GitHub → Settings → Secrets | Workflow steps, Playwright |
+| Frontend hosting (Vercel client) | Vercel → Client → Env Variables | Client code (`VITE_*`) |
+| Backend hosting (Vercel server) | Vercel → Server → Env Variables | Server runtime (seed, API) |
 
-## 6. Keep All Vercel Bypass Logic in curl, Not Node.js fetch()
+A credential set in one platform is **invisible** to the others.
 
-**Problem**: We originally had a `pollHealth` function in Playwright's
-`global-setup.js` that used Node.js `fetch()` to poll the API health endpoint.
-This failed in three different ways:
+### C2. Use Variables for URLs, Secrets Only for Passwords
 
-1. **Headers approach**: `fetch()` strips custom headers on cross-origin redirects
-   (per the Fetch spec). Vercel redirects to `vercel.com/sso-api`, losing the bypass
-   header → infinite redirect loop.
-2. **Query params approach**: Vercel's server project returned 401 even with bypass
-   query parameters — the mechanism is not reliable across all project types.
-3. **Both approaches**: Fundamentally incompatible with Vercel's redirect-based
-   Deployment Protection flow.
+**What went wrong**: We stored staging URLs as GitHub Actions secrets. Logs
+showed `Failed to parse URL from ***/api/health` — the URL was masked as `***`,
+making debugging impossible.
 
-**Solution**: Move **all** readiness polling (including seed status checks) into
-the workflow as `curl`-based steps. `curl -L` preserves headers across redirects.
-Simplify `global-setup.js` to only validate Firebase credentials.
+**Why it happened**: Secrets are masked in logs (by design). URLs aren't
+sensitive — they should be visible for debugging.
 
-**Architecture (final)**:
+**The simple rule**:
 
-```
-Workflow step 1: curl → staging-client URL (HTTP 200 check)
-    ↓ passes
-Workflow step 2: curl → staging-api /api/health (JSON parsed, seed.mode ∈ {seeded, skipped})
-    ↓ passes
-Playwright global-setup: Firebase credential validation only
-    ↓ passes
-Playwright tests run
-```
+| Type | Visible in logs? | Visible in UI? | Use for |
+|------|-----------------|----------------|---------|
+| Variables (`vars.*`) | Yes | Yes | URLs, config, feature flags |
+| Secrets (`secrets.*`) | No (masked) | No (write-only) | Passwords, API keys, tokens |
 
-**Lesson**: Never use Node.js `fetch()` to bypass Vercel Deployment Protection.
-Use `curl` in the workflow for all server readiness checks.
+### C3. Secrets Are Write-Only — You Can't Verify Them
 
----
+**What went wrong**: After setting a GitHub Actions secret, we went back to
+verify the value — the field was blank. We thought it wasn't saved and re-set
+it (introducing a typo).
 
-## 7. GitHub Actions Secrets Are Write-Only
+**Why it happened**: GitHub Actions secrets are write-only by design. You can
+see *that* a secret exists and *when* it was last updated, but never its value.
 
-**Non-obvious behavior**: After saving a GitHub Actions secret, the value
-field appears empty when you revisit the settings page. This is by design —
-secrets are write-only for security. The secret is saved if you see it
-listed with an "Updated X ago" timestamp.
+**The simple rule**: Accept that secrets are write-only. If something isn't
+working, re-set the secret from your canonical source file (see C4) rather
+than trying to debug the stored value.
 
----
+### C4. One Canonical File for All Credentials
 
-## 8. Use Variables for Non-Sensitive Config, Secrets Only for Credentials
+**What went wrong**: E2E credentials (3 roles × 3 fields × 3 platforms ≈ 27
+entries) were manually maintained across GitHub, Vercel, and local `.env` files.
+Mismatches silently broke the pipeline.
 
-**Problem**: Storing URLs as GitHub Actions secrets makes debugging impossible —
-values are masked as `***` in logs. When `E2E_API_BASE_URL` was a secret, the
-error `Failed to parse URL from ***/api/health` gave no clue whether the URL
-was malformed, missing `https://`, or had a typo. Secrets are also write-only:
-you can't view the current value after saving, so you can't verify correctness.
+**Why it happened**: No single file owned the values. Each platform was
+configured independently.
 
-**Solution**: Use **GitHub Actions Variables** (`vars.*`) for non-sensitive
-configuration and **Secrets** (`secrets.*`) only for actual credentials.
+**The simple rule**: Create a **single canonical file** (e.g., `.env.e2e` at
+repo root, gitignored). Write a provisioning script that reads this file and
+syncs the correct subset to each platform:
 
-| Type       | Access in workflow | Visible in UI? | Masked in logs? | Use for                     |
-| ---------- | ------------------ | -------------- | --------------- | --------------------------- |
-| Variables  | `vars.NAME`        | Yes            | No              | URLs, feature flags, config |
-| Secrets    | `secrets.NAME`     | No (write-only)| Yes             | Passwords, API keys, tokens |
+| Platform | What gets synced |
+|----------|------------------|
+| GitHub Actions | Emails + passwords (secrets) |
+| Vercel Server (Preview) | Emails + UIDs (env vars) |
+| Local | Everything (canonical source) |
 
-**Repository vs. Environment variables**: Use **repository variables** (available
-to all workflows, no extra config) unless you have GitHub Environments set up
-and need per-environment values. Environment variables require the job to
-declare `environment: <name>` to access them.
+Run the script once during setup and whenever credentials change.
 
-| Variable           | Purpose                          |
-| ------------------ | -------------------------------- |
-| `E2E_BASE_URL`     | Stable staging client URL        |
-| `E2E_API_BASE_URL` | Stable staging API URL           |
+### C5. Pass Secrets via stdin, Not Command-Line Arguments
 
----
+**What went wrong**: Provisioning script passed passwords as CLI arguments.
+Passwords with `$`, `!`, or backticks broke due to shell interpolation.
 
-## 9. Document All Required Secrets and Variables
+**Why it happened**: Shell argument parsing interprets special characters.
+Different shells (bash, zsh, PowerShell) handle quoting differently.
 
-**Problem**: Missing secrets/variables cause silent failures — the value is
-simply empty, and the workflow fails with a cryptic error (wrong URL, 401,
-`Failed to parse URL`, etc.) rather than a clear "not configured" message.
+**The simple rule**: Use stdin piping. Both `gh secret set` and `vercel env
+add/update` accept values from stdin:
 
-**Solution**: Maintain an explicit list of all required GitHub Actions secrets
-and variables in your project documentation (see CLAUDE.md, Section 12). When
-adding a new secret or variable dependency, update the docs in the same commit.
-
----
-
-## 10. GitHub Actions Secrets ≠ Vercel Environment Variables
-
-**Problem**: The server's seed script (`seedE2EOnPreview.js`) runs at cold start
-**on the Vercel server**, not in GitHub Actions. Setting `E2E_ADMIN_UID` as a
-GitHub Actions secret does nothing for the Vercel runtime — GitHub secrets are
-only available to the CI runner process.
-
-**Symptom**: The curl health check returns `200` with a JSON body containing
-`seed.error: "Preview environment missing required seed vars: E2E_ADMIN_UID"`.
-The secret exists in GitHub but the Vercel server has no access to it.
-
-**Lesson**: There are **three separate environments** that need credentials:
-
-| Environment                  | Where to configure                                    | Who uses it                              |
-| ---------------------------- | ----------------------------------------------------- | ---------------------------------------- |
-| **GitHub Actions runner**    | GitHub → Settings → Secrets and variables → Actions   | Workflow steps, Playwright test process  |
-| **Vercel client project**    | Vercel → Client project → Settings → Env Variables    | Client-side code (`VITE_*` vars)         |
-| **Vercel server project**    | Vercel → Server project → Settings → Env Variables    | Server code at runtime (seed script, API)|
-
-For E2E seeding, the server needs these in Vercel (Preview scope only):
-
-| Variable (required)    | Source                                |
-| ---------------------- | ------------------------------------- |
-| `E2E_ADMIN_EMAIL`      | Same value as GitHub Actions secret   |
-| `E2E_ADMIN_UID`        | Firebase Console → Authentication     |
-
-| Variable (optional)         | Source                                |
-| --------------------------- | ------------------------------------- |
-| `E2E_USER_UID`              | Firebase Console → Authentication     |
-| `E2E_USER_EMAIL`            | Same value as GitHub Actions secret   |
-| `E2E_SUPER_ADMIN_UID`       | Firebase Console → Authentication     |
-| `E2E_SUPER_ADMIN_EMAIL`     | Same value as GitHub Actions secret   |
-
-`DATABASE_URL` and `VERCEL_ENV` are set automatically by Vercel/Neon.
-
----
-
-## 11. Neon Ephemeral Branches Cause Transient Seed Failures
-
-**Problem**: A single `git push` triggers both client and server Vercel deployments.
-Each server deployment gets its own Neon ephemeral database branch. When the second
-deployment supersedes the first, Neon tears down the first branch — killing any
-active database connections. The seed script on the first deployment fails with
-`Connection terminated unexpectedly`.
-
-**Why it matters**: The E2E workflow's health-check step polls `/api/health` and
-gates on `seed.mode`. The accepted terminal-ready states are `seeded` and `skipped`
-(tests proceed); `failed` causes an immediate workflow failure; `in_progress` keeps
-polling until the timeout. If the first deployment's seed fails, the health endpoint
-reports `seed.mode: "failed"`. However, the second deployment (which the staging URL
-now points to) may still be seeding successfully with `seed.mode: "in_progress"`.
-
-**Solution**: Distinguish **permanent** seed errors from **transient** ones:
-
-| `seed.mode` value | Example cause                              | Action         |
-| ------------------ | ------------------------------------------ | -------------- |
-| `failed`           | `missing required seed vars: E2E_ADMIN_UID`| Fail immediately |
-| `in_progress`      | `Connection terminated unexpectedly` (Neon branch churn) | Keep retrying  |
-| `seeded`           | Seed completed successfully                | Proceed to tests |
-| `skipped`          | `SKIP_E2E_SEED=true` or non-preview env    | Proceed to tests |
-
-The workflow retries while `seed.mode` is `in_progress` (Neon branch churn,
-connection resets) and only fails immediately when `seed.mode` is `failed`
-(permanent config errors like missing env vars).
-
----
-
-## 12. Trigger E2E on the Slower Deployment (Pattern B: Filter + Poll)
-
-**Problem**: A single `git push` triggers both client and server Vercel deployments.
-If E2E is triggered by the **client** (which deploys faster), the server and its Neon
-ephemeral DB are still deploying. The workflow hits transient errors like
-"Authentication timed out" or "Connection terminated unexpectedly" and wastes minutes
-retrying. Debounce (sleep + timestamp check) is a workaround but adds idle time and
-complexity.
-
-**Root cause**: E2E was triggered by the wrong event. The client fires dispatch first,
-but tests need both client AND server to be ready.
-
-**Solution — Pattern B (Filter + Poll)**:
-Trigger E2E on the **server's** `repository_dispatch` event (the slower deployment),
-then poll the client's stable staging URL to verify it's also ready.
-
-```
-Push → Client deploys (fast) → Server deploys + seeds DB (slow)
-                                        ↓
-                              repository_dispatch fires
-                                        ↓
-                              E2E workflow starts
-                                        ↓
-                              Poll client URL (usually instant ✓)
-                                        ↓
-                              Verify API health + seed.mode ∈ {seeded, skipped}
-                                        ↓
-                              Run Playwright tests
+```js
+execSync(`gh secret set ${name}`, {
+  input: value,
+  stdio: ['pipe', 'pipe', 'pipe']
+});
 ```
 
-**Why this works**: By waiting for the slower deployment, the faster one is almost
-always ready when we check. No debounce, no sleep, no wasted CI time.
+The value never touches the shell's argument parser.
 
-**Vercel project configuration**:
-- **Server project**: Enable "Repository Dispatch Events" in Git settings.
-- **Client project**: Disable "Repository Dispatch Events" (no longer needed).
+### C6. Vercel Env Upsert: Update-Then-Add
 
-Both `repository_dispatch` and `workflow_dispatch` now resolve E2E targets from `vars.E2E_BASE_URL` and `vars.E2E_API_BASE_URL`. The `workflow_dispatch` trigger no longer accepts a manual `base_url` input — eliminating split-target risk between manual and automated runs.
+**What went wrong**: `vercel env add` failed because the variable already
+existed. `vercel env update` failed because it didn't exist yet. There's no
+upsert command.
 
-**Edge case — push that only changes `client/` files**: The server doesn't redeploy,
-so no dispatch fires and no E2E run starts. This is acceptable: the server didn't
-change, so existing E2E results still apply. Use `workflow_dispatch` for manual
-validation if needed.
+**The simple rule**: Try update first; if it fails, fall back to add:
 
-**This replaced the earlier debounce approach** (sleep 90s + GitHub API check for
-newer runs), which was complex and still wasted runner time.
+```js
+try {
+  execSync(`vercel env update ${name} preview`, { input: value });
+} catch {
+  execSync(`vercel env add ${name} preview`, { input: value });
+}
+```
 
----
+Never use remove-then-add — it's non-atomic and loses the variable if the
+process crashes between the two calls.
 
-## 13. Pre-Flight Checklist for E2E Pipeline Changes
+### C7. Resolve File Paths from `import.meta.url`, Not `process.cwd()`
 
-Before committing any change to the E2E workflow:
+**What went wrong**: A script that loaded `.env` files broke when run from a
+different directory.
 
-1. **curl every URL** the CI will hit, from your local machine, with the same
-   headers the CI will use. If you get 401/404 locally, CI will too.
-2. **Check all auth boundaries** — list every HTTP request and confirm each
-   has the right credentials for the right Vercel project.
-3. **Dump raw data first** — for any event-driven trigger, log the full
-   payload before writing conditional logic around it.
-4. **Use stable URLs** — prefer custom domain aliases over dynamic hash URLs.
-5. **Test the bypass secret** against both client and server projects.
-6. **Verify secrets are set** — check GitHub Actions settings for each
-   required secret before pushing.
+**Why it happened**: `process.cwd()` depends on where you run the command, not
+where the script lives. In a monorepo with wrapper scripts, the working
+directory is unpredictable.
 
----
-
-## Summary of All Required Configurations
-
-### Vercel (per project)
-
-| Setting                        | Client project | Server project |
-| ------------------------------ | -------------- | -------------- |
-| Repository Dispatch Events     | Disabled       | Enabled        |
-| Protection Bypass for Automation | Configured   | Same secret    |
-
-### GitHub Actions Variables (visible, not masked)
-
-| Variable                          | Description                            |
-| --------------------------------- | -------------------------------------- |
-| `E2E_BASE_URL`                    | Stable staging client URL              |
-| `E2E_API_BASE_URL`                | Stable staging API URL                 |
-
-### GitHub Actions Secrets (masked, write-only)
-
-| Secret                            | Description                            |
-| --------------------------------- | -------------------------------------- |
-| `VERCEL_AUTOMATION_BYPASS_SECRET` | Shared bypass secret (both projects)   |
-| `E2E_ADMIN_EMAIL`                 | Firebase admin test user email         |
-| `E2E_ADMIN_PASSWORD`              | Firebase admin test user password      |
-| `E2E_USER_EMAIL`                  | Firebase regular test user email       |
-| `E2E_USER_PASSWORD`               | Firebase regular test user password    |
-| `E2E_SUPER_ADMIN_EMAIL`           | Firebase super admin test user email   |
-| `E2E_SUPER_ADMIN_PASSWORD`        | Firebase super admin test user password|
-| `FIREBASE_API_KEY`                | Firebase API key for E2E auth flows    |
-
-> **Note:** Firebase UIDs (`E2E_*_UID`) are no longer GitHub Actions secrets. UIDs are only consumed by the Vercel server seed script and belong in Vercel Preview env vars. Use the provisioning script (`node scripts/provision-e2e-firebase-users.js`) to manage all E2E credentials from a single `.env.e2e` file.
-
-### Vercel Server Project — Environment Variables (Preview scope)
-
-These must be set in **Vercel → Server project → Settings → Environment Variables**,
-scoped to Preview. They are used by the seed script at server cold start.
-
-| Variable (required)        | Description                                 |
-| -------------------------- | ------------------------------------------- |
-| `E2E_ADMIN_EMAIL`          | Same value as GitHub Actions secret         |
-| `E2E_ADMIN_UID`            | Firebase UID (from Firebase Console → Auth) |
-
-| Variable (optional)        | Description                                 |
-| -------------------------- | ------------------------------------------- |
-| `E2E_USER_UID`             | Firebase UID of regular test user           |
-| `E2E_USER_EMAIL`           | Same value as GitHub Actions secret         |
-| `E2E_SUPER_ADMIN_UID`      | Firebase UID of super-admin test user       |
-| `E2E_SUPER_ADMIN_EMAIL`    | Same value as GitHub Actions secret         |
-
-Note: `DATABASE_URL` and `VERCEL_ENV` are set automatically by Vercel/Neon.
-
----
-
-## 14. Single Source of Truth for Cross-Platform Credentials
-
-**Problem**: E2E test credentials (emails, passwords, Firebase UIDs) were manually
-maintained across three platforms: GitHub Actions secrets, Vercel Server Preview env
-vars, and local `.env` files. With 3 roles x 3 credentials x 3 platforms = ~27 manual
-entries, any mismatch silently broke the E2E pipeline. GitHub secrets are write-only,
-making it impossible to verify what value is currently stored.
-
-**Root cause**: No single canonical file owned the credential values. Each platform
-was configured independently, with no automated way to detect or prevent drift.
-
-**Solution**: Introduce a `.env.e2e` file at the repo root as the single source of
-truth. A provisioning script reads this file, provisions Firebase users, writes UIDs
-back, and syncs the correct subset to each platform:
-
-| Platform            | What gets synced           |
-| ------------------- | -------------------------- |
-| GitHub Actions      | Emails + passwords         |
-| Vercel Server (Preview) | Emails + UIDs          |
-| Local `.env.e2e`    | Everything (canonical)     |
-
-**Lesson**: When the same credentials must exist on multiple platforms, pick one
-canonical file and automate the fan-out. Manual copy-paste across write-only stores
-guarantees eventual drift.
-
----
-
-## 15. Explicit `import.meta.url` Path Resolution for Env Files
-
-**Problem**: The provisioning script loads both the repo-root `.env.e2e` and
-`server/.env`. Using `process.cwd()`-relative paths broke when the script was
-invoked from different directories (e.g., the root CJS wrapper executes from the
-repo root, but the ESM orchestrator lives in `server/scripts/`).
-
-**Root cause**: `process.cwd()` depends on where the user runs the command, not
-where the script file lives. In a monorepo with a CJS wrapper delegating to an ESM
-module, the working directory is unpredictable.
-
-**Solution**: Resolve all file paths from `import.meta.url` using `fileURLToPath`
-and `path.resolve`. This anchors paths to the script's location in the source tree,
-not the shell's working directory.
+**The simple rule**:
 
 ```js
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const envPath = path.resolve(__dirname, '../../..', '.env.e2e');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const envPath = path.resolve(__dirname, '../../.env.e2e');
 ```
-
-**Lesson**: In ESM scripts that may be invoked indirectly (via wrappers, `execSync`,
-or npm scripts), always resolve paths from `import.meta.url`. Never assume `cwd`.
 
 ---
 
-## 16. Shell-Safe CLI Secret Syncing via stdin
+## Part D — Database & Seeding
 
-**Problem**: Passing secret values as command-line arguments (e.g.,
-`gh secret set NAME --body "$VALUE"`) breaks when the value contains shell-special
-characters (`$`, `!`, `` ` ``, quotes, backslashes). Passwords frequently contain
-these characters.
+### D1. Serverless Cold Starts Can Kill Database Connections
 
-**Root cause**: Shell interpolation. Even with proper quoting, edge cases exist
-across shells (bash, zsh, PowerShell). Escaping is fragile and platform-dependent.
+**What went wrong**: The E2E seed script failed with "Connection terminated
+unexpectedly" and "Authentication timed out" on first deployment.
 
-**Solution**: Use `child_process.execSync` (or `spawn`) with stdin piping. Both
-`gh secret set` and `vercel env add/update` accept values from stdin:
+**Why it happened**: Neon's serverless PostgreSQL starts suspended
+(scale-to-zero). The first connection on cold start can take 5-10 seconds.
+The default connection timeout was too short.
+
+**The simple rule**: Add retry logic with exponential backoff for database
+connections in seed scripts. Detect transient errors and retry; fail fast on
+permanent errors:
+
+| Error type | Examples | Action |
+|-----------|---------|--------|
+| Transient | "timed out", "Connection terminated", "ECONNRESET" | Retry (up to 5 times, 5s delay) |
+| Permanent | "missing required seed vars", "permission denied" | Fail immediately |
+
+### D2. Fire-and-Forget Async Work Dies on Serverless
+
+**What went wrong**: The seed script ran at server startup as a fire-and-forget
+`Promise`. It was interrupted before completing.
+
+**Why it happened**: Vercel serverless functions are killed after sending the
+HTTP response. Any async work not `await`ed within a request handler is lost.
+
+**The simple rule**: If work must complete on serverless, run it **inside** a
+request handler and `await` it. We moved seeding into the `/api/health`
+handler:
 
 ```js
-execSync(`gh secret set ${name}`, { input: value, stdio: ['pipe', 'pipe', 'pipe'] });
+app.get('/api/health', async (req, res) => {
+  await ensureSeeded();  // Keeps function alive until done
+  res.json({ status: 'ok', seed: seedStatus });
+});
 ```
 
-The value never touches the shell's argument parser — it goes directly from the
-Node.js process to the CLI tool's stdin stream.
+### D3. Ephemeral Database Branches Cause Connection Churn
 
-**Lesson**: When syncing secrets via CLI tools, always use stdin input instead of
-shell arguments. This eliminates an entire class of quoting/escaping bugs.
+**What went wrong**: Multiple deployments from a single push each got their own
+Neon database branch. When the second deployment superseded the first, Neon
+tore down the first branch — killing active connections.
+
+**Why it happened**: Neon creates ephemeral branches per Vercel preview
+deployment. Rapid successive deployments cause branch churn.
+
+**The simple rule**: Distinguish transient seed failures (connection reset)
+from permanent ones (missing config). Retry transient failures because they
+resolve when the new deployment's database branch stabilizes. Report permanent
+failures immediately.
 
 ---
 
-## 17. Vercel Env Update-Then-Add Pattern
+## Part E — Same-Origin API Routing
 
-**Problem**: The Vercel CLI has separate commands for creating (`vercel env add`)
-and updating (`vercel env update`) environment variables. `env add` fails if the
-variable already exists; `env update` fails if it doesn't. There is no upsert
-command. Running `env rm` + `env add` works but is destructive and non-atomic.
+### E1. Cross-Domain API Calls Break with Deployment Protection
 
-**Solution**: Attempt `vercel env update` first. If it fails (variable doesn't
-exist), fall back to `vercel env add`. Both commands accept the value via stdin
-for shell safety.
+**What went wrong**: The staging client could load in the browser, but all API
+calls failed with "An unexpected error occurred."
+
+**Why it happened**: The client was on `staging-client.example.com` and called
+the API on `staging-api.example.com`. The browser had a Vercel auth cookie for
+the client domain, but cookies aren't sent cross-domain. The API server saw an
+unauthenticated request and returned an HTML auth page instead of JSON.
+
+**The simple rule**: Never make the browser call a different domain for APIs.
+Use same-origin routing:
+
+| Environment | How `/api/*` is proxied |
+|-------------|------------------------|
+| Local dev | Vite's `server.proxy` → `http://localhost:3000` |
+| Staging/Prod | Vercel `rewrites` in `vercel.json` → server URL |
 
 ```js
-try {
-  execSync(`vercel env update ${name} preview`, { input: value, cwd: serverDir });
-} catch {
-  execSync(`vercel env add ${name} preview`, { input: value, cwd: serverDir });
+// vite.config.js
+server: {
+  proxy: {
+    '/api': { target: 'http://localhost:3000', changeOrigin: true }
+  }
 }
 ```
 
-**Why not remove-then-add?** The remove+add pattern is non-atomic: if the process
-crashes between remove and add, the variable is lost. The update-then-add pattern
-is safe to retry at any point — the worst case is a redundant update.
+```json
+// client/vercel.json
+{
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://staging-api.example.com/api/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
+```
 
-**Lesson**: When the target API lacks an upsert, prefer update-then-add over
-remove-then-add. It's idempotent and safe to interrupt.
+Set `VITE_API_BASE_URL=` (empty) so the client always calls `/api/*` on its own
+origin.
 
----
+### E2. Don't Expose Bypass Secrets in Browser Code
 
-## 18. The Provisioning Script Is a Local/Manual Tool — Not a CI Step
+**What went wrong** (almost): We considered adding the Vercel bypass secret as
+an environment variable in the client bundle so API calls could include the
+bypass header.
 
-**Problem**: The provisioning script (`node scripts/provision-e2e-firebase-users.js`)
-calls `gh secret set` and `vercel env update/add` using locally authenticated CLIs.
-It also depends on `server/.vercel/project.json` linkage and local `.env.e2e`/`server/.env`
-files. These are local environment prerequisites that are not available (and not needed)
-on a CI runner.
+**Why we didn't**: `VITE_*` environment variables are embedded in the JavaScript
+bundle at build time. Anyone can view the page source and extract the secret.
+The bypass secret grants full access to protected deployments.
 
-**Key distinction**: CI workflows (`ci.yml`) and the E2E workflow (`e2e.yml`) do **not**
-execute the provisioning script. They consume the GitHub Actions secrets and Vercel
-Preview env vars that the script has already synced. The script is a one-time (or
-as-needed) local admin setup step.
+**The simple rule**: Never put deployment bypass secrets in client-side code.
+Same-origin routing eliminates the need — the proxy handles authentication at
+the edge, server-to-server.
 
-**Environment differences can change behavior**: The script's outcome depends on local
-CLI installation and PATH, `gh` and `vercel` auth state, the linked Vercel project in
-`server/.vercel/project.json`, local env files, and the shell/terminal session. One
-terminal or machine may succeed while another fails against the same repo contents. This
-is expected, not a bug.
+### E3. Add a Startup Health Check
 
-**Troubleshooting checklist for terminal-related failures**:
+**The simple rule**: On app initialization, fetch `/api/health` and verify the
+response is JSON. If it returns HTML (Vercel auth page) or fails, show a clear
+error: "API is not reachable — check your configuration." This catches
+routing/proxy misconfiguration immediately instead of surfacing as cryptic auth
+errors later.
 
-1. Confirm you are running from the repo root
-2. `gh auth status`
-3. `vercel whoami`
-4. `cd server && vercel link` (must link to `ichnos-protocolserver`)
+### E4. Preview Deployment Parity Is a Separate Problem
 
-**Lesson**: Treat the provisioning script as a local admin setup tool, not part of the
-CI/CD pipeline. Treat terminal-related errors as local environment/setup issues first.
+**What we deferred**: PR preview deployments get dynamic URLs. The
+`client/vercel.json` rewrite has a hardcoded server destination, so previews
+can't use same-origin routing without extra work (dynamic rewrites, edge
+middleware, or build-time URL injection).
 
----
-
-## 19. Production-Host Denylist: Fail-Closed Safety Gate
-
-**Problem**: E2E URL variables (`E2E_BASE_URL`, `E2E_API_BASE_URL`) could accidentally
-point to production hostnames. Since E2E tests perform writes (seed data, form
-submissions, etc.), running against production would corrupt live data.
-
-**Solution**: `e2e.yml` defines canonical denylist constants (`PRODUCTION_HOSTS_CLIENT`,
-`PRODUCTION_HOSTS_API`) as workflow-level `env` values. A validation step runs before
-any tests and hard-fails if:
-
-- A target hostname exactly matches a denylist entry (after lowercase normalization and port removal)
-- A URL cannot be parsed to extract a hostname
-- A denylist constant is empty or missing
-
-**Key semantics**: Hostname comparison is exact match only — no substring, glob, or
-regex. Ports are stripped before comparison. All hostnames are lowercased.
-
-**Ownership**: The denylist values in `e2e.yml` are the **canonical source of truth**.
-All other docs (including this one) are descriptive only. Changes require
-maintainer-reviewed PRs.
-
-**Lesson**: When automated tests perform writes against configurable URLs, add a
-fail-closed safety gate at the workflow level. Fail-closed means: if the denylist is
-missing, empty, or unparseable — abort, don't proceed.
+**The simple rule**: Get same-origin working for local + staging + production
+first. Preview parity is a hardening task — document it, defer it. Previews
+can temporarily use direct API calls with bypass headers (like E2E tests
+already do). Don't block shipping on preview parity.
 
 ---
 
-## 20. Staging Branch: Parallel Manual-QA Lane with Production Data
+## Quick Reference Checklists
 
-**Problem**: E2E tests were pointing at a staging alias backed by ephemeral Neon
-branches. When the E2E target and the manual QA target are the same URL, either
-E2E seed data pollutes manual QA, or manual QA runs against an ephemeral DB that
-expires. The two use cases — automated E2E and manual QA — need different database
-backends but were overloading a single URL.
+### New Project Setup
 
-**Solution**: Introduce a `staging` branch as a long-lived side branch for manual
-QA only. It is **not** in the promotion chain (`main → release → production` is
-unchanged). `staging` is auto-synced from `main` via `sync-staging.yml` after
-every server `repository_dispatch`.
+- [ ] Set up stable custom domains for staging (client + server)
+- [ ] Configure deployment protection bypass on **both** projects (same secret)
+- [ ] Store bypass secret as GitHub Actions secret
+- [ ] Store staging URLs as GitHub Actions **variables** (not secrets)
+- [ ] Create `.env.e2e` as canonical credential source
+- [ ] Write provisioning script to sync credentials across platforms
+- [ ] Set up Vite dev proxy for local `/api/*` routing
+- [ ] Add Vercel rewrites for deployed `/api/*` routing
+- [ ] Add production hostname denylist to E2E workflow
+- [ ] Trigger E2E from the slower deployment's webhook
+- [ ] Add concurrency group with `cancel-in-progress: true`
 
-**Key properties**:
+### Before Every CI/CD Change
 
-| Property | Detail |
-| --- | --- |
-| Firebase credentials | Production (real login) |
-| Neon connection (`DATABASE_URL`) | Production (not an ephemeral branch) |
-| `SKIP_E2E_SEED` | `true` — prevents automated seed injection |
-| Manual QA writes | Go to the production DB — **explicitly accepted** |
-| `vars.E2E_BASE_URL` / `vars.E2E_API_BASE_URL` | Continue to target ephemeral previews — E2E is unaffected |
-| Promotion chain | `staging` is not a valid PR source for `release` |
+- [ ] `curl` every URL with the exact headers CI will use
+- [ ] List every HTTP call and confirm which project/credentials it needs
+- [ ] Dump raw webhook/API data before writing conditional logic
+- [ ] Verify all required secrets and variables are set in GitHub
+- [ ] Test bypass secret against both Vercel projects
 
-**Sync mechanism**: `sync-staging.yml` fires unconditionally on
-`repository_dispatch (vercel.deployment.success)` from the server project. It
-uses a PAT (`SYNC_PAT`) to push so Vercel's native Git integration picks up
-the change and deploys a new preview for the `staging` branch. The workflow
-force-pushes `main` to `staging`, so `staging` is always an exact copy of
-`main` with no divergent history.
+### When E2E Fails in CI
 
-**Lesson**: When automated E2E and manual QA need different database backends,
-use separate branches with branch-scoped Vercel env overrides — don't overload
-a single URL for both purposes.
+1. Check the **workflow logs** — look for `401`, `404`, HTML responses
+2. Check if the staging URL is reachable: `curl -I https://staging-client.example.com`
+3. Check if the API is reachable: `curl https://staging-api.example.com/api/health`
+4. Check seed status: look for `seed.mode` in the health response
+5. If `seed.mode: "failed"` — check Vercel server env vars (C1)
+6. If `seed.mode: "in_progress"` — it's a transient Neon issue, retry
+7. If HTML response — deployment protection bypass isn't working (A1, B1)
+8. If `DEPLOYMENT_NOT_FOUND` — hash URL expired, switch to stable URL (A2)
