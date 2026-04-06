@@ -76,19 +76,15 @@ Both checks run on a diagnostic page that is **closed after verification** — t
 
 ## T1 Stabilization — CI Workflow Hardening (Implemented)
 
-Three components were added in T1 to prevent E2E tests from running against misconfigured environments:
+One component was attempted in T1 to prevent E2E tests from running against misconfigured environments, but neither was successfully retained:
 
-### 1. Staging-Host Deny Step
+### 1. Parity Guard (Dropped)
 
-The `e2e.yml` workflow includes a "Block staging-host E2E targets" step that parses `BASE_URL` and `API_URL` hostnames and matches them against a `STAGING_HOSTS` denylist. Fail-closed: unparseable hostnames abort the run. This is separate from the production-host denylist (which was already present).
+The original T1 plan included a workflow step to compare the hostname in `E2E_API_BASE_URL` against the rewrite destination in `client/vercel.json`. This was dropped because Vercel does not support environment-variable interpolation in `vercel.json` rewrite destinations — the destination is a static string.
 
-### 2. API Warning Preflight (CI-only)
+### Summary
 
-`global-setup.js` runs a CI-only preflight check before storageState generation. It navigates to `BASE_URL`, waits up to 8 seconds for `[data-testid="api-sanity-warning"]` to become visible. If the warning element is detected, `global-setup` throws immediately with `API Configuration Warning detected at <URL>`. If the element does not appear within the timeout, the check passes silently. This catches misconfigured `/api` routing in the deployed client before any tests waste time.
-
-### 3. Parity Guard (Dropped)
-
-The original T1 plan included a workflow step to compare the hostname in `E2E_API_BASE_URL` against the rewrite destination in `client/vercel.json`. This was dropped because Vercel does not support environment-variable interpolation in `vercel.json` rewrite destinations — the destination is a static string. The staging-host deny step and API preflight together provide equivalent safety without requiring hostname parity enforcement.
+Both T1 CI hardening components (staging-host deny step and API warning preflight) have been removed. The staging-host deny step was removed because it blocked legitimate staging URLs. The API warning preflight was removed because it broke the E2E pipeline. No T1 CI hardening was successfully retained.
 
 ---
 
