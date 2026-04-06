@@ -185,6 +185,51 @@ async function generateAuthState(browser, role) {
 export default async function globalSetup() {
   await validateFirebaseCredentials();
 
+  // CI-only preflight: detect ApiSanityWarning on the deployed client.
+  // If the warning is visible, /api routing is misconfigured — abort early.
+  if (process.env.CI) {
+    console.log(`[global-setup] Running API sanity preflight check at ${BASE_URL}...`);
+    const prefBrowser = await chromium.launch();
+    try {
+      const contextOptions = {
+        baseURL: BASE_URL,
+        ...(BYPASS_SECRET && {
+          extraHTTPHeaders: {
+            "x-vercel-protection-bypass": BYPASS_SECRET,
+            "x-vercel-set-bypass-cookie": "samesitenone",
+          },
+        }),
+      };
+      const prefContext = await prefBrowser.newContext(contextOptions);
+      const prefPage = await prefContext.newPage();
+      try {
+        await prefPage.goto("/", {
+          waitUntil: "domcontentloaded",
+          timeout: TIMEOUTS.appReady,
+        });
+
+        const warningEl = await prefPage
+          .locator('[data-testid="api-sanity-warning"]')
+          .waitFor({ state: "visible", timeout: 8000 })
+          .catch(() => null);
+
+        if (warningEl !== null) {
+          throw new Error(
+            `[global-setup] API Configuration Warning detected at ${BASE_URL}. Fix the /api routing configuration before running E2E tests.`,
+          );
+        }
+
+        console.log(
+          `[global-setup] API sanity preflight passed — no configuration warning detected.`,
+        );
+      } finally {
+        await prefContext.close();
+      }
+    } finally {
+      await prefBrowser.close();
+    }
+  }
+
   // Always wipe stale auth state before anything else so that an
   // unconfigured run never leaves reusable files from a prior run.
   if (fs.existsSync(AUTH_DIR)) {

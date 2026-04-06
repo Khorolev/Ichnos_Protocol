@@ -10,6 +10,7 @@ export async function loginAs(page, email, password) {
   await expect(auth.welcomeBackText).toBeVisible();
   await auth.fillLoginForm(email, password);
   await auth.submitForm();
+  await expect(auth.authModal).toBeHidden({ timeout: TIMEOUTS.authVerify });
   await expect(auth.userMenuToggle).toBeVisible({
     timeout: TIMEOUTS.authVerify,
   });

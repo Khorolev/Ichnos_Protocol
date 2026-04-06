@@ -1,10 +1,10 @@
-# E2E Test Suite — Refactoring Approach
+# E2E Test Suite — Stabilization Approach (T1/T2 Implemented)
 
-This document defines the phased approach for refactoring the E2E test suite. Each section is anchored for cross-referencing from the analysis document (`refactoring-analysis.md`).
+This document captures the architecture decisions and outcomes from the T1 and T2 stabilization passes. Each section is anchored for cross-referencing from the analysis document (`refactoring-analysis.md`).
 
 ---
 
-## P1 — StorageState Lifecycle
+## P1 — StorageState Lifecycle (Implemented)
 
 ### Design
 
@@ -33,7 +33,7 @@ Auth state files are **always regenerated fresh** at the start of every Playwrig
 
 ---
 
-## P2 — Fixture Boundary Contract
+## P2 — Fixture Boundary Contract (Implemented, Updated in T2)
 
 ### Location
 
@@ -57,63 +57,87 @@ Fixtures live in `e2e/tests/fixtures/auth.js`. They manage auth, context, and se
 
 ### Usage rules
 
-- **Tests that test auth UI** (`auth.spec.js`, `login.spec.js`, `signup.spec.js`) import directly from `@playwright/test`, NOT from the fixtures file. They need unauthenticated browser contexts to test the login/signup flow itself.
-- **Tests that need a pre-authenticated session** (admin, user flows) import `{ test, expect }` from `./fixtures/auth.js` and use the role-specific page fixtures (`adminPage`, `userPage`, `superAdminPage`).
+- **Tests that test auth UI** (`auth.spec.js`, `login.spec.js`, `signup.spec.js`) import directly from `@playwright/test`, NOT from the fixtures file. They need unauthenticated browser contexts to test the login/signup flow itself. These specs do **not** import `loginAs()`.
+- **Tests that need a pre-authenticated session via fixtures** (admin specs, super-admin specs) import `{ test, expect }` from `./fixtures/auth.js` and use the role-specific page fixtures (`adminPage`, `userPage`, `superAdminPage`).
+- **Tests that need an authenticated session but use `loginAs()` directly**: `logout.spec.js`, `contact.spec.js`, and `chatbot.spec.js` import `loginAsUser` from `helpers/auth.js` and perform a UI login ceremony per test. These specs import from `@playwright/test` directly and do not use the fixture system.
 - **Tests must still call `test.skip(!isConfigured(ROLE))`** in `beforeEach` for graceful skip when credentials are absent. The fixture will throw if the auth state file is missing, but the skip provides a cleaner test report.
 
----
+### Role Precondition Guards (T2)
 
-## P3 — POM Migration
+The following precondition checks were added in T2 to provide deterministic fail-fast behavior when the admin shell is not rendered:
 
-> *Scope: T3 — described here for context only.*
+- **`adminContext`**: Opens a diagnostic page to `/admin` with `domcontentloaded` wait (15s timeout). Asserts Requests tab visible (8s timeout). Asserts "Inquiries Board" text visible (5s timeout). Throws `[fixtures] Admin shell not ready: Requests tab not found at /admin — check role claim and seed data` or `[fixtures] Admin shell not ready: Inquiries Board not found at /admin — check role claim and seed data` if either check fails.
 
-Page Object Model (POM) classes will encapsulate page-specific selectors and actions:
+- **`superAdminContext`**: Opens a diagnostic page to `/admin` with `domcontentloaded` wait (15s timeout). Asserts Settings tab visible (10s timeout). Throws `[fixtures] Super-admin shell not ready: Settings tab not found at /admin — check super-admin claim and seed data` if the check fails.
 
-- Each page/feature gets a POM class (e.g., `AdminPage`, `KanbanBoard`, `AnalyticsPanel`).
-- POMs own their selectors — tests never use raw `page.getByRole(...)` for page-specific elements.
-- POMs expose action methods (`navigateToAnalytics()`, `recomputeTopics()`) and query methods (`getTopicRows()`, `isSettingsTabVisible()`).
-- Strict ownership boundaries: a POM for the kanban board does not reach into the analytics panel's DOM.
-- Test structure shifts from page-based spec files to feature-oriented specs.
+Both checks run on a diagnostic page that is **closed after verification** — the test's actual page is separate. Purpose: deterministic fail-fast when the admin shell is not rendered (wrong role claim, missing seed data, auth not recognized), producing actionable diagnostics instead of cascading generic timeouts.
 
 ---
 
-## P4 — Test Deduplication
+## T1 Stabilization — CI Workflow Hardening (Implemented)
 
-> *Scope: T2 — described here for context only.*
+Three components were added in T1 to prevent E2E tests from running against misconfigured environments:
 
-The overlap identified in A2 (topic analytics and CSV export appearing in both `admin-analytics.spec.js` and `admin-kanban.spec.js`) will be resolved:
+### 1. Staging-Host Deny Step
 
-- `admin-analytics.spec.js` becomes the canonical home for topic analytics and CSV export tests (more thorough versions).
-- `admin-kanban.spec.js` retains only kanban-specific tests (board, drawer, edit, delete, chat-only leads).
-- Duplicate tests are removed, not merged — the analytics spec already has the more complete versions.
+The `e2e.yml` workflow includes a "Block staging-host E2E targets" step that parses `BASE_URL` and `API_URL` hostnames and matches them against a `STAGING_HOSTS` denylist. Fail-closed: unparseable hostnames abort the run. This is separate from the production-host denylist (which was already present).
 
----
+### 2. API Warning Preflight (CI-only)
 
-## P4a — Analytics / CSV Parity Checklist
+`global-setup.js` runs a CI-only preflight check before storageState generation. It navigates to `BASE_URL`, waits up to 8 seconds for `[data-testid="api-sanity-warning"]` to become visible. If the warning element is detected, `global-setup` throws immediately with `API Configuration Warning detected at <URL>`. If the element does not appear within the timeout, the check passes silently. This catches misconfigured `/api` routing in the deployed client before any tests waste time.
 
-After T2 deduplication, `admin-analytics.spec.js` is the canonical home for all analytics and CSV tests. The following checklist maps every user-visible behavior to its canonical test. Future dedupe or refactoring work must verify no item loses coverage.
+### 3. Parity Guard (Dropped)
 
-### Topic Analytics (canonical: `admin-analytics.spec.js` → "Admin Analytics - Topic Recompute Flow")
-
-| Behavior | Canonical Test | Status |
-|---|---|---|
-| Tab navigation to Analytics | `navigate to Analytics tab and verify topic table structure` | Covered |
-| Table structure (Topic, Count, Avg Confidence columns) | `navigate to Analytics tab and verify topic table structure` | Covered |
-| Recompute loading state (button shows "Analyzing..." and disables) | `recompute topics button disables during analysis` | Covered |
-| Recompute success (alert with "Processed" / "skipped", table refreshes) | `recompute topics shows success alert and refreshes table` | Covered |
-| Recompute error (alert with "Topic analysis failed", button recovers) | `recompute topics shows failure alert on API error and recovers button state` | Covered |
-
-### CSV Export (canonical: `admin-analytics.spec.js` → "Admin Analytics - CSV Export")
-
-| Behavior | Canonical Test | Status |
-|---|---|---|
-| CSV download triggers with correct filename | `export CSV triggers file download with correct filename` | Covered |
-| CSV download creates valid blob | `export CSV creates valid downloadable blob` | Covered |
-| CSV export error (alert with "CSV export failed") | `export CSV shows error alert on failure` | Covered |
+The original T1 plan included a workflow step to compare the hostname in `E2E_API_BASE_URL` against the rewrite destination in `client/vercel.json`. This was dropped because Vercel does not support environment-variable interpolation in `vercel.json` rewrite destinations — the destination is a static string. The staging-host deny step and API preflight together provide equivalent safety without requiring hostname parity enforcement.
 
 ---
 
-## P5 — CI Worker Strategy
+## P3 — POM Migration (Deferred)
+
+> **Status: Future work / Deferred.** Not implemented in T1 or T2.
+
+Page Object Model (POM) classes exist for `AdminPage`, `AuthPage`, and `ContactPage` (`e2e/tests/pages/`), but coverage is incomplete. Some tests still use raw selectors. Full POM migration was not prioritized for the stabilization pass.
+
+When this work is eventually done:
+- Each page/feature should get a POM class encapsulating page-specific selectors and actions.
+- POMs own their selectors — tests should not use raw `page.getByRole(...)` for page-specific elements.
+- POMs expose action methods and query methods with strict ownership boundaries.
+
+---
+
+## P4 — Test Deduplication (Resolved)
+
+> **Status: Complete.** The overlap previously identified in A2 no longer exists.
+
+The admin spec split is now clean. `admin-kanban.spec.js` contains only kanban-specific tests (board flow, request edit, chat-only leads, request delete), while `admin-analytics.spec.js` is the sole home for topic analytics, CSV export, super-admin management, and settings tab visibility tests. No deduplication work remains.
+
+---
+
+## P4a — Admin Spec Coverage Map
+
+`admin-analytics.spec.js` is the canonical home for all analytics, CSV, and super-admin tests. `admin-kanban.spec.js` owns all kanban board interactions. The following map documents the current ownership.
+
+### `admin-analytics.spec.js`
+
+| Describe block | Tests |
+|---|---|
+| Admin Analytics - Topic Recompute Flow | navigate to Analytics tab and verify topic table structure; recompute topics shows success alert and refreshes table; recompute topics button disables during analysis; recompute topics shows failure alert on API error and recovers button state |
+| Admin Analytics - CSV Export | export CSV triggers file download with correct filename; export CSV creates valid downloadable blob; export CSV shows error alert on failure |
+| Admin Analytics - Super-Admin Management | Settings tab is visible for super-admin; Settings tab shows Manage Admins form; add admin shows success alert; remove admin shows success alert; manage admin shows error alert on failure |
+| Admin Analytics - Settings Tab Visibility | Settings tab is NOT visible for regular admin |
+
+### `admin-kanban.spec.js`
+
+| Describe block | Tests |
+|---|---|
+| Admin Kanban - Basic Flow | Requests tab and Inquiries board are visible; expand first lane and verify request columns |
+| Admin Kanban - Request Edit Flow | open timeline drawer and edit a request |
+| Admin Kanban - Chat-only Leads | switch to Chat-only Leads sub-tab and verify table; open chat lead drawer and verify Q&A |
+| Admin Kanban - Request Delete Flow | delete a request from timeline drawer |
+
+---
+
+## P5 — CI Worker Strategy (Implemented)
 
 ### Controlled worker increase: 1 → 2
 
@@ -140,36 +164,30 @@ A `testRunId` fixture (`e2e/tests/fixtures/auth.js`) provides a per-run, per-wor
 
 ---
 
-## P6 — Validation
+## P6 — Validation (Updated)
 
 ### Per-phase validation
 
-Each refactoring phase must demonstrate:
+T1 and T2 stabilization passes have demonstrated:
 
-1. **No product/UI behavior changes**: The application under test is unchanged. Only test infrastructure is modified.
-2. **No test coverage regression**: The same user flows are covered. Test count may decrease (deduplication) but coverage scope must not shrink.
-3. **Skip behavior preserved**: Tests for unconfigured roles still skip gracefully via `test.skip(!isConfigured(ROLE))`.
-4. **Auth UI tests unaffected**: `auth.spec.js`, `login.spec.js`, and `signup.spec.js` continue to import from `@playwright/test` directly and receive unauthenticated browser contexts.
+1. **No product/UI behavior changes** — confirmed. Only test infrastructure and CI workflow were modified.
+2. **No test coverage regression** — test count unchanged at 55. No tests removed.
+3. **Skip behavior preserved** — `test.skip(!isConfigured(ROLE))` pattern unchanged in all specs.
+4. **Auth UI tests unaffected** — `auth.spec.js`, `login.spec.js`, `signup.spec.js` continue importing from `@playwright/test` directly and receive unauthenticated browser contexts.
 
 ### Baseline comparison
 
-After completing all phases, run the full suite and compare against the T1 baseline in `e2e/baseline-metrics.json` (55 tests, 20 passed, 35 failed, 0 skipped, 1374s wall clock, 35 retries):
+Compare against the **T1 baseline** in `e2e/baseline-metrics.json` (55 tests, 20 passed, 35 failed, 0 skipped, 1374s wall clock, 35 retries). Post-T2 baseline is pending the first `repository_dispatch` CI run after T2 merge.
 
-```bash
-cd e2e && npx playwright test --reporter=json > post-refactor-report.json
-```
+- **Wall-clock time**: Expected improvement from fixture precondition fail-fast and auth settling fixes (T1 baseline: 1374s).
+- **Pass/fail ratio**: Expected improvement from targeted spec hardening (T1 baseline: 20 passed / 35 failed).
+- **Retries**: Expected reduction from deterministic fixture precondition failures (T1 baseline: 35).
 
-Compare:
-- **Wall-clock time**: Expected significant reduction from storageState reuse (T1 baseline: 1374s).
-- **Test count**: May decrease due to deduplication (T2). Verify no unintended removals (T1 baseline: 55).
-- **Pass/fail ratio**: Must remain equal or better (T1 baseline: 20 passed / 35 failed).
-- **Skip count**: Must remain equal (same credential gating) (T1 baseline: 0).
+### Rollback threshold verification
 
-### T4 rollback threshold verification checklist
+The T1 baseline is committed in `e2e/baseline-metrics.json`, captured from CI run [23727551946](https://github.com/Khorolev/Ichnos_Protocol/actions/runs/23727551946) (commit `fcbd2474`, 2026-03-30). Baseline values: 55 tests, 35 failed (63.6% failure rate), 35 retries triggered. Thresholds apply to `E2E_WORKERS=2`.
 
-The T1 baseline is committed in `e2e/baseline-metrics.json`, captured from CI run [23727551946](https://github.com/Khorolev/Ichnos_Protocol/actions/runs/23727551946) (commit `fcbd2474`, 2026-03-30). Baseline values: 55 tests, 35 failed (63.6% failure rate), 35 retries triggered.
-
-1. Run 3+ CI cycles after T4 merge (via `repository_dispatch` or `workflow_dispatch`).
+1. Run 3+ CI cycles after T2 merge (via `repository_dispatch` or `workflow_dispatch`).
 2. Collect pass/fail/retry counts from the Playwright HTML report artifacts (`playwright-report` artifact, `index.html` summary row).
 3. Compare against the T1 baseline values in `e2e/baseline-metrics.json` (fields: `.metrics.failed`, `.metrics.retries_triggered`):
    - T1 failure rate: 63.6% (35/55)
@@ -178,3 +196,11 @@ The T1 baseline is committed in `e2e/baseline-metrics.json`, captured from CI ru
    - (a) Failure rate ≥ 10 percentage points above 63.6% (i.e., ≥ 73.6%).
    - (b) Retry-triggered count ≥ 50% above 35 (i.e., ≥ 53).
 5. After reverting, re-run 3 CI cycles to confirm stability returns to baseline.
+
+### Residual risks
+
+The following risks are documented but not blocking for stabilization:
+
+- **Shared Firebase accounts**: Risk increases if `E2E_WORKERS` goes beyond 2. `testRunId` fixture mitigates data mutation collisions but not login conflicts.
+- **`loginAs()` overhead**: `logout.spec.js`, `contact.spec.js`, and `chatbot.spec.js` still use `loginAsUser()` and pay the full UI login ceremony cost per test. Migrating these to fixture-based auth would eliminate this overhead.
+- **Incomplete POM coverage**: `AdminPage.js`, `AuthPage.js`, `ContactPage.js` exist but not all tests use them. Some tests still use raw selectors.

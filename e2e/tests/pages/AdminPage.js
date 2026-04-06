@@ -87,7 +87,8 @@ export class AdminPage {
   }
 
   async navigateToAnalytics() {
-    await this.analyticsTab.click();
+    await this.page.waitForLoadState('networkidle');
+    await this.analyticsTab.click({ timeout: 20000 });
   }
 
   async navigateToSettings() {

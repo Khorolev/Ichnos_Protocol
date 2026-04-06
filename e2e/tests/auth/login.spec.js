@@ -58,6 +58,6 @@ test.describe('Login Flow', { tag: ['@auth'] }, () => {
 
     await auth.openSignupTab();
 
-    await expect(auth.alert).not.toBeVisible();
+    await expect(auth.alert).not.toBeVisible({ timeout: 3000 });
   });
 });

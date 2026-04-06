@@ -109,6 +109,32 @@ export const test = base.extend({
       );
     }
     const context = await browser.newContext(buildContextOptions(role));
+
+    const checkPage = await context.newPage();
+    let diagnosticError = null;
+    try {
+      await checkPage.goto('/admin', { waitUntil: 'domcontentloaded', timeout: 15000 });
+      const requestsTab = await checkPage.getByRole('tab', { name: 'Requests' }).waitFor({ state: 'visible', timeout: 8000 }).catch(() => null);
+      if (requestsTab === null) {
+        diagnosticError = new Error('[fixtures] Admin shell not ready: Requests tab not found at /admin — check role claim and seed data');
+      }
+      if (!diagnosticError) {
+        const board = await checkPage.getByText('Inquiries Board').waitFor({ state: 'visible', timeout: 5000 }).catch(() => null);
+        if (board === null) {
+          diagnosticError = new Error('[fixtures] Admin shell not ready: Inquiries Board not found at /admin — check role claim and seed data');
+        }
+      }
+      if (!diagnosticError) {
+        console.log('[fixtures] Admin shell verified: Requests tab and Inquiries Board visible');
+      }
+    } finally {
+      await checkPage.close();
+    }
+    if (diagnosticError) {
+      await context.close();
+      throw diagnosticError;
+    }
+
     await use(context);
     await context.close();
   },
@@ -159,6 +185,26 @@ export const test = base.extend({
       );
     }
     const context = await browser.newContext(buildContextOptions(role));
+
+    const checkPage = await context.newPage();
+    let diagnosticError = null;
+    try {
+      await checkPage.goto('/admin', { waitUntil: 'domcontentloaded', timeout: 15000 });
+      const settingsTab = await checkPage.getByRole('tab', { name: 'Settings' }).waitFor({ state: 'visible', timeout: 10000 }).catch(() => null);
+      if (settingsTab === null) {
+        diagnosticError = new Error('[fixtures] Super-admin shell not ready: Settings tab not found at /admin — check super-admin claim and seed data');
+      }
+      if (!diagnosticError) {
+        console.log('[fixtures] Super-admin shell verified: Settings tab visible');
+      }
+    } finally {
+      await checkPage.close();
+    }
+    if (diagnosticError) {
+      await context.close();
+      throw diagnosticError;
+    }
+
     await use(context);
     await context.close();
   },
