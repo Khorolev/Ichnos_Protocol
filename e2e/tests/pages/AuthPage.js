@@ -68,7 +68,7 @@ export class AuthPage {
   }
 
   get alert() {
-    return this.page.getByRole('alert');
+    return this.page.getByTestId('auth-modal').getByRole('alert');
   }
 
   get privacyNotice() {

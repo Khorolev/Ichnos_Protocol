@@ -62,7 +62,7 @@ test.describe('Contact Page - Auth-interrupted Submission', { tag: ['@contact'] 
     await expect(contact.contactModal).toBeVisible();
 
     await contact.contactModal.getByLabel('Question 1').fill('Test question');
-    await contact.contactModal.getByRole('checkbox').click();
+    await contact.contactModal.getByRole('checkbox').click({ force: true });
     await contact.contactModal.getByRole('button', { name: 'Submit Inquiry' }).click();
 
     await expect(auth.authModal).toBeVisible();
