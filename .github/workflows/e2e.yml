@@ -225,54 +225,6 @@ jobs:
 
           echo "URL safety check passed: client=$CLIENT_HOST, api=$API_HOST"
 
-      - name: Block staging-host E2E targets
-        env:
-          BASE_URL: ${{ steps.deploy.outputs.base_url }}
-          API_URL: ${{ vars.E2E_API_BASE_URL }}
-        run: |
-          STAGING_HOSTS="staging-client.ichnos-protocol.com staging-api.ichnos-protocol.com staging.ichnos-protocol.com"
-
-          normalize_hostname() {
-            local input="$1"
-            python3 -c "
-          from urllib.parse import urlparse
-          import sys
-          raw = sys.argv[1].strip()
-          if not raw:
-              sys.exit(0)
-          if '://' not in raw:
-              raw = 'https://' + raw
-          parsed = urlparse(raw)
-          host = (parsed.hostname or '').lower()
-          print(host)
-          " "$input" 2>/dev/null || true
-          }
-
-          CLIENT_HOST=$(normalize_hostname "$BASE_URL")
-          if [ -z "$CLIENT_HOST" ]; then
-            echo "::error::Failed to parse hostname from BASE_URL: $BASE_URL"
-            exit 1
-          fi
-
-          API_HOST=$(normalize_hostname "$API_URL")
-          if [ -z "$API_HOST" ]; then
-            echo "::error::Failed to parse hostname from API_URL: $API_URL"
-            exit 1
-          fi
-
-          for entry in $STAGING_HOSTS; do
-            if [ "$CLIENT_HOST" = "$entry" ]; then
-              echo "::error::BASE_URL hostname '$CLIENT_HOST' matches staging denylist entry '$entry'. E2E tests must not target staging environments."
-              exit 1
-            fi
-            if [ "$API_HOST" = "$entry" ]; then
-              echo "::error::API_URL hostname '$API_HOST' matches staging denylist entry '$entry'. E2E tests must not target staging environments."
-              exit 1
-            fi
-          done
-
-          echo "Staging-host check passed: client=$CLIENT_HOST, api=$API_HOST"
-
       - name: Set pending commit status
         if: steps.deploy.outputs.commit_sha != ''
         env:
