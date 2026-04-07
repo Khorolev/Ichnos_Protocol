@@ -119,11 +119,97 @@ E2E_API_BASE_URL=https://e2e-api.ichnos-protocol.com
 All current GitHub Variables (`E2E_BASE_URL`, `E2E_API_BASE_URL`) are moved into the
 committed `e2e/.env.e2e` file. The workflow reads from the file instead of `vars.*`.
 
-### Vercel Env Vars (unchanged — these are platform-specific)
+### Vercel Env Vars (platform-specific — cannot be replaced by committed files)
 
-Vercel env vars (`VITE_FIREBASE_*`, `DATABASE_URL`, `CORS_ORIGIN`, etc.) stay on the
-Vercel platform because they're branch-scoped and build-time substituted. They can't
-be replaced by committed files.
+Vercel env vars are resolved at build time (VITE_*), edge routing ($VAR in routes),
+or server runtime (process.env). They MUST stay on the Vercel platform because:
+- VITE_* are injected by Vite at build time from the Vercel build environment
+- $VITE_API_HOST is expanded by Vercel's edge routing layer (vercel.json routes)
+- DATABASE_URL is auto-injected per-branch by the Neon-Vercel integration
+- Server runtime vars are read by process.env in the serverless function
+
+**Branch scoping is critical** — `main` (E2E) and `staging` (QA) need different values.
+
+#### Vercel Client Project (`ichnos-protocol`)
+
+Three scopes: Production, Preview/main (E2E), Preview/staging (QA).
+
+| Variable | Production | Preview/main (E2E) | Preview/staging (QA) |
+|----------|-----------|-------------------|---------------------|
+| `VITE_FIREBASE_API_KEY` | Production key | **Test key** (`af7f7c...`) | Production key |
+| `VITE_FIREBASE_AUTH_DOMAIN` | `ichnos-protocol.firebaseapp.com` | `ichnos-protocol-test.firebaseapp.com` | `ichnos-protocol.firebaseapp.com` |
+| `VITE_FIREBASE_PROJECT_ID` | `ichnos-protocol` | `ichnos-protocol-test` | `ichnos-protocol` |
+| `VITE_FIREBASE_STORAGE_BUCKET` | `ichnos-protocol.firebasestorage.app` | `ichnos-protocol-test.firebasestorage.app` | `ichnos-protocol.firebasestorage.app` |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Production value | Test value | Production value |
+| `VITE_FIREBASE_APP_ID` | Production value | Test value | Production value |
+| `VITE_API_HOST` | `ichnos-protocolserver.vercel.app` | `e2e-api.ichnos-protocol.com` | `staging-api.ichnos-protocol.com` |
+| `VITE_CALENDLY_LINK` | Production link | Same | Same |
+
+**Key rule**: Every `VITE_FIREBASE_*` var needs THREE entries in Vercel:
+1. Production scope
+2. Preview scope, branch: `main` (test Firebase)
+3. Preview scope, branch: `staging` (production Firebase)
+
+If any var is set to "Preview (all branches)" without branch scoping, main and staging
+get the same value → E2E tests break.
+
+#### Vercel Server Project (`ichnos-protocolserver`)
+
+| Variable | Production | Preview/main (E2E) | Preview/staging (QA) |
+|----------|-----------|-------------------|---------------------|
+| `DATABASE_URL` | Production Neon | Auto by Neon integration (ephemeral) | Production Neon (manual override) |
+| `FIREBASE_PROJECT_ID` | `ichnos-protocol` | `ichnos-protocol-test` | `ichnos-protocol` |
+| `FIREBASE_PRIVATE_KEY` | Production key | **Test project key** | Production key |
+| `FIREBASE_CLIENT_EMAIL` | Production email | Test email | Production email |
+| `FIREBASE_STORAGE_BUCKET` | Production bucket | Test bucket | Production bucket |
+| `CORS_ORIGIN` | `https://ichnos-protocol.com` | `https://e2e-client.ichnos-protocol.com` | `https://staging-client.ichnos-protocol.com` |
+| `E2E_ADMIN_EMAIL` | Not set | `e2e-admin@ichnos-test.com` | Not set |
+| `E2E_ADMIN_UID` | Not set | Current UID from provision | Not set |
+| `E2E_USER_EMAIL` | Not set | `e2e-user@ichnos-test.com` | Not set |
+| `E2E_USER_UID` | Not set | Current UID | Not set |
+| `E2E_SUPER_ADMIN_EMAIL` | Not set | `e2e-superadmin@ichnos-test.com` | Not set |
+| `E2E_SUPER_ADMIN_UID` | Not set | Current UID | Not set |
+| `SKIP_E2E_SEED` | Not set | **Not set** (seed must run) | `true` (skip seed) |
+| `XAI_API_KEY` | Production key | Same or test key | Same |
+| `RESEND_API_KEY` | Production key | Same or disabled | Same |
+| `CRON_SECRET` | Production secret | Same | Same |
+| `ADMIN_EMAILS` | Production list | Test admin emails | Production list |
+| `NODE_ENV` | `production` | `production` | `production` |
+
+**Key rules for server**:
+- `CORS_ORIGIN` MUST be branch-scoped — main allows `e2e-client`, staging allows `staging-client`
+- `FIREBASE_*` (Admin SDK) must point to the test project for main, production for staging
+- `SKIP_E2E_SEED=true` only on staging, never on main
+- `E2E_*_UID` vars are only needed on main (for the seed script)
+
+#### Production/Release Scope
+
+Production deployments happen when code is promoted (Vercel auto-deploys the default
+branch or via manual promotion). Production env vars use the real Firebase project,
+real database, and real API keys. No E2E vars are set in production scope.
+
+**Release workflow**: The current flow is main → staging → production.
+- E2E tests validate on `main` (test Firebase + ephemeral DB)
+- Manual QA on `staging` (production Firebase + production DB)
+- Production promotion only after both pass
+
+#### Vercel Domain Mapping
+
+| Domain | Vercel Project | Git Branch | Purpose |
+|--------|---------------|------------|---------|
+| `ichnos-protocol.com` | Client | Production | Live site |
+| `www.ichnos-protocol.com` | Client | Production | Live site (redirect) |
+| `e2e-client.ichnos-protocol.com` | Client | `main` | E2E testing |
+| `staging-client.ichnos-protocol.com` | Client | `staging` | Manual QA |
+| `ichnos-protocolserver.vercel.app` | Server | Production | Live API |
+| `e2e-api.ichnos-protocol.com` | Server | `main` | E2E testing |
+| `staging-api.ichnos-protocol.com` | Server | `staging` | Manual QA |
+
+#### Deployment Protection
+
+Both client and server Vercel projects must have "Protection Bypass for Automation"
+enabled with the same secret (`VERCEL_AUTOMATION_BYPASS_SECRET`). This applies to ALL
+preview deployments regardless of branch.
 
 ## Workflow Changes
 
