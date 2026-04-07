@@ -505,7 +505,9 @@ server: {
 }
 ```
 
-Set `VITE_API_BASE_URL=` (empty) so the client always calls `/api/*` on its own
+Set `VITE_API_HOST` to the server hostname (e.g., `e2e-api.ichnos-protocol.com` for E2E,
+`staging-api.ichnos-protocol.com` for staging). This is used by `client/vercel.json`
+to rewrite `/api/*` requests. The client then calls `/api/*` on its own
 origin.
 
 ### E2. Don't Expose Bypass Secrets in Browser Code
