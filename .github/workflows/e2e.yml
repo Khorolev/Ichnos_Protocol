@@ -63,8 +63,8 @@ on:
 # maintainer-reviewed PRs — they are the canonical safety gate preventing
 # E2E tests from running against production.
 env:
-  PRODUCTION_HOSTS_CLIENT: "ichnos-protocol.com www.ichnos-protocol.com"
-  PRODUCTION_HOSTS_API: "ichnos-protocolserver.vercel.app"
+  PRODUCTION_HOSTS_CLIENT: "ichnos-protocol.com www.ichnos-protocol.com staging-client.ichnos-protocol.com"
+  PRODUCTION_HOSTS_API: "ichnos-protocolserver.vercel.app staging-api.ichnos-protocol.com"
 
 permissions:
   contents: read
@@ -189,10 +189,12 @@ jobs:
             echo "${name} denylist (${#_out[@]} entries): ${_out[*]}"
           }
 
-          # Build validated denylist arrays
-          declare -a CLIENT_DENYLIST API_DENYLIST
+          # Build validated denylist arrays and combine into a single union
+          declare -a CLIENT_DENYLIST API_DENYLIST COMBINED_DENYLIST
           validate_denylist "PRODUCTION_HOSTS_CLIENT" "$PRODUCTION_HOSTS_CLIENT" CLIENT_DENYLIST
           validate_denylist "PRODUCTION_HOSTS_API" "$PRODUCTION_HOSTS_API" API_DENYLIST
+          COMBINED_DENYLIST=("${CLIENT_DENYLIST[@]}" "${API_DENYLIST[@]}")
+          echo "Combined denylist (${#COMBINED_DENYLIST[@]} entries): ${COMBINED_DENYLIST[*]}"
 
           # Normalize target URLs
           CLIENT_HOST=$(normalize_hostname "$BASE_URL")
@@ -207,18 +209,14 @@ jobs:
             exit 1
           fi
 
-          # Check client URL against production denylist
-          for host in "${CLIENT_DENYLIST[@]}"; do
+          # Check both target hosts against the full combined denylist
+          for host in "${COMBINED_DENYLIST[@]}"; do
             if [ "$CLIENT_HOST" = "$host" ]; then
-              echo "::error::BASE_URL hostname '$CLIENT_HOST' matches production denylist entry '$host'. E2E tests must not run against production."
+              echo "::error::BASE_URL hostname '$CLIENT_HOST' matches denylist entry '$host'. E2E tests must not run against production/staging."
               exit 1
             fi
-          done
-
-          # Check API URL against production denylist
-          for host in "${API_DENYLIST[@]}"; do
             if [ "$API_HOST" = "$host" ]; then
-              echo "::error::API_URL hostname '$API_HOST' matches production denylist entry '$host'. E2E tests must not run against production."
+              echo "::error::API_URL hostname '$API_HOST' matches denylist entry '$host'. E2E tests must not run against production/staging."
               exit 1
             fi
           done
