@@ -107,7 +107,6 @@ The config sets `fullyParallel: true`, but several risks exist:
 
 ### Fixed
 
-- **API target drift**: Staging-host deny step in `e2e.yml` + production denylist prevent E2E from running against wrong environments. API sanity preflight in `global-setup.js` (CI-only) aborts if `ApiSanityWarning` is rendered.
 - **Fixture diagnostic gap**: Admin/super-admin precondition guards now throw descriptive errors when the admin shell is not present.
 - **Modal interaction instability**: `force: true` click on checkbox in `contact.spec.js` resolves pointer interception from modal animation.
 - **Auth alert scoping**: `AuthPage.alert` getter now scoped to `auth-modal` (`this.page.getByTestId('auth-modal').getByRole('alert')`) to avoid matching the global `ApiSanityWarning` alert.
@@ -115,6 +114,7 @@ The config sets `fullyParallel: true`, but several risks exist:
 
 ### Residual
 
+- **API routing misconfiguration**: The staging client's `/api` routing to the server is not reliably configured. The `ApiSanityWarning` component surfaces this in the UI when it occurs. No automated E2E guard was successfully retained for this.
 - **Shared Firebase accounts**: Still a risk if `E2E_WORKERS` increases beyond 2. `testRunId` fixture mitigates data mutation collisions but not login conflicts.
 - **`loginAs()` overhead**: `logout.spec.js`, `contact.spec.js`, and `chatbot.spec.js` still use `loginAsUser()` and pay the full UI login ceremony cost per test.
 - **Incomplete POM coverage**: `AdminPage.js`, `AuthPage.js`, `ContactPage.js` exist but coverage is not complete. Some tests still use raw selectors.
