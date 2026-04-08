@@ -94,80 +94,72 @@ async function generateAuthState(browser, role) {
     role.credentials.password,
   );
 
+  // Step 2 — build the auth data to inject BEFORE page scripts run.
+  //
+  // Firebase SDK v12 uses IndexedDB for persistence. On initialization it
+  // reads the legacy localStorage key `firebase:authUser:*` as a migration
+  // path — but only ONCE, during the first `getAuth()` call. If we inject
+  // AFTER the SDK initializes (e.g. via page.evaluate after navigation),
+  // the SDK has already checked localStorage and found it empty.
+  //
+  // Solution: use `context.addInitScript()` to set localStorage BEFORE any
+  // page JavaScript executes. The SDK's first `getAuth()` call then finds
+  // the auth data, restores the session, and fires `onAuthStateChanged`.
+  const storageKey = `firebase:authUser:${FIREBASE_API_KEY}:[DEFAULT]`;
+  const userData = {
+    uid: authResult.localId,
+    email: authResult.email,
+    emailVerified: true,
+    displayName: null,
+    isAnonymous: false,
+    photoURL: null,
+    phoneNumber: null,
+    tenantId: null,
+    providerData: [
+      {
+        uid: authResult.email,
+        displayName: null,
+        email: authResult.email,
+        phoneNumber: null,
+        photoURL: null,
+        providerId: "password",
+      },
+    ],
+    stsTokenManager: {
+      refreshToken: authResult.refreshToken,
+      accessToken: authResult.idToken,
+      expirationTime:
+        Date.now() + Number.parseInt(authResult.expiresIn, 10) * 1000,
+    },
+    createdAt: String(Date.now()),
+    lastLoginAt: String(Date.now()),
+    apiKey: FIREBASE_API_KEY,
+    appName: "[DEFAULT]",
+  };
+
   const context = await browser.newContext(contextOptions);
+
+  // Inject auth state into localStorage before ANY page scripts run.
+  // This runs synchronously at the top of every new document in this context.
+  await context.addInitScript(
+    ({ key, value }) => {
+      localStorage.setItem(key, value);
+    },
+    { key: storageKey, value: JSON.stringify(userData) },
+  );
+
   const page = await context.newPage();
 
   try {
-    // Step 2 — navigate to establish correct origin for storage + cookies
+    // Step 3 — navigate to establish correct origin for storage + cookies.
+    // By the time the page's module scripts execute and Firebase SDK calls
+    // getAuth(), our init script has already set the localStorage key.
     await page.goto("/", {
       waitUntil: "domcontentloaded",
       timeout: TIMEOUTS.appReady,
     });
 
-    // Step 3 — inject Firebase auth state into localStorage and verify.
-    //
-    // Injection and verification happen in a SINGLE page.evaluate call to
-    // prevent the Firebase SDK's async initialization from clearing the
-    // legacy localStorage key between injection and verification. Firebase
-    // SDK v12 uses IndexedDB and migrates/clears localStorage entries.
-    const injectionOk = await page.evaluate(
-      ({ apiKey, uid, email, idToken, refreshToken, expiresIn }) => {
-        const storageKey = `firebase:authUser:${apiKey}:[DEFAULT]`;
-        const userData = {
-          uid,
-          email,
-          emailVerified: true,
-          displayName: null,
-          isAnonymous: false,
-          photoURL: null,
-          phoneNumber: null,
-          tenantId: null,
-          providerData: [
-            {
-              uid: email,
-              displayName: null,
-              email,
-              phoneNumber: null,
-              photoURL: null,
-              providerId: "password",
-            },
-          ],
-          stsTokenManager: {
-            refreshToken,
-            accessToken: idToken,
-            expirationTime:
-              Date.now() + Number.parseInt(expiresIn, 10) * 1000,
-          },
-          createdAt: String(Date.now()),
-          lastLoginAt: String(Date.now()),
-          apiKey,
-          appName: "[DEFAULT]",
-        };
-        localStorage.setItem(storageKey, JSON.stringify(userData));
-
-        // Verify in the same synchronous execution — nothing can
-        // interfere between setItem and getItem within one evaluate.
-        const raw = localStorage.getItem(storageKey);
-        if (!raw) return false;
-        const parsed = JSON.parse(raw);
-        return !!(parsed?.uid && parsed?.stsTokenManager?.accessToken);
-      },
-      {
-        apiKey: FIREBASE_API_KEY,
-        uid: authResult.localId,
-        email: authResult.email,
-        idToken: authResult.idToken,
-        refreshToken: authResult.refreshToken,
-        expiresIn: authResult.expiresIn,
-      },
-    );
-    if (!injectionOk) {
-      throw new Error(
-        `[global-setup] Firebase auth injection failed for ${role.label}`,
-      );
-    }
-
-    // Step 5 — persist storageState (cookies + localStorage)
+    // Step 4 — persist storageState (cookies + localStorage)
     const statePath = path.join(AUTH_DIR, role.file);
     await context.storageState({ path: statePath });
     console.log(
