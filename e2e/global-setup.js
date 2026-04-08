@@ -138,28 +138,42 @@ async function generateAuthState(browser, role) {
   };
 
   const context = await browser.newContext(contextOptions);
-
-  // Inject auth state into localStorage before ANY page scripts run.
-  // This runs synchronously at the top of every new document in this context.
-  await context.addInitScript(
-    ({ key, value }) => {
-      localStorage.setItem(key, value);
-    },
-    { key: storageKey, value: JSON.stringify(userData) },
-  );
-
   const page = await context.newPage();
 
   try {
-    // Step 3 — navigate to establish correct origin for storage + cookies.
-    // By the time the page's module scripts execute and Firebase SDK calls
-    // getAuth(), our init script has already set the localStorage key.
-    await page.goto("/", {
-      waitUntil: "domcontentloaded",
+    // Step 3 — navigate to a static asset to establish the correct origin
+    // and collect Vercel bypass cookies WITHOUT loading the app's JS bundle.
+    //
+    // Why not navigate to "/" directly? Firebase SDK v12 uses IndexedDB for
+    // auth persistence. On initialization (getAuth()), it reads the legacy
+    // localStorage key as a migration path, moves the data to IndexedDB,
+    // and CLEARS the localStorage entry. Playwright's storageState() only
+    // captures cookies + localStorage (not IndexedDB), so the captured
+    // state would have no auth data.
+    //
+    // By navigating to /favicon.png (a static asset served by Vercel CDN),
+    // we get the correct origin and bypass cookies without executing any
+    // app JavaScript. We then inject auth data into localStorage and save
+    // the storageState immediately — the data stays in localStorage because
+    // no SDK code has run to migrate/clear it.
+    //
+    // When tests load this storageState and navigate to "/", the Firebase
+    // SDK finds the auth data in localStorage on its first initialization,
+    // restores the session, and fires onAuthStateChanged with the user.
+    await page.goto("/favicon.png", {
+      waitUntil: "load",
       timeout: TIMEOUTS.appReady,
     });
 
-    // Step 4 — persist storageState (cookies + localStorage)
+    // Step 4 — inject auth state into localStorage (no SDK running here)
+    await page.evaluate(
+      ({ key, value }) => {
+        localStorage.setItem(key, value);
+      },
+      { key: storageKey, value: JSON.stringify(userData) },
+    );
+
+    // Step 5 — persist storageState (cookies + localStorage with auth data)
     const statePath = path.join(AUTH_DIR, role.file);
     await context.storageState({ path: statePath });
     console.log(
