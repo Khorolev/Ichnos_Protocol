@@ -89,10 +89,8 @@ async function firebaseRestSignIn(email, password) {
  *    without executing app JS.
  * 3. Writing Firebase auth data directly to IndexedDB
  *    (`firebaseLocalStorageDb` / `firebaseLocalStorage`) via `page.evaluate()`.
- * 4. Navigating to `/` so Firebase SDK initializes and establishes a full
- *    auth session from IndexedDB.
- * 5. Verifying auth via `user-menu-toggle` visibility (non-fatal on timeout).
- * 6. Saving the resulting `storageState` (with `indexedDB: true`) to disk.
+ * 4. Saving the resulting `storageState` (with `indexedDB: true`) to disk
+ *    BEFORE navigating to "/" — Firebase SDK clears IndexedDB on init.
  */
 async function generateAuthState(browser, role) {
   const contextOptions = {
@@ -200,71 +198,66 @@ async function generateAuthState(browser, role) {
       { key: storageKey, value: userData },
     );
 
-    // Step 5 — navigate to the app so Firebase SDK reads from IndexedDB
-    // and establishes a full auth session (tokens, cookies, SDK state).
-    await page.goto("/", {
-      waitUntil: "domcontentloaded",
-      timeout: TIMEOUTS.appReady,
-    });
-
-    // Step 6 — verify auth session was restored. Non-fatal: if verification
-    // times out, save the state anyway (IndexedDB data may still work).
-    try {
-      await page
-        .getByTestId("user-menu-toggle")
-        .first()
-        .waitFor({ state: "visible", timeout: TIMEOUTS.authVerify });
-      console.log(
-        `[global-setup] Auth verified for ${role.label} (user-menu-toggle visible)`,
-      );
-    } catch {
-      // Capture diagnostic info: page URL, visible text, and server getMe response
-      const url = page.url();
-      const bodyText = await page
-        .locator("body")
-        .innerText({ timeout: 5000 })
-        .catch(() => "(could not read body)");
-      const snippet = bodyText.substring(0, 500);
-
-      // Diagnostic: call getMe directly with the REST token to see what the server says
-      const getMeHeaders = {
-        Authorization: `Bearer ${authResult.idToken}`,
-        ...(BYPASS_SECRET && {
-          "x-vercel-protection-bypass": BYPASS_SECRET,
-        }),
-      };
-      const getMeRes = await fetch(`${API_BASE_URL}/api/users/me`, {
-        headers: getMeHeaders,
-      }).catch((err) => ({ status: "fetch-error", statusText: err.message }));
-      const getMeBody = getMeRes.json
-        ? await getMeRes.json().catch(() => "(non-JSON)")
-        : "(no body)";
-
-      console.warn(
-        `[global-setup] ⚠ Auth verification timed out for ${role.label}.\n` +
-          `  URL: ${url}\n` +
-          `  Page snippet: ${snippet}\n` +
-          `  getMe status: ${getMeRes.status}\n` +
-          `  getMe body: ${JSON.stringify(getMeBody)}`,
-      );
-    }
-
-    // Step 7 — persist storageState (cookies + localStorage + IndexedDB).
+    // Step 5 — save storageState NOW, before navigating to "/".
+    // Firebase SDK v12 clears/migrates IndexedDB data during initialization,
+    // so we must capture the state while still on the static asset page.
     const statePath = path.join(AUTH_DIR, role.file);
     await context.storageState({ path: statePath, indexedDB: true });
 
-    // Diagnostic: verify the saved file contains IndexedDB data
+    // Diagnostic: inspect the saved file
     const stateContent = JSON.parse(fs.readFileSync(statePath, "utf-8"));
-    const hasIDB = Array.isArray(stateContent.indexedDB) && stateContent.indexedDB.length > 0;
+    const idbDbs = stateContent.indexedDB || [];
+    const hasIDB = idbDbs.length > 0;
     const idbSummary = hasIDB
-      ? stateContent.indexedDB.map((db) => `${db.name}(${db.stores?.length || 0} stores)`).join(", ")
+      ? idbDbs.map((db) => {
+          const storeInfo = (db.stores || []).map(
+            (s) => `${s.name}(${s.records?.length || 0} records)`,
+          );
+          return `${db.name}[${storeInfo.join(",")}]`;
+        }).join(", ")
       : "NONE";
     const cookieCount = stateContent.cookies?.length || 0;
-    const lsCount = stateContent.origins?.reduce((n, o) => n + (o.localStorage?.length || 0), 0) || 0;
+    const lsCount = stateContent.origins?.reduce(
+      (n, o) => n + (o.localStorage?.length || 0), 0,
+    ) || 0;
     console.log(
       `[global-setup] StorageState saved for ${role.label} → ${role.file} ` +
         `(cookies: ${cookieCount}, localStorage: ${lsCount}, indexedDB: ${idbSummary})`,
     );
+
+    if (!hasIDB) {
+      // Fallback diagnostic: verify IndexedDB data exists via page.evaluate
+      const idbCheck = await page.evaluate(() => {
+        return new Promise((resolve) => {
+          const req = indexedDB.open("firebaseLocalStorageDb", 1);
+          req.onerror = () => resolve({ exists: false, error: String(req.error) });
+          req.onsuccess = () => {
+            const db = req.result;
+            if (!db.objectStoreNames.contains("firebaseLocalStorage")) {
+              db.close();
+              resolve({ exists: false, error: "store not found" });
+              return;
+            }
+            const tx = db.transaction("firebaseLocalStorage", "readonly");
+            const store = tx.objectStore("firebaseLocalStorage");
+            const getAll = store.getAll();
+            getAll.onsuccess = () => {
+              db.close();
+              resolve({ exists: true, count: getAll.result.length,
+                keys: getAll.result.map((r) => r.fbase_key) });
+            };
+            getAll.onerror = () => {
+              db.close();
+              resolve({ exists: false, error: String(getAll.error) });
+            };
+          };
+        });
+      });
+      console.warn(
+        `[global-setup] ⚠ IndexedDB not in storageState for ${role.label}. ` +
+          `Browser IDB check: ${JSON.stringify(idbCheck)}`,
+      );
+    }
   } finally {
     await context.close();
   }
