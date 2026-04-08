@@ -40,7 +40,25 @@
       "Bash(vercel env:*)",
       "Bash(node -e \":*)",
       "Bash(echo $SHELL)",
-      "Bash(node -e \"console.log\\(process.env.ComSpec\\); console.log\\(process.env.SHELL\\); console.log\\(process.platform\\)\")"
+      "Bash(node -e \"console.log\\(process.env.ComSpec\\); console.log\\(process.env.SHELL\\); console.log\\(process.platform\\)\")",
+      "mcp__vercel__get_project",
+      "Bash(gh variable:*)",
+      "Bash(gh secret:*)",
+      "Bash(sed 's/ $//')",
+      "Bash(python3 -c \":*)",
+      "Bash(gh pr:*)",
+      "Bash(gh workflow:*)",
+      "Bash(curl -sL -H \"x-vercel-protection-bypass: MPaSmqp4KvVugGeD2oO8yzlakdspUVJs\" \"https://e2e-client.ichnos-protocol.com/api/health\")",
+      "Bash(curl -sL -o /dev/null -w \"%{http_code}\" -H \"x-vercel-protection-bypass: MPaSmqp4KvVugGeD2oO8yzlakdspUVJs\" \"https://e2e-client.ichnos-protocol.com/\")",
+      "Bash(curl -sL -H \"x-vercel-protection-bypass: MPaSmqp4KvVugGeD2oO8yzlakdspUVJs\" \"https://e2e-client.ichnos-protocol.com/\")",
+      "Bash(curl -sL -H \"x-vercel-protection-bypass: MPaSmqp4KvVugGeD2oO8yzlakdspUVJs\" \"https://e2e-client.ichnos-protocol.com/assets/index-CA1E7RhJ.js\")",
+      "mcp__vercel__search_vercel_documentation",
+      "mcp__vercel__list_deployments",
+      "mcp__vercel__get_deployment_build_logs",
+      "Bash(curl -sL -w \"\\\\n%{http_code}\" -H \"x-vercel-protection-bypass: MPaSmqp4KvVugGeD2oO8yzlakdspUVJs\" \"https://e2e-client.ichnos-protocol.com/api/health\")",
+      "Bash(grep -oE \"AIza[A-Za-z0-9_-]{30,}\")",
+      "Bash(sed 's/.*2026-04-08T[0-9:.]*Z\\\\s*//')",
+      "mcp__github__get_file_contents"
     ]
   }
 }
