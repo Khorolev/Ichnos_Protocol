@@ -3,10 +3,23 @@
  * can sign in before running tests, then generates storageState files for
  * each configured role.
  *
- * Auth state is bootstrapped via the Firebase REST API + browser localStorage
- * injection — no login UI interaction. This keeps auth-UI specs
- * (auth.spec.js, login.spec.js) independently runnable even when the login
- * modal has regressions.
+ * Firebase SDK v12 stores auth persistence data in IndexedDB
+ * (`firebaseLocalStorageDb`, object store `firebaseLocalStorage`) and no
+ * longer reads from localStorage. Auth state is bootstrapped via the
+ * Firebase REST API + IndexedDB injection — no login UI interaction.
+ *
+ * Strategy (two-navigation pattern):
+ *   1. Navigate to `/favicon.png` — a static asset that establishes the
+ *      correct origin and collects Vercel bypass cookies without loading
+ *      app JS or initializing the Firebase SDK.
+ *   2. Write auth data directly to IndexedDB via `page.evaluate()`.
+ *   3. Navigate to `/` so the Firebase SDK initializes and reads auth
+ *      data from IndexedDB.
+ *   4. Wait for `user-menu-toggle` visibility to confirm the session was
+ *      restored before saving `storageState`.
+ *
+ * This keeps auth-UI specs (auth.spec.js, login.spec.js) independently
+ * runnable even when the login modal has regressions.
  *
  * Server readiness (HTTP 200 + DB seed completion) is handled by the CI
  * workflow's curl-based polling step, which reliably bypasses Vercel
@@ -70,12 +83,15 @@ async function firebaseRestSignIn(email, password) {
 /**
  * Generate storageState for a single role by:
  * 1. Authenticating via the Firebase REST API (no UI).
- * 2. Opening a browser context, navigating to the app origin to collect
- *    cookies (including Vercel bypass cookies).
- * 3. Injecting the Firebase auth user data into localStorage so the SDK
- *    recognises the session on next page load.
- * 4. Reloading to verify the app sees the authenticated user.
- * 5. Saving the resulting storageState to disk.
+ * 2. Opening a browser context, navigating to a static asset (`/favicon.png`)
+ *    to establish the correct origin and collect Vercel bypass cookies
+ *    without executing app JS.
+ * 3. Writing Firebase auth data directly to IndexedDB
+ *    (`firebaseLocalStorageDb` / `firebaseLocalStorage`) via `page.evaluate()`.
+ * 4. Navigating to `/` so Firebase SDK initializes and restores the session
+ *    from IndexedDB.
+ * 5. Waiting for `user-menu-toggle` to confirm auth state was restored.
+ * 6. Saving the resulting `storageState` to disk.
  */
 async function generateAuthState(browser, role) {
   const contextOptions = {
@@ -94,17 +110,11 @@ async function generateAuthState(browser, role) {
     role.credentials.password,
   );
 
-  // Step 2 — build the auth data to inject BEFORE page scripts run.
+  // Step 2 — build the auth data for IndexedDB injection.
   //
-  // Firebase SDK v12 uses IndexedDB for persistence. On initialization it
-  // reads the legacy localStorage key `firebase:authUser:*` as a migration
-  // path — but only ONCE, during the first `getAuth()` call. If we inject
-  // AFTER the SDK initializes (e.g. via page.evaluate after navigation),
-  // the SDK has already checked localStorage and found it empty.
-  //
-  // Solution: use `context.addInitScript()` to set localStorage BEFORE any
-  // page JavaScript executes. The SDK's first `getAuth()` call then finds
-  // the auth data, restores the session, and fires `onAuthStateChanged`.
+  // Firebase SDK v12 stores auth data in IndexedDB database
+  // `firebaseLocalStorageDb`, object store `firebaseLocalStorage`.
+  // Each record has the shape: { fbase_key: "<storageKey>", value: <authDataObject> }.
   const storageKey = `firebase:authUser:${FIREBASE_API_KEY}:[DEFAULT]`;
   const userData = {
     uid: authResult.localId,
@@ -142,40 +152,68 @@ async function generateAuthState(browser, role) {
 
   try {
     // Step 3 — navigate to a static asset to establish the correct origin
-    // and collect Vercel bypass cookies WITHOUT loading the app's JS bundle.
-    //
-    // Why not navigate to "/" directly? Firebase SDK v12 uses IndexedDB for
-    // auth persistence. On initialization (getAuth()), it reads the legacy
-    // localStorage key as a migration path, moves the data to IndexedDB,
-    // and CLEARS the localStorage entry. Playwright's storageState() only
-    // captures cookies + localStorage (not IndexedDB), so the captured
-    // state would have no auth data.
-    //
-    // By navigating to /favicon.png (a static asset served by Vercel CDN),
-    // we get the correct origin and bypass cookies without executing any
-    // app JavaScript. We then inject auth data into localStorage and save
-    // the storageState immediately — the data stays in localStorage because
-    // no SDK code has run to migrate/clear it.
-    //
-    // When tests load this storageState and navigate to "/", the Firebase
-    // SDK finds the auth data in localStorage on its first initialization,
-    // restores the session, and fires onAuthStateChanged with the user.
+    // and collect Vercel bypass cookies without loading app JS.
     await page.goto("/favicon.png", {
       waitUntil: "load",
       timeout: TIMEOUTS.appReady,
     });
 
-    // Step 4 — inject auth state into localStorage (no SDK running here)
+    // Step 4 — write auth data to IndexedDB where Firebase SDK expects it
     await page.evaluate(
       ({ key, value }) => {
-        localStorage.setItem(key, value);
+        return new Promise((resolve, reject) => {
+          const request = indexedDB.open("firebaseLocalStorageDb", 1);
+
+          request.onerror = () => reject(request.error);
+
+          request.onupgradeneeded = () => {
+            const db = request.result;
+            if (!db.objectStoreNames.contains("firebaseLocalStorage")) {
+              db.createObjectStore("firebaseLocalStorage", {
+                keyPath: "fbase_key",
+              });
+            }
+          };
+
+          request.onsuccess = () => {
+            const db = request.result;
+            const tx = db.transaction("firebaseLocalStorage", "readwrite");
+            const store = tx.objectStore("firebaseLocalStorage");
+            store.put({ fbase_key: key, value: value });
+
+            tx.oncomplete = () => {
+              db.close();
+              resolve();
+            };
+            tx.onabort = () => {
+              db.close();
+              reject(tx.error || new Error("IndexedDB transaction aborted"));
+            };
+            tx.onerror = () => {
+              db.close();
+              reject(tx.error);
+            };
+          };
+        });
       },
-      { key: storageKey, value: JSON.stringify(userData) },
+      { key: storageKey, value: userData },
     );
 
-    // Step 5 — persist storageState (cookies + localStorage with auth data)
+    // Step 5 — navigate to the real app so Firebase SDK initializes and
+    // reads auth data from IndexedDB
+    await page.goto("/", {
+      waitUntil: "domcontentloaded",
+      timeout: TIMEOUTS.appReady,
+    });
+
+    // Step 6 — confirm Firebase SDK restored the auth session from IndexedDB
+    await page
+      .getByTestId("user-menu-toggle")
+      .waitFor({ state: "visible", timeout: TIMEOUTS.authVerify });
+
+    // Step 7 — persist storageState (cookies + IndexedDB-verified auth)
     const statePath = path.join(AUTH_DIR, role.file);
-    await context.storageState({ path: statePath });
+    await context.storageState({ path: statePath, indexedDB: true });
     console.log(
       `[global-setup] StorageState saved for ${role.label} → ${role.file}`,
     );
