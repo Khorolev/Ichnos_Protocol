@@ -2,18 +2,27 @@
  * Role-based authenticated context/page fixtures for E2E tests.
  *
  * BOUNDARY CONTRACT:
- * - Fixtures manage auth, context, and seeding only. No UI interaction,
- *   no assertions.
- * - Tests that test auth UI (login, signup, auth modal) should import directly
- *   from @playwright/test, not from this file.
+ * - Fixtures manage auth, context, and seeding only. No assertions.
+ * - Each context fixture performs a live UI login via `loginAs()` inside a
+ *   fresh browser context. The Firebase SDK handles auth persistence
+ *   natively within the browser context's IndexedDB — no storageState
+ *   files are used.
+ * - Tests that test auth UI (login, signup, auth modal) should import
+ *   directly from @playwright/test, not from this file.
  * - Tests using these fixtures should call `test.skip(!isConfigured(ROLE))`
- *   in a beforeEach hook for clear skip messages. The fixtures themselves are
- *   skip-safe: when credentials are not configured, context fixtures yield
- *   `null` (no throw), and page fixtures propagate `null`. The spec's
- *   `test.skip()` guard then marks the test as skipped cleanly.
- * - When credentials ARE configured but the storageState file is missing,
- *   context fixtures throw with a clear diagnostic — this indicates
- *   global-setup failed and should be investigated.
+ *   in a beforeEach hook for clear skip messages. The fixtures themselves
+ *   are skip-safe: when credentials are not configured, context fixtures
+ *   yield `null` (no throw), and page fixtures propagate `null`. The
+ *   spec's `test.skip()` guard then marks the test as skipped cleanly.
+ *
+ * CONCURRENCY MODEL:
+ * - Context fixtures (`adminContext`, `userContext`, `superAdminContext`)
+ *   are worker-scoped. Each Playwright worker authenticates once per role,
+ *   then reuses the same browser context for all tests in that worker.
+ *   This avoids re-signing in on every test, which would hammer shared
+ *   Firebase accounts under `fullyParallel` mode and risk rate limiting.
+ * - Page fixtures (`adminPage`, `userPage`, `superAdminPage`) remain
+ *   test-scoped — each test gets a fresh page from the shared context.
  *
  * USAGE:
  *   import { test, expect } from './fixtures/auth.js';
@@ -25,42 +34,11 @@
  */
 
 import { test as base, expect } from "@playwright/test";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+import { loginAs } from "../helpers/auth.js";
 import { ADMIN, USER, SUPER_ADMIN, isConfigured } from "../helpers/credentials.js";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const AUTH_DIR = path.join(__dirname, "..", "..", ".auth");
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:5173";
 const BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
-
-function authStatePath(role) {
-  return path.join(AUTH_DIR, `${role}.json`);
-}
-
-function hasAuthState(role) {
-  return fs.existsSync(authStatePath(role));
-}
-
-/**
- * Build context options that match the runtime options from
- * playwright.config.js (baseURL + Vercel bypass headers), then layer in
- * the storageState for the given role.
- */
-function buildContextOptions(role) {
-  return {
-    baseURL: BASE_URL,
-    ...(BYPASS_SECRET && {
-      extraHTTPHeaders: {
-        "x-vercel-protection-bypass": BYPASS_SECRET,
-        "x-vercel-set-bypass-cookie": "samesitenone",
-      },
-    }),
-    storageState: authStatePath(role),
-  };
-}
 
 /**
  * Seeding orchestration hook.
@@ -97,21 +75,36 @@ export const test = base.extend({
     await use(`${runId}-w${testInfo.parallelIndex}`);
   },
 
-  adminContext: async ({ browser }, use) => {
-    const role = "admin";
-    if (!isConfigured(ADMIN)) {
-      await use(null);
-      return;
-    }
-    if (!hasAuthState(role)) {
-      throw new Error(
-        `Admin auth state not found at ${authStatePath(role)} — credentials are configured but storageState file is missing. Verify global-setup completed successfully.`,
-      );
-    }
-    const context = await browser.newContext(buildContextOptions(role));
-    await use(context);
-    await context.close();
-  },
+  adminContext: [
+    async ({ browser }, use) => {
+      if (!isConfigured(ADMIN)) {
+        await use(null);
+        return;
+      }
+      const contextOptions = {
+        baseURL: BASE_URL,
+        ...(BYPASS_SECRET && {
+          extraHTTPHeaders: {
+            "x-vercel-protection-bypass": BYPASS_SECRET,
+            "x-vercel-set-bypass-cookie": "samesitenone",
+          },
+        }),
+      };
+      const context = await browser.newContext(contextOptions);
+      try {
+        const loginPage = await context.newPage();
+        try {
+          await loginAs(loginPage, ADMIN.email, ADMIN.password);
+        } finally {
+          await loginPage.close();
+        }
+        await use(context);
+      } finally {
+        await context.close();
+      }
+    },
+    { scope: "worker" },
+  ],
 
   adminPage: async ({ adminContext }, use) => {
     if (!adminContext) {
@@ -122,21 +115,36 @@ export const test = base.extend({
     await use(page);
   },
 
-  userContext: async ({ browser }, use) => {
-    const role = "user";
-    if (!isConfigured(USER)) {
-      await use(null);
-      return;
-    }
-    if (!hasAuthState(role)) {
-      throw new Error(
-        `User auth state not found at ${authStatePath(role)} — credentials are configured but storageState file is missing. Verify global-setup completed successfully.`,
-      );
-    }
-    const context = await browser.newContext(buildContextOptions(role));
-    await use(context);
-    await context.close();
-  },
+  userContext: [
+    async ({ browser }, use) => {
+      if (!isConfigured(USER)) {
+        await use(null);
+        return;
+      }
+      const contextOptions = {
+        baseURL: BASE_URL,
+        ...(BYPASS_SECRET && {
+          extraHTTPHeaders: {
+            "x-vercel-protection-bypass": BYPASS_SECRET,
+            "x-vercel-set-bypass-cookie": "samesitenone",
+          },
+        }),
+      };
+      const context = await browser.newContext(contextOptions);
+      try {
+        const loginPage = await context.newPage();
+        try {
+          await loginAs(loginPage, USER.email, USER.password);
+        } finally {
+          await loginPage.close();
+        }
+        await use(context);
+      } finally {
+        await context.close();
+      }
+    },
+    { scope: "worker" },
+  ],
 
   userPage: async ({ userContext }, use) => {
     if (!userContext) {
@@ -147,21 +155,36 @@ export const test = base.extend({
     await use(page);
   },
 
-  superAdminContext: async ({ browser }, use) => {
-    const role = "super-admin";
-    if (!isConfigured(SUPER_ADMIN)) {
-      await use(null);
-      return;
-    }
-    if (!hasAuthState(role)) {
-      throw new Error(
-        `Super-admin auth state not found at ${authStatePath(role)} — credentials are configured but storageState file is missing. Verify global-setup completed successfully.`,
-      );
-    }
-    const context = await browser.newContext(buildContextOptions(role));
-    await use(context);
-    await context.close();
-  },
+  superAdminContext: [
+    async ({ browser }, use) => {
+      if (!isConfigured(SUPER_ADMIN)) {
+        await use(null);
+        return;
+      }
+      const contextOptions = {
+        baseURL: BASE_URL,
+        ...(BYPASS_SECRET && {
+          extraHTTPHeaders: {
+            "x-vercel-protection-bypass": BYPASS_SECRET,
+            "x-vercel-set-bypass-cookie": "samesitenone",
+          },
+        }),
+      };
+      const context = await browser.newContext(contextOptions);
+      try {
+        const loginPage = await context.newPage();
+        try {
+          await loginAs(loginPage, SUPER_ADMIN.email, SUPER_ADMIN.password);
+        } finally {
+          await loginPage.close();
+        }
+        await use(context);
+      } finally {
+        await context.close();
+      }
+    },
+    { scope: "worker" },
+  ],
 
   superAdminPage: async ({ superAdminContext }, use) => {
     if (!superAdminContext) {
