@@ -104,8 +104,13 @@ async function generateAuthState(browser, role) {
       timeout: TIMEOUTS.appReady,
     });
 
-    // Step 3 — inject Firebase auth state into localStorage
-    await page.evaluate(
+    // Step 3 — inject Firebase auth state into localStorage and verify.
+    //
+    // Injection and verification happen in a SINGLE page.evaluate call to
+    // prevent the Firebase SDK's async initialization from clearing the
+    // legacy localStorage key between injection and verification. Firebase
+    // SDK v12 uses IndexedDB and migrates/clears localStorage entries.
+    const injectionOk = await page.evaluate(
       ({ apiKey, uid, email, idToken, refreshToken, expiresIn }) => {
         const storageKey = `firebase:authUser:${apiKey}:[DEFAULT]`;
         const userData = {
@@ -139,6 +144,13 @@ async function generateAuthState(browser, role) {
           appName: "[DEFAULT]",
         };
         localStorage.setItem(storageKey, JSON.stringify(userData));
+
+        // Verify in the same synchronous execution — nothing can
+        // interfere between setItem and getItem within one evaluate.
+        const raw = localStorage.getItem(storageKey);
+        if (!raw) return false;
+        const parsed = JSON.parse(raw);
+        return !!(parsed?.uid && parsed?.stsTokenManager?.accessToken);
       },
       {
         apiKey: FIREBASE_API_KEY,
@@ -149,29 +161,9 @@ async function generateAuthState(browser, role) {
         expiresIn: authResult.expiresIn,
       },
     );
-
-    // Step 4 — verify injection succeeded, then persist storageState.
-    //
-    // No page reload here. Firebase SDK v12 uses IndexedDB for auth
-    // persistence and migrates (then clears) legacy localStorage keys
-    // during initialization. A reload would trigger that migration,
-    // wiping the injected data before we can capture it.
-    //
-    // The storageState captured below contains the Vercel bypass cookies
-    // (set during the Step 2 navigation) plus the localStorage auth entry.
-    // When Playwright loads this storageState in test contexts, the
-    // Firebase SDK reads the localStorage data, authenticates the user,
-    // and migrates it to IndexedDB — exactly what we want.
-    const hasAuthState = await page.evaluate((apiKey) => {
-      const key = `firebase:authUser:${apiKey}:[DEFAULT]`;
-      const raw = localStorage.getItem(key);
-      if (!raw) return false;
-      const parsed = JSON.parse(raw);
-      return !!(parsed?.uid && parsed?.stsTokenManager?.accessToken);
-    }, FIREBASE_API_KEY);
-    if (!hasAuthState) {
+    if (!injectionOk) {
       throw new Error(
-        `[global-setup] Firebase auth injection failed for ${role.label} — localStorage key not found after injection`,
+        `[global-setup] Firebase auth injection failed for ${role.label}`,
       );
     }
 
