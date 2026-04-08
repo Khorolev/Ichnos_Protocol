@@ -88,11 +88,10 @@ async function firebaseRestSignIn(email, password) {
  *    without executing app JS.
  * 3. Writing Firebase auth data directly to IndexedDB
  *    (`firebaseLocalStorageDb` / `firebaseLocalStorage`) via `page.evaluate()`.
- * 4. Saving the resulting `storageState` (with `indexedDB: true`) to disk.
- *
- * No app navigation or UI verification is performed here. The storageState
- * captures cookies + IndexedDB data. When tests load this state, Playwright
- * restores IndexedDB, and Firebase SDK finds the auth data on first navigation.
+ * 4. Navigating to `/` so Firebase SDK initializes and establishes a full
+ *    auth session from IndexedDB.
+ * 5. Verifying auth via `user-menu-toggle` visibility (non-fatal on timeout).
+ * 6. Saving the resulting `storageState` (with `indexedDB: true`) to disk.
  */
 async function generateAuthState(browser, role) {
   const contextOptions = {
@@ -200,10 +199,39 @@ async function generateAuthState(browser, role) {
       { key: storageKey, value: userData },
     );
 
-    // Step 5 — persist storageState (cookies + IndexedDB auth data).
-    // No app navigation needed — IndexedDB is origin-scoped and already
-    // written. Playwright 1.58+ captures IndexedDB with the flag below.
-    // Firebase SDK will find the auth data when tests navigate to "/".
+    // Step 5 — navigate to the app so Firebase SDK reads from IndexedDB
+    // and establishes a full auth session (tokens, cookies, SDK state).
+    await page.goto("/", {
+      waitUntil: "domcontentloaded",
+      timeout: TIMEOUTS.appReady,
+    });
+
+    // Step 6 — verify auth session was restored. Non-fatal: if verification
+    // times out, save the state anyway (IndexedDB data may still work).
+    try {
+      await page
+        .getByTestId("user-menu-toggle")
+        .first()
+        .waitFor({ state: "visible", timeout: TIMEOUTS.authVerify });
+      console.log(
+        `[global-setup] Auth verified for ${role.label} (user-menu-toggle visible)`,
+      );
+    } catch {
+      // Capture diagnostic info: page URL, console errors, visible text
+      const url = page.url();
+      const bodyText = await page
+        .locator("body")
+        .innerText({ timeout: 5000 })
+        .catch(() => "(could not read body)");
+      const snippet = bodyText.substring(0, 500);
+      console.warn(
+        `[global-setup] ⚠ Auth verification timed out for ${role.label}.\n` +
+          `  URL: ${url}\n` +
+          `  Page snippet: ${snippet}`,
+      );
+    }
+
+    // Step 7 — persist storageState (cookies + localStorage + IndexedDB).
     const statePath = path.join(AUTH_DIR, role.file);
     await context.storageState({ path: statePath, indexedDB: true });
     console.log(
