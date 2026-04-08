@@ -10,11 +10,17 @@ export async function loginAs(page, email, password) {
   await expect(auth.welcomeBackText).toBeVisible();
   await auth.fillLoginForm(email, password);
 
-  // Capture API responses after submit for diagnostics
+  // Capture console errors and API responses for diagnostics
+  const consoleErrors = [];
   const apiResponses = [];
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') {
+      consoleErrors.push(msg.text());
+    }
+  });
   page.on('response', (res) => {
     const url = res.url();
-    if (url.includes('/api/')) {
+    if (url.includes('/api/') || url.includes('identitytoolkit') || url.includes('securetoken')) {
       apiResponses.push({ url, status: res.status(), type: res.headers()['content-type'] });
     }
   });
@@ -26,10 +32,14 @@ export async function loginAs(page, email, password) {
       timeout: TIMEOUTS.authVerify,
     });
   } catch (err) {
-    // Log diagnostics before re-throwing
+    // Capture the Firebase error message displayed in the modal alert
+    const alertText = await auth.alert.textContent().catch(() => 'no alert visible');
+
     console.error(
-      `[loginAs] Auth failed for ${email}. API responses captured:\n` +
-        JSON.stringify(apiResponses, null, 2),
+      `[loginAs] Auth failed for ${email}.\n` +
+        `  Alert text: "${alertText}"\n` +
+        `  Console errors: ${JSON.stringify(consoleErrors)}\n` +
+        `  API/Firebase responses: ${JSON.stringify(apiResponses, null, 2)}`,
     );
     const screenshot = await page.screenshot().catch(() => null);
     if (screenshot) {
