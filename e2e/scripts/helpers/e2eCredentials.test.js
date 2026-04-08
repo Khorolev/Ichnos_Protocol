@@ -20,7 +20,6 @@ describe("buildCredentialMaps", () => {
     const { github, vercel, firebaseCreds } = buildCredentialMaps(env);
 
     expect(github).toEqual({
-      E2E_ADMIN_EMAIL: "admin@test.com",
       E2E_ADMIN_PASSWORD: "pass123",
     });
     expect(vercel).toEqual({
@@ -53,9 +52,9 @@ describe("buildCredentialMaps", () => {
     const { github, vercel, firebaseCreds } = buildCredentialMaps(env);
 
     expect(Object.keys(github)).toEqual([
-      "E2E_ADMIN_EMAIL", "E2E_ADMIN_PASSWORD",
-      "E2E_USER_EMAIL", "E2E_USER_PASSWORD",
-      "E2E_SUPER_ADMIN_EMAIL", "E2E_SUPER_ADMIN_PASSWORD",
+      "E2E_ADMIN_PASSWORD",
+      "E2E_USER_PASSWORD",
+      "E2E_SUPER_ADMIN_PASSWORD",
     ]);
     expect(Object.keys(vercel)).toEqual([
       "E2E_ADMIN_EMAIL", "E2E_ADMIN_UID",

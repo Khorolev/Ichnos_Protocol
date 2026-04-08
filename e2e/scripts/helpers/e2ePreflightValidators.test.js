@@ -15,14 +15,14 @@ describe("validateCredentials", () => {
   it("throws when E2E_ADMIN_EMAIL is missing", () => {
     const env = { E2E_ADMIN_PASSWORD: "pass123" };
     expect(() => validateCredentials(env, false)).toThrow(
-      /Admin credentials are required/,
+      /E2E_ADMIN_EMAIL is required/,
     );
   });
 
-  it("throws when E2E_ADMIN_PASSWORD is missing", () => {
+  it("throws when E2E_ADMIN_PASSWORD is missing with shell-export remediation", () => {
     const env = { E2E_ADMIN_EMAIL: "admin@test.com" };
     expect(() => validateCredentials(env, false)).toThrow(
-      /Admin credentials are required/,
+      /Export E2E_ADMIN_PASSWORD in your shell/,
     );
   });
 
@@ -46,10 +46,10 @@ describe("validateCredentials", () => {
     );
   });
 
-  it("throws when optional role has email but no password", () => {
+  it("throws when optional role has email but no password with shell-export remediation", () => {
     const env = { ...adminOnly, E2E_SUPER_ADMIN_EMAIL: "sa@test.com" };
     expect(() => validateCredentials(env, false)).toThrow(
-      /SUPER_ADMIN is partially configured/,
+      /Export E2E_SUPER_ADMIN_PASSWORD in your shell/,
     );
   });
 

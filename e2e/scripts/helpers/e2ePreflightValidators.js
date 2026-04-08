@@ -18,14 +18,13 @@ function validateAdminCredentials(env, syncOnly) {
   if (!syncOnly && !env.E2E_ADMIN_PASSWORD) {
     fail(
       "E2E_ADMIN_PASSWORD is required for full provisioning.",
-      "Fill in E2E_ADMIN_PASSWORD in the root .env.e2e (gitignored).",
+      "Export E2E_ADMIN_PASSWORD in your shell before running the provision script (e.g. export E2E_ADMIN_PASSWORD=...).",
     );
   }
 }
 
 /**
- * Validate optional roles. In sync-only mode, only email + UID are checked
- * (passwords live in the gitignored root .env.e2e, not the committed file).
+ * Validate optional roles. In sync-only mode, only email + UID are checked.
  * In full mode, email + password are both required for Firebase provisioning.
  */
 function validateOptionalRole(role, env, syncOnly) {
@@ -44,7 +43,7 @@ function validateOptionalRole(role, env, syncOnly) {
   if (!syncOnly && !password) {
     fail(
       `${role} is partially configured — E2E_${role}_PASSWORD is required for full provisioning.`,
-      `Provide password for ${role} in the root .env.e2e (gitignored).`,
+      `Export E2E_${role}_PASSWORD in your shell before running the provision script.`,
     );
   }
   if (syncOnly && !uid) {

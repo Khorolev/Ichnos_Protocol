@@ -16,7 +16,6 @@ export function buildCredentialMaps(env) {
     const password = env[`E2E_${role.key}_PASSWORD`];
     const uid = env[`E2E_${role.key}_UID`];
 
-    github[`E2E_${role.key}_EMAIL`] = email;
     github[`E2E_${role.key}_PASSWORD`] = password;
     vercel[`E2E_${role.key}_EMAIL`] = email;
     vercel[`E2E_${role.key}_UID`] = uid;
