@@ -88,10 +88,11 @@ async function firebaseRestSignIn(email, password) {
  *    without executing app JS.
  * 3. Writing Firebase auth data directly to IndexedDB
  *    (`firebaseLocalStorageDb` / `firebaseLocalStorage`) via `page.evaluate()`.
- * 4. Navigating to `/` so Firebase SDK initializes and restores the session
- *    from IndexedDB.
- * 5. Waiting for `user-menu-toggle` to confirm auth state was restored.
- * 6. Saving the resulting `storageState` to disk.
+ * 4. Saving the resulting `storageState` (with `indexedDB: true`) to disk.
+ *
+ * No app navigation or UI verification is performed here. The storageState
+ * captures cookies + IndexedDB data. When tests load this state, Playwright
+ * restores IndexedDB, and Firebase SDK finds the auth data on first navigation.
  */
 async function generateAuthState(browser, role) {
   const contextOptions = {
@@ -199,22 +200,10 @@ async function generateAuthState(browser, role) {
       { key: storageKey, value: userData },
     );
 
-    // Step 5 — navigate to the real app so Firebase SDK initializes and
-    // reads auth data from IndexedDB
-    await page.goto("/", {
-      waitUntil: "domcontentloaded",
-      timeout: TIMEOUTS.appReady,
-    });
-
-    // Step 6 — confirm Firebase SDK restored the auth session from IndexedDB.
-    // The toggle appears in both desktop and mobile navbars, so use .first()
-    // to avoid Playwright's strict-mode violation on multiple matches.
-    await page
-      .getByTestId("user-menu-toggle")
-      .first()
-      .waitFor({ state: "visible", timeout: TIMEOUTS.authVerify });
-
-    // Step 7 — persist storageState (cookies + IndexedDB-verified auth)
+    // Step 5 — persist storageState (cookies + IndexedDB auth data).
+    // No app navigation needed — IndexedDB is origin-scoped and already
+    // written. Playwright 1.58+ captures IndexedDB with the flag below.
+    // Firebase SDK will find the auth data when tests navigate to "/".
     const statePath = path.join(AUTH_DIR, role.file);
     await context.storageState({ path: statePath, indexedDB: true });
     console.log(
