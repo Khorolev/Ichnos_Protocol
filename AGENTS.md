@@ -140,11 +140,11 @@ cd server && vercel --prod   # deploy backend
 - **Local**: Start client + server locally, run `cd e2e && npx playwright test`.
 - **CI**: E2E is triggered by `repository_dispatch (vercel.deployment.success)` from the **server** Vercel project (`ichnos-protocolserver`) only. Repository Dispatch Events are enabled on the server project; the client project does not emit dispatches.
   - **Filter**: The workflow guards on `contains(github.event.client_payload.project.name || '', 'server')` — a safety check since only the server emits dispatches.
-  - **Target URLs**: Stable staging URLs from GitHub Actions Variables (`vars.E2E_BASE_URL` for client, `vars.E2E_API_BASE_URL` for API) — not per-deployment hash URLs.
-  - **Client readiness**: The workflow polls `vars.E2E_BASE_URL` to verify the client is live before running Playwright.
+  - **Target URLs**: Stable E2E URLs from the committed `e2e/.env.e2e` file (`E2E_BASE_URL` for client, `E2E_API_BASE_URL` for API) — not per-deployment hash URLs.
+  - **Client readiness**: The workflow polls `E2E_BASE_URL` (loaded from `e2e/.env.e2e`) to verify the client is live before running Playwright.
   - **Seed readiness**: The workflow polls `/api/health` for `seed.mode` — `seeded` and `skipped` are accepted as ready states, `failed` is terminal, `in_progress` triggers retry.
   - **Safety gate**: A fail-closed production-host denylist (exact hostname match, lowercase normalized, port removed) validates all target URLs before tests execute. Denylist constants are canonical in `e2e.yml`.
-- `e2e.yml` also supports **manual/ad-hoc** runs via `workflow_dispatch`. Both trigger modes resolve target URLs exclusively from `vars.E2E_BASE_URL` and `vars.E2E_API_BASE_URL` — there is no manual URL input. The same denylist safety gate applies.
+- `e2e.yml` also supports **manual/ad-hoc** runs via `workflow_dispatch`. Both trigger modes resolve target URLs from the committed `e2e/.env.e2e` file — there is no manual URL input. The same denylist safety gate applies.
 - Browsers: **Chromium only** for `repository_dispatch` CI runs; **full suite** (Chromium, Firefox, WebKit) for `workflow_dispatch` manual runs; Chromium-only locally.
 
 ## Git conventions
@@ -200,7 +200,7 @@ cd server && vercel --prod   # deploy backend
 - **Backend** (`server/`): Express app wrapped as a Vercel serverless function via `server/api/index.js` using `@vercel/node`.
 - **Vercel Git integration handles preview deployments** automatically on every branch push and PR — no GitHub Actions workflow is involved in creating previews.
 - **Enforced pipeline order**: CI → Vercel Preview (native) → E2E (Playwright via `repository_dispatch (vercel.deployment.success)`) → approval-gated production promotion.
-- `repository_dispatch (vercel.deployment.success)` events from the **server** Vercel project (`ichnos-protocolserver`) trigger `e2e.yml`. The workflow uses project-name filtering (`contains(project.name, 'server')`) and targets stable staging URLs via GitHub Actions Variables (`vars.E2E_BASE_URL`, `vars.E2E_API_BASE_URL`).
+- `repository_dispatch (vercel.deployment.success)` events from the **server** Vercel project (`ichnos-protocolserver`) trigger `e2e.yml`. The workflow uses project-name filtering (`contains(project.name, 'server')`) and targets stable E2E URLs from the committed `e2e/.env.e2e` file (`E2E_BASE_URL`, `E2E_API_BASE_URL`).
 - Production promotion is triggered automatically on push to `release` and requires human approval via the GitHub `production` environment before the latest validated `main` preview is promoted.
 - Environment variables set in Vercel project settings, never committed.
 - `server/api/index.js` only re-exports the Express app. All setup stays in `server/src/app.js`.
@@ -250,14 +250,14 @@ cd server && vercel --prod   # deploy backend
 ### E2E URL targeting in GitHub Actions
 - E2E tests are triggered by `repository_dispatch (vercel.deployment.success)` from the **server** Vercel project (`ichnos-protocolserver`) via `e2e.yml`, not as a dependent job inside another workflow.
 - The workflow uses **project-name filtering** (`contains(project.name, 'server')`) as the event guard — not hostname pattern matching.
-- Tests target stable staging URLs via **GitHub Actions Variables** (`vars.E2E_BASE_URL`, `vars.E2E_API_BASE_URL`), not per-deployment hash URLs and not secrets.
+- Tests target stable E2E URLs from the committed `e2e/.env.e2e` file (`E2E_BASE_URL`, `E2E_API_BASE_URL`), not per-deployment hash URLs and not secrets.
 - Detection does not use `VERCEL_PROJECT_ID_CLIENT` or hostname matching.
-- Both `repository_dispatch` and `workflow_dispatch` modes resolve targets from `vars.E2E_BASE_URL` / `vars.E2E_API_BASE_URL` — no manual URL input is accepted.
+- Both `repository_dispatch` and `workflow_dispatch` modes resolve targets from the committed `e2e/.env.e2e` file — no manual URL input is accepted.
 - Production-host denylist constants (`PRODUCTION_HOSTS_CLIENT`, `PRODUCTION_HOSTS_API`) are canonical in the `e2e.yml` workflow `env` block. Updates require maintainer-reviewed PRs on the workflow file. Docs are descriptive only and must not introduce alternate policy sources.
 - The denylist gate is fail-closed: empty/missing constants or unparseable URLs abort the run. Hostname matching is exact-match after lowercase normalization and port removal.
 - API readiness is `seed.mode`-based: the workflow polls `/api/health` and accepts `seeded` or `skipped` as ready; `failed` triggers immediate failure.
 - E2E tests must target the **client** staging URL only, never the server.
-- `vars.E2E_BASE_URL` and `vars.E2E_API_BASE_URL` point to **ephemeral preview** targets — never to the `staging` branch URL. The `staging` environment is a separate manual-QA lane with its own distinct URL and production credentials.
+- `E2E_BASE_URL` and `E2E_API_BASE_URL` (in `e2e/.env.e2e`) point to **ephemeral preview** targets — never to the `staging` branch URL. The `staging` environment is a separate manual-QA lane with its own distinct URL and production credentials.
 
 ### Secret-conditional steps
 - Any CI step that requires a secret must check for presence before running, not fail silently:

@@ -4,15 +4,29 @@ function fail(message, remediation) {
   throw new Error(`${message}\nRemediation: ${remediation}`);
 }
 
-function validateAdminCredentials(env) {
-  if (!env.E2E_ADMIN_EMAIL || !env.E2E_ADMIN_PASSWORD) {
+/**
+ * Validate admin credentials. In sync-only mode, only email + UID are needed
+ * (no Firebase sign-in). In full mode, email + password are required.
+ */
+function validateAdminCredentials(env, syncOnly) {
+  if (!env.E2E_ADMIN_EMAIL) {
     fail(
-      "Admin credentials are required. E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD must be set.",
-      "Fill in E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD in .env.e2e.",
+      "E2E_ADMIN_EMAIL is required.",
+      "Fill in E2E_ADMIN_EMAIL in e2e/.env.e2e.",
+    );
+  }
+  if (!syncOnly && !env.E2E_ADMIN_PASSWORD) {
+    fail(
+      "E2E_ADMIN_PASSWORD is required for full provisioning.",
+      "Export E2E_ADMIN_PASSWORD in your shell before running the provision script (e.g. export E2E_ADMIN_PASSWORD=...).",
     );
   }
 }
 
+/**
+ * Validate optional roles. In sync-only mode, only email + UID are checked.
+ * In full mode, email + password are both required for Firebase provisioning.
+ */
 function validateOptionalRole(role, env, syncOnly) {
   const email = env[`E2E_${role}_EMAIL`];
   const password = env[`E2E_${role}_PASSWORD`];
@@ -20,10 +34,16 @@ function validateOptionalRole(role, env, syncOnly) {
   const hasRole = email || password || uid;
   if (!hasRole) return;
 
-  if (!email || !password) {
+  if (!email) {
     fail(
-      `${role} is partially configured — E2E_${role}_EMAIL and E2E_${role}_PASSWORD are both required.`,
-      `Provide both email and password for ${role}, or remove all ${role} fields.`,
+      `${role} is partially configured — E2E_${role}_EMAIL is required.`,
+      `Provide email for ${role} in e2e/.env.e2e, or remove all ${role} fields.`,
+    );
+  }
+  if (!syncOnly && !password) {
+    fail(
+      `${role} is partially configured — E2E_${role}_PASSWORD is required for full provisioning.`,
+      `Export E2E_${role}_PASSWORD in your shell before running the provision script.`,
     );
   }
   if (syncOnly && !uid) {
@@ -56,7 +76,7 @@ function validateDistinctEmails(env) {
 }
 
 export function validateCredentials(env, syncOnly) {
-  validateAdminCredentials(env);
+  validateAdminCredentials(env, syncOnly);
   for (const role of OPTIONAL_ROLES) {
     validateOptionalRole(role, env, syncOnly);
   }

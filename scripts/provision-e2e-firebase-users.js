@@ -17,7 +17,7 @@ const { resolve } = require("node:path");
 const script = resolve(
   __dirname,
   "..",
-  "server",
+  "e2e",
   "scripts",
   "provision-e2e-firebase-users.js",
 );

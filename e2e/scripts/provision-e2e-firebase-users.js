@@ -3,17 +3,16 @@ import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
 import { config } from "dotenv";
 import { runPreflight } from "./helpers/e2ePreflight.js";
-import { readEnvFile, writeUidsToEnvFile } from "./helpers/e2eEnvFile.js";
-import { provisionFirebaseUsers } from "./helpers/firebaseTestSetup.js";
+import { readEnvFile, mergeEnvPasswords, writeUidsToEnvFile } from "./helpers/e2eEnvFile.js";
 import { syncToGitHub } from "./helpers/e2eSyncGitHub.js";
 import { syncToVercel } from "./helpers/e2eSyncVercel.js";
 import { buildCredentialMaps } from "./helpers/e2eCredentials.js";
 import { printFailedDetails, printSummary } from "./helpers/e2eReporting.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const serverDir = resolve(__dirname, "..");
+const serverDir = resolve(__dirname, "../../server");
 const repoRoot = resolve(__dirname, "../..");
-const envFilePath = resolve(__dirname, "../../.env.e2e");
+const envFilePath = resolve(__dirname, "../.env.e2e");
 const serverEnvPath = resolve(serverDir, ".env");
 const syncOnly = process.argv.includes("--sync-only");
 
@@ -26,11 +25,14 @@ async function main() {
   runPreflight({ syncOnly, envFilePath, serverDir });
   console.log("[preflight] all checks passed");
 
-  const env = readEnvFile(envFilePath);
+  const env = mergeEnvPasswords(readEnvFile(envFilePath));
   const { github, vercel, firebaseCreds } = buildCredentialMaps(env);
 
   if (!syncOnly) {
     console.log("\n=== Firebase Provisioning ===");
+    const { provisionFirebaseUsers } = await import(
+      "./helpers/firebaseTestSetup.js"
+    );
     const uidMap = await provisionFirebaseUsers(firebaseCreds);
     writeUidsToEnvFile(envFilePath, uidMap);
     console.log("[env] UIDs written back to .env.e2e");
