@@ -24,7 +24,7 @@
 #   Tests run against stable staging domains (not per-deployment hash URLs).
 #
 # Secondary trigger: workflow_dispatch (manual/ad-hoc runs)
-#   Uses the same vars.E2E_BASE_URL / vars.E2E_API_BASE_URL as dispatch mode.
+#   Uses the same E2E config from the committed e2e/.env.e2e file.
 #
 # Safety: A production-host denylist gate validates all resolved URLs before
 #   any tests run. The gate is fail-closed — missing constants or unparseable
@@ -104,17 +104,9 @@ jobs:
         if: github.event_name == 'repository_dispatch'
         run: echo '${{ toJSON(github.event.client_payload) }}' | jq '.' || true
 
-      - name: Resolve BASE_URL
+      - name: Resolve commit SHA
         id: deploy
         run: |
-          URL="${{ vars.E2E_BASE_URL }}"
-          if [ -z "$URL" ]; then
-            echo "::error::vars.E2E_BASE_URL is not set. Configure it in GitHub Actions repository variables."
-            exit 1
-          fi
-          echo "base_url=$URL" >> "$GITHUB_OUTPUT"
-          echo "Staging URL: $URL"
-
           if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
             SHA="${{ github.event.client_payload.deployment.meta.githubCommitSha || github.event.client_payload.commitSha || '' }}"
             REF="${{ github.event.client_payload.deployment.meta.githubCommitRef || github.event.client_payload.branch || '' }}"
@@ -124,13 +116,46 @@ jobs:
             echo "Branch: $REF"
           else
             echo "commit_sha=" >> "$GITHUB_OUTPUT"
-            echo "Manual run against staging URL: $URL"
+            echo "Manual run — commit SHA defaults to github.sha"
           fi
 
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.deploy.outputs.commit_sha || github.sha }}
+
+      - name: Load E2E config from committed file
+        run: |
+          if [ ! -f "e2e/.env.e2e" ]; then
+            echo "::error::e2e/.env.e2e not found. The committed config file is missing."
+            exit 1
+          fi
+
+          set -a
+          source e2e/.env.e2e
+          set +a
+
+          grep -v '^\s*#' e2e/.env.e2e | grep -v '^\s*$' | while IFS= read -r line; do
+            echo "$line" >> "$GITHUB_ENV"
+          done
+
+          if [ -z "$E2E_BASE_URL" ]; then
+            echo "::error::E2E_BASE_URL is empty after loading e2e/.env.e2e. Check the file."
+            exit 1
+          fi
+
+          echo "E2E_ADMIN_PASSWORD=${{ secrets.E2E_ADMIN_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "E2E_USER_PASSWORD=${{ secrets.E2E_USER_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "E2E_SUPER_ADMIN_PASSWORD=${{ secrets.E2E_SUPER_ADMIN_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "E2E_MANAGE_ADMIN_TARGET_PASSWORD=${{ secrets.E2E_MANAGE_ADMIN_TARGET_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "VERCEL_AUTOMATION_BYPASS_SECRET=${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}" >> "$GITHUB_ENV"
+
+          echo "Loaded E2E config from e2e/.env.e2e"
+          echo "  E2E_BASE_URL=$E2E_BASE_URL"
+          echo "  E2E_API_BASE_URL=$E2E_API_BASE_URL"
+          echo "  FIREBASE_API_KEY=$FIREBASE_API_KEY"
+
       - name: Validate E2E target URLs against production denylist
-        env:
-          BASE_URL: ${{ steps.deploy.outputs.base_url }}
-          API_URL: ${{ vars.E2E_API_BASE_URL }}
         run: |
           # Fail-closed: denylist constants must be non-empty
           if [ -z "$PRODUCTION_HOSTS_CLIENT" ]; then
@@ -197,15 +222,15 @@ jobs:
           echo "Combined denylist (${#COMBINED_DENYLIST[@]} entries): ${COMBINED_DENYLIST[*]}"
 
           # Normalize target URLs
-          CLIENT_HOST=$(normalize_hostname "$BASE_URL")
+          CLIENT_HOST=$(normalize_hostname "$E2E_BASE_URL")
           if [ -z "$CLIENT_HOST" ]; then
-            echo "::error::Failed to parse hostname from BASE_URL: $BASE_URL"
+            echo "::error::Failed to parse hostname from E2E_BASE_URL: $E2E_BASE_URL"
             exit 1
           fi
 
-          API_HOST=$(normalize_hostname "$API_URL")
+          API_HOST=$(normalize_hostname "$E2E_API_BASE_URL")
           if [ -z "$API_HOST" ]; then
-            echo "::error::Failed to parse hostname from API_URL: $API_URL"
+            echo "::error::Failed to parse hostname from E2E_API_BASE_URL: $E2E_API_BASE_URL"
             exit 1
           fi
 
@@ -233,11 +258,6 @@ jobs:
             -f context="E2E Tests (Playwright)" \
             -f description="Running Playwright tests..." \
             -f target_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ steps.deploy.outputs.commit_sha || github.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -273,8 +293,8 @@ jobs:
       # client URL.
       - name: Wait for client deployment readiness
         env:
-          BASE_URL: ${{ steps.deploy.outputs.base_url }}
-          BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          BASE_URL: ${{ env.E2E_BASE_URL }}
+          BYPASS_SECRET: ${{ env.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           echo "Waiting for client at $BASE_URL to respond with HTTP 200..."
           CURL_ARGS=("-sL" "-o" "/dev/null" "-w" "%{http_code}")
@@ -306,8 +326,8 @@ jobs:
       # seed.error is used only for diagnostic messages, not control flow.
       - name: Verify API readiness and DB seed
         env:
-          API_URL: ${{ vars.E2E_API_BASE_URL }}
-          BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          API_URL: ${{ env.E2E_API_BASE_URL }}
+          BYPASS_SECRET: ${{ env.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           HEALTH_URL="${API_URL}/api/health"
           echo "Checking ${HEALTH_URL} for readiness + seed completion..."
@@ -367,7 +387,7 @@ jobs:
       - name: Run Playwright tests
         working-directory: e2e
         env:
-          BASE_URL: ${{ steps.deploy.outputs.base_url }}
+          BASE_URL: ${{ env.E2E_BASE_URL }}
           E2E_BROWSER_PROFILE: ${{ inputs.browser_profile || 'chromium' }}
           # Worker count — rollback threshold:
           # Revert to "1" if EITHER condition is met for 3 consecutive CI runs:
@@ -376,16 +396,10 @@ jobs:
           # Baseline reference: e2e/refactoring-analysis.md § Baseline Metrics
           E2E_WORKERS: "2"
           E2E_RUN_ID: ${{ github.run_id }}
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
           E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
           E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
-          E2E_SUPER_ADMIN_EMAIL: ${{ secrets.E2E_SUPER_ADMIN_EMAIL }}
           E2E_SUPER_ADMIN_PASSWORD: ${{ secrets.E2E_SUPER_ADMIN_PASSWORD }}
-          E2E_MANAGE_ADMIN_TARGET_EMAIL: ${{ secrets.E2E_MANAGE_ADMIN_TARGET_EMAIL }}
           E2E_MANAGE_ADMIN_TARGET_PASSWORD: ${{ secrets.E2E_MANAGE_ADMIN_TARGET_PASSWORD }}
-          E2E_API_BASE_URL: ${{ vars.E2E_API_BASE_URL }}
-          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY || secrets.VITE_FIREBASE_API_KEY }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
           GREP_ARGS=()
