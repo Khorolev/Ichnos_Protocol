@@ -150,14 +150,18 @@ async function generateAuthState(browser, role) {
       },
     );
 
-    // Step 4 — reload to finalise cookies, then verify the auth state
-    // persisted in localStorage without asserting on any app UI.
-    // Auth-UI verification (e.g. user-menu-toggle) is the responsibility
-    // of the dedicated auth specs (login.spec.js, auth.spec.js).
-    await page.reload({
-      waitUntil: "domcontentloaded",
-      timeout: TIMEOUTS.appReady,
-    });
+    // Step 4 — verify injection succeeded, then persist storageState.
+    //
+    // No page reload here. Firebase SDK v12 uses IndexedDB for auth
+    // persistence and migrates (then clears) legacy localStorage keys
+    // during initialization. A reload would trigger that migration,
+    // wiping the injected data before we can capture it.
+    //
+    // The storageState captured below contains the Vercel bypass cookies
+    // (set during the Step 2 navigation) plus the localStorage auth entry.
+    // When Playwright loads this storageState in test contexts, the
+    // Firebase SDK reads the localStorage data, authenticates the user,
+    // and migrates it to IndexedDB — exactly what we want.
     const hasAuthState = await page.evaluate((apiKey) => {
       const key = `firebase:authUser:${apiKey}:[DEFAULT]`;
       const raw = localStorage.getItem(key);
@@ -167,7 +171,7 @@ async function generateAuthState(browser, role) {
     }, FIREBASE_API_KEY);
     if (!hasAuthState) {
       throw new Error(
-        `[global-setup] Firebase auth state not found in localStorage for ${role.label} after reload`,
+        `[global-setup] Firebase auth injection failed for ${role.label} — localStorage key not found after injection`,
       );
     }
 
