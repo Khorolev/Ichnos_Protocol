@@ -206,9 +206,12 @@ async function generateAuthState(browser, role) {
       timeout: TIMEOUTS.appReady,
     });
 
-    // Step 6 — confirm Firebase SDK restored the auth session from IndexedDB
+    // Step 6 — confirm Firebase SDK restored the auth session from IndexedDB.
+    // The toggle appears in both desktop and mobile navbars, so use .first()
+    // to avoid Playwright's strict-mode violation on multiple matches.
     await page
       .getByTestId("user-menu-toggle")
+      .first()
       .waitFor({ state: "visible", timeout: TIMEOUTS.authVerify });
 
     // Step 7 — persist storageState (cookies + IndexedDB-verified auth)
