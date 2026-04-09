@@ -2,8 +2,17 @@ import { expect } from '@playwright/test';
 import { waitForAppReady, TIMEOUTS } from './app.js';
 import { ADMIN, USER, SUPER_ADMIN } from './credentials.js';
 import { AuthPage } from '../pages/AuthPage.js';
+import { setupFirebaseProxy } from './firebase-proxy.js';
 
 export async function loginAs(page, email, password) {
+  // Set up Firebase API proxy on the context to bypass CORS issues in CI.
+  // Uses a context-level flag to avoid duplicate route registration.
+  const context = page.context();
+  if (!context.__firebaseProxyReady) {
+    await setupFirebaseProxy(context);
+    context.__firebaseProxyReady = true;
+  }
+
   const auth = new AuthPage(page);
   await waitForAppReady(page, '/');
   await auth.openLoginModal();
