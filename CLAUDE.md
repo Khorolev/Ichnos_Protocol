@@ -507,7 +507,7 @@ services. Use them instead of manual CLI commands or copy-pasting data.
 | **Neon** | User | Remote (`https://mcp.neon.tech/mcp`) | OAuth | PostgreSQL queries, schema, branches, migrations |
 | **Vercel** | User | Remote (`https://mcp.vercel.com`) | OAuth | Deployment logs, env vars, project settings |
 | **DBHub** | Project | Local stdio (`.mcp.json`) | Connection string | Direct SQL to Neon DB (legacy — prefer Neon MCP) |
-| **Playwright** | Project | Local | — | E2E test execution, browser automation |
+| **Playwright** | Project | Local stdio (`.mcp.json`) | — | E2E test execution, browser automation, visual inspection |
 | **Context7** | User | Remote | — | Library/framework documentation lookup |
 
 **Scope**: "User" = configured in `~/.claude.json` (persists across projects). "Project" = configured in `.mcp.json` or `.claude/settings.json` (per-repo).
@@ -548,6 +548,22 @@ For project-specific context (auto-fills team/project params), use:
 
 **Key tools**: search docs, list/inspect deployments, view function logs, manage env vars, check project settings.
 
-### 18.5 DBHub (Legacy Database Access)
+### 18.5 Playwright MCP (Browser Automation)
+
+**Transport**: Local stdio via `.mcp.json`
+**Package**: `@playwright/mcp@latest`
+**Setup**: Already configured in `.mcp.json`. Uses `cmd /c npx -y @playwright/mcp@latest` on Windows.
+
+Provides browser automation tools for E2E testing and visual inspection: navigate, click, fill forms, take screenshots, read console messages, inspect network requests, and capture accessibility snapshots.
+
+**Key tools**: `browser_navigate`, `browser_click`, `browser_fill_form`, `browser_snapshot`, `browser_take_screenshot`, `browser_console_messages`, `browser_network_requests`, `browser_evaluate`.
+
+**Important rules**:
+- **Use `browser_snapshot` over screenshots** for element inspection — it returns an accessibility tree that is more reliable for identifying interactive elements.
+- **Close the browser** (`browser_close`) when done to free resources.
+- **E2E tests in `e2e/`** are the primary testing mechanism. Use the Playwright MCP for ad-hoc debugging, visual verification, and interactive investigation — not as a replacement for the test suite.
+- **Prefer Playwright test runner** (`npx playwright test`) for running the full suite. Use MCP tools for targeted page inspection or reproducing specific issues.
+
+### 18.6 DBHub (Legacy Database Access)
 
 Local MCP server in `.mcp.json` (gitignored). Prefer Neon MCP (§18.3) for new work. DBHub is a fallback when Neon MCP is unavailable. Setup: copy `DATABASE_URL` from `server/.env` into `.mcp.json` as the `DSN` env var.
