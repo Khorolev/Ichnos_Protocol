@@ -13,7 +13,7 @@
  * can proceed without being blocked.
  */
 
-const PROFILE_MODAL_TIMEOUT = 3_000;
+const PROFILE_MODAL_TIMEOUT = 5_000;
 
 /**
  * If the profile-completion modal is visible, fill the required fields

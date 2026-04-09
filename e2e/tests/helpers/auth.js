@@ -37,14 +37,16 @@ export async function loginAs(page, email, password) {
 
   await auth.submitForm();
 
-  // After submitting, the app may either show the user menu (happy path)
-  // or open the profile-completion modal (race between syncProfile and
-  // onAuthStateChanged → getMe). Handle the modal first, then verify.
+  // After submitting, the user menu becomes visible (auth succeeded),
+  // but the profile-completion modal may open moments later when the
+  // onAuthStateChanged → getMe response returns isProfileComplete=false.
+  // The modal overlay blocks clicks but not visibility checks. So:
+  // wait for user menu first, THEN check for and dismiss the modal.
   try {
-    await dismissProfileModalIfVisible(page);
     await expect(auth.userMenuToggle).toBeVisible({
       timeout: TIMEOUTS.authVerify,
     });
+    await dismissProfileModalIfVisible(page);
   } catch (err) {
     const alertText = await auth.alert.textContent().catch(() => 'no alert visible');
 
