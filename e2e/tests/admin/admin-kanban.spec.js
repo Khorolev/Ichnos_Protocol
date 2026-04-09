@@ -9,6 +9,8 @@ test.describe('Admin Kanban - Basic Flow', { tag: ['@admin'] }, () => {
 
   test.beforeEach(async ({ adminPage }) => {
     await adminPage.goto('/admin');
+    const admin = new AdminPage(adminPage);
+    await admin.waitForDashboardReady();
   });
 
   test('Requests tab and Inquiries board are visible', { tag: ['@smoke'] }, async ({ adminPage }) => {
@@ -50,6 +52,8 @@ test.describe('Admin Kanban - Request Edit Flow', { tag: ['@admin'] }, () => {
 
   test.beforeEach(async ({ adminPage }) => {
     await adminPage.goto('/admin');
+    const admin = new AdminPage(adminPage);
+    await admin.waitForDashboardReady();
   });
 
   test('open timeline drawer and edit a request', async ({ adminPage, testRunId }) => {
@@ -111,6 +115,8 @@ test.describe('Admin Kanban - Chat-only Leads', { tag: ['@admin'] }, () => {
 
   test.beforeEach(async ({ adminPage }) => {
     await adminPage.goto('/admin');
+    const admin = new AdminPage(adminPage);
+    await admin.waitForDashboardReady();
   });
 
   test('switch to Chat-only Leads sub-tab and verify table', async ({
@@ -163,6 +169,8 @@ test.describe('Admin Kanban - Request Delete Flow', { tag: ['@admin'] }, () => {
 
   test.beforeEach(async ({ adminPage }) => {
     await adminPage.goto('/admin');
+    const admin = new AdminPage(adminPage);
+    await admin.waitForDashboardReady();
   });
 
   test('delete a request from timeline drawer', { tag: ['@destructive'] }, async ({ adminPage }) => {
