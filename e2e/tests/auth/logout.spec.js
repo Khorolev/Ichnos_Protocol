@@ -41,7 +41,7 @@ test.describe('Logout Flow', { tag: ['@auth'] }, () => {
     await auth.clickLogout();
 
     await expect(
-      page.getByRole('button', { name: 'Login' }),
+      page.getByTestId('navbar').getByRole('button', { name: 'Login' }),
     ).toBeVisible();
     await expect(auth.userMenuToggle).not.toBeVisible();
   });

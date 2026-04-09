@@ -29,6 +29,8 @@ test.describe('Admin Analytics - Topic Recompute Flow', { tag: ['@admin'] }, () 
 
   test.beforeEach(async ({ adminPage }) => {
     await adminPage.goto('/admin');
+    const admin = new AdminPage(adminPage);
+    await admin.waitForDashboardReady();
   });
 
   test('navigate to Analytics tab and verify topic table structure', async ({
@@ -128,6 +130,8 @@ test.describe('Admin Analytics - CSV Export', { tag: ['@admin'] }, () => {
 
   test.beforeEach(async ({ adminPage }) => {
     await adminPage.goto('/admin');
+    const admin = new AdminPage(adminPage);
+    await admin.waitForDashboardReady();
   });
 
   test('export CSV triggers file download with correct filename', async ({
@@ -202,6 +206,8 @@ test.describe('Admin Analytics - Super-Admin Management', { tag: ['@admin'] }, (
 
   test.beforeEach(async ({ superAdminPage }) => {
     await superAdminPage.goto('/admin');
+    const admin = new AdminPage(superAdminPage);
+    await admin.waitForDashboardReady();
   });
 
   test('Settings tab is visible for super-admin', async ({ superAdminPage }) => {
@@ -316,7 +322,7 @@ test.describe('Admin Analytics - Settings Tab Visibility', { tag: ['@admin'] }, 
     await adminPage.goto('/admin');
 
     const admin = new AdminPage(adminPage);
-    await expect(admin.requestsTab).toBeVisible();
+    await admin.waitForDashboardReady();
     await expect(admin.analyticsTab).toBeVisible();
 
     await expect(admin.settingsTab).not.toBeVisible();

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { waitForAppReady } from '../helpers/app.js';
+import { waitForAppReady, waitForAuthedAppReady } from '../helpers/app.js';
 import { loginAsUser } from '../helpers/auth.js';
 import { USER, isConfigured } from '../helpers/credentials.js';
 import { ContactPage } from '../pages/ContactPage.js';
@@ -29,7 +29,7 @@ test.describe('Chatbot - Authenticated Flow', { tag: ['@contact'] }, () => {
   test.beforeEach(async ({ page }) => {
     test.skip(!isConfigured(USER), 'User E2E credentials not configured');
     await loginAsUser(page);
-    await waitForAppReady(page, '/contact');
+    await waitForAuthedAppReady(page, '/contact');
   });
 
   test('chat modal shows correct daily limit denominator', async ({
@@ -47,7 +47,7 @@ test.describe('Chatbot - Rate Limit Behavior (Authenticated)', { tag: ['@contact
   test.beforeEach(async ({ page }) => {
     test.skip(!isConfigured(USER), 'User E2E credentials not configured');
     await loginAsUser(page);
-    await waitForAppReady(page, '/contact');
+    await waitForAuthedAppReady(page, '/contact');
   });
 
   test('displays rate limit warning when daily limit exceeded', async ({
@@ -81,7 +81,7 @@ test.describe('Chatbot - AI Unavailable Fallback (Authenticated)', { tag: ['@con
   test.beforeEach(async ({ page }) => {
     test.skip(!isConfigured(USER), 'User E2E credentials not configured');
     await loginAsUser(page);
-    await waitForAppReady(page, '/contact');
+    await waitForAuthedAppReady(page, '/contact');
   });
 
   test('shows fallback CTA when AI is unavailable (503)', async ({
