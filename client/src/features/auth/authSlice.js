@@ -4,7 +4,7 @@ const initialState = {
   user: null,
   isAuthenticated: false,
   isAdmin: false,
-  loading: false,
+  loading: true,
   error: null,
   modalMode: null,
   profileState: null,

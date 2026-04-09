@@ -18,7 +18,8 @@
 5. [Part C — Secrets & Credentials Management](#part-c--secrets--credentials-management)
 6. [Part D — Database & Seeding](#part-d--database--seeding)
 7. [Part E — Same-Origin API Routing](#part-e--same-origin-api-routing)
-8. [Quick Reference Checklists](#quick-reference-checklists)
+8. [Part F — E2E Test Infrastructure & Browser Auth](#part-f--e2e-test-infrastructure--browser-auth)
+9. [Quick Reference Checklists](#quick-reference-checklists)
 
 ---
 
@@ -546,6 +547,182 @@ already do). Don't block shipping on preview parity.
 
 ---
 
+## Part F — E2E Test Infrastructure & Browser Auth
+
+### F1. Post-Navigation Auth Race Condition
+
+**What went wrong**: Authenticated user tests (contact form, chatbot) failed
+with "modal intercepts pointer events." A Bootstrap modal overlay blocked all
+interactions after the user navigated from the login page to the contact page.
+
+**Why it happened**: `loginAsUser(page)` authenticates at `/`. Then
+`page.goto('/contact')` does a **full page reload**. The React app starts fresh,
+and `useAuthInit` fires asynchronously to restore auth from IndexedDB. During
+this restoration window (typically 1-3s, up to 10s in CI), `isAuthenticated`
+is `false`. The ContactForm's `useEffect` checks `isOpen && !isAuthenticated`
+and opens an auth modal — which overlays everything.
+
+**The simple rule**: After `loginAsUser(page)` + `page.goto('/path')`, always
+wait for the auth state to be fully restored before interacting with the page.
+Check for a reliable auth indicator (e.g., user menu toggle):
+
+```js
+export async function waitForAuthedAppReady(page, path = '/') {
+  await waitForAppReady(page, path);
+  await expect(
+    page.getByTestId('user-menu-toggle').first(),
+  ).toBeVisible({ timeout: TIMEOUTS.authVerify });
+}
+```
+
+Use this helper instead of `waitForAppReady` whenever the test requires an
+authenticated user.
+
+### F2. Playwright `addLocatorHandler` for Persistent Modals
+
+**What went wrong**: After login, the "Complete Your Profile" modal appeared on
+every page navigation. The one-shot dismiss in `loginAs()` only handled it
+once; subsequent `goto()` calls re-triggered it.
+
+**Why it happened**: Each `goto()` reloads the React app. `onAuthStateChanged`
+fires, `getMe` returns `isProfileComplete: false`, and the unclosable modal
+re-appears.
+
+**The simple rule**: Use Playwright's `page.addLocatorHandler()` to register a
+persistent handler that auto-dismisses the modal whenever it blocks any action.
+Register it ONCE per page; it survives navigations:
+
+```js
+await page.addLocatorHandler(
+  modal.getByText('Complete Your Profile'),
+  async () => {
+    await page.locator('#completion-name').fill('E2E');
+    await page.locator('#completion-surname').fill('TestUser');
+    await modal.getByRole('button', { name: 'Continue' }).click();
+  },
+);
+```
+
+### F3. Worker-Scoped Contexts Need Auth Restoration Awareness
+
+**What went wrong**: Admin E2E tests used worker-scoped browser contexts. The
+login happened on a `loginPage` (then closed). New `adminPage` instances from
+the same context navigated to `/admin`, but the admin dashboard never rendered.
+
+**Why it happened**: When a new page opens in the same context, Firebase auth
+is restored from IndexedDB (shared across pages in a context). But the
+restoration is async. If the `AdminRoute` guard checks auth before restoration
+completes, it sees `isAdmin: false` and may redirect.
+
+**The simple rule**: When admin tests fail at dashboard loading, add diagnostic
+logging to capture:
+- Current URL (did it redirect to `/`?)
+- Page body text (is it showing the landing page? Vercel protection page?)
+- API responses during page load (did `getMe` fire? What did it return?)
+
+This pinpoints whether the issue is auth restoration, route guarding, or
+deployment protection.
+
+### F4. Strict Mode Selector Violations After UI Changes
+
+**What went wrong**: `page.getByRole('button', { name: 'Login' })` found 2
+elements after logout — one in the navbar, one in a CTA section.
+
+**Why it happened**: When a component's DOM changes (e.g., user logs out and
+new elements appear), generic selectors can match multiple elements.
+
+**The simple rule**: Always scope selectors to the nearest stable container:
+
+```js
+// Bad: ambiguous
+page.getByRole('button', { name: 'Login' });
+
+// Good: scoped to navbar
+page.getByTestId('navbar').getByRole('button', { name: 'Login' });
+```
+
+### F5. `force: true` on Checkbox Clicks Doesn't Toggle React State
+
+**What went wrong**: A test used `checkbox.click({ force: true })` on a
+Bootstrap custom checkbox. The checkbox appeared checked visually but the React
+component's `onChange` handler never fired, leaving the form in an invalid state.
+
+**Why it happened**: Bootstrap renders the `<input type="checkbox">` as hidden,
+with a visible `<label>` overlay. `force: true` bypasses actionability checks
+and clicks the hidden input directly, but the event dispatch path differs from
+a user clicking the visible label.
+
+**The simple rule**: Never use `force: true` on form controls in React apps.
+Instead, use the POM method that clicks the element as a user would:
+
+```js
+// Bad
+await modal.getByRole('checkbox').click({ force: true });
+
+// Good — uses the POM method which clicks naturally
+await contact.checkPrivacy();
+```
+
+### F6. Warm Vercel Instances Don't Re-Run Seed Scripts
+
+**What went wrong**: After adding new env vars (`E2E_USER_UID`) to Vercel and
+redeploying, the seed script still skipped the user — the DB had no user
+profile row.
+
+**Why it happened**: The seed script uses a module-level `seedPromise` singleton
+that runs once per function instance. Warm (reused) instances from previous
+deployments retain the old singleton result and never re-run the seed.
+
+**The simple rule**: After changing Vercel env vars that affect seeding:
+1. Redeploy the server project (creates new code bundle)
+2. Verify via `/api/health` that `seed.mode: "seeded"` AND uptime is low
+   (high uptime = warm instance from old deployment)
+3. If the warm instance persists, manually seed via SQL or wait for cold start
+
+### F7. Null Column Constraints vs. Partial Profile Sync
+
+**What went wrong**: `sync-profile` crashed with 500: "null value in column
+'name' of relation 'user_profiles' violates not-null constraint."
+
+**Why it happened**: The login flow sends only `{ firebaseUid, email }` to
+`sync-profile`. The server's merge logic fetches the existing profile to
+preserve fields. But if no profile row exists yet, the merge has nothing to
+merge with — the `name` field is null, hitting the NOT NULL constraint.
+
+**The simple rule (app bug to fix)**: The `syncProfile` service should handle
+the case where the user has no existing profile row. Either:
+- Make `name`/`surname` nullable in the DB (with a separate completion check)
+- Default to placeholder values when creating a new profile
+- Skip the upsert if the incoming data lacks required fields
+
+For E2E: ensure the seed script always creates complete profile rows for test
+users.
+
+### F8. CORS for Firebase Auth in CI (Playwright Proxy)
+
+**What went wrong**: Firebase `signInWithEmailAndPassword` failed with network
+errors in GitHub Actions.
+
+**Why it happened**: GitHub Actions runners sometimes block or strip CORS
+headers from requests to `identitytoolkit.googleapis.com` and
+`securetoken.googleapis.com`.
+
+**The simple rule**: Register a Playwright context-level route handler that
+intercepts Firebase API requests and proxies them through Node.js `fetch()`
+(which has no CORS restrictions). The browser receives the response as if CORS
+was allowed:
+
+```js
+await context.route('**/identitytoolkit.googleapis.com/**', async (route) => {
+  const response = await fetch(route.request().url(), { /* ... */ });
+  await route.fulfill({ status: response.status, body: await response.text() });
+});
+```
+
+Register this on the browser context (not page) so it applies to all pages.
+
+---
+
 ## Quick Reference Checklists
 
 ### New Project Setup
@@ -580,3 +757,10 @@ already do). Don't block shipping on preview parity.
 6. If `seed.mode: "in_progress"` — it's a transient Neon issue, retry
 7. If HTML response — deployment protection bypass isn't working (A1, B1)
 8. If `DEPLOYMENT_NOT_FOUND` — hash URL expired, switch to stable URL (A2)
+9. If "modal intercepts pointer events" — auth race condition (F1), check if
+   `waitForAuthedAppReady` is used after login + navigation
+10. If `loginAs` fails with "isProfileComplete: false" — check DB seed (F6),
+    verify `user_profiles` table has rows for E2E test users
+11. If admin dashboard never renders — check `waitForDashboardReady` diagnostic
+    logs for URL, body text, and API responses (F3)
+12. If "strict mode violation" on selectors — scope to nearest container (F4)

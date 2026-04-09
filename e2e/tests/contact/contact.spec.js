@@ -45,7 +45,7 @@ test.describe('Contact Page - Submit Inquiry', { tag: ['@contact'] }, () => {
     await contact.submitModalInquiry();
 
     await expect(page.getByText(/inquiry submitted/i)).toBeVisible();
-    await expect(contact.bookMeetingButton).toBeVisible();
+    await expect(contact.contactModal.getByRole('button', { name: 'Book a Meeting' })).toBeVisible();
   });
 });
 
