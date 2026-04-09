@@ -36,7 +36,9 @@
 import { test as base, expect } from "@playwright/test";
 import { loginAs } from "../helpers/auth.js";
 import { ADMIN, USER, SUPER_ADMIN, isConfigured } from "../helpers/credentials.js";
-import { dismissProfileModalIfVisible } from "../helpers/profile-modal.js";
+// Profile-modal handling is done inside loginAs() during initial login.
+// Route guards (AdminRoute, ProtectedRoute) now wait for auth loading
+// before redirecting, so page fixtures no longer need warmAuth.
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:5173";
 const BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
@@ -55,26 +57,11 @@ async function ensureSeeded() {
   // additional client-side test-data setup.
 }
 
-/**
- * Pre-warm the React app's auth state on a fresh page.
- *
- * When a new page navigates directly to a protected route (e.g. /admin),
- * Redux is empty → ProtectedRoute/AdminRoute redirects to "/". Then
- * onAuthStateChanged fires, which may open the profile-completion modal
- * before the route guard re-evaluates.
- *
- * By navigating to "/" first, waiting for auth to settle, and dismissing
- * the modal if it appears, subsequent navigations within the same page
- * will find Redux already populated → no spurious redirects or modals.
- */
-async function warmAuth(page) {
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await page.locator("#root").waitFor({ state: "visible", timeout: 15_000 });
-  await dismissProfileModalIfVisible(page);
-  // Confirm auth settled: user menu should be visible.
-  await page.getByTestId("user-menu-toggle").first()
-    .waitFor({ state: "visible", timeout: 20_000 });
-}
+// Intentionally removed warmAuth — no longer needed after the
+// AdminRoute / ProtectedRoute loading-state fix. The route guards
+// now return null while auth.loading is true, so direct navigation
+// to /admin no longer triggers a redirect to "/".
+// The profile-modal handler in loginAs() covers the remaining case.
 
 export const test = base.extend({
   /** Runs once per test to ensure seed data is available. */
@@ -134,7 +121,6 @@ export const test = base.extend({
       return;
     }
     const page = await adminContext.newPage();
-    await warmAuth(page);
     await use(page);
   },
 
@@ -175,7 +161,6 @@ export const test = base.extend({
       return;
     }
     const page = await userContext.newPage();
-    await warmAuth(page);
     await use(page);
   },
 
@@ -216,7 +201,6 @@ export const test = base.extend({
       return;
     }
     const page = await superAdminContext.newPage();
-    await warmAuth(page);
     await use(page);
   },
 });
