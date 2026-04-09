@@ -1,30 +1,25 @@
-# Sync main → staging — auto-triggered after every server preview deployment.
+# Sync main → staging — manually triggered to promote main to staging.
 #
 # Purpose:
-#   After each successful server deployment to the preview environment, this
-#   workflow force-pushes `main` to `staging` so that `staging` is always an
-#   exact copy of `main` with no divergent history.
+#   Force-pushes `main` to `staging` so that `staging` is always an exact copy
+#   of `main` with no divergent history.
 #
-# Why unconditional (no E2E gate):
-#   The sync runs regardless of whether E2E tests pass or fail. This keeps
-#   `staging` in lockstep with `main` at all times. The policy can be tightened
-#   later to gate on E2E results if needed.
+# Why manual (workflow_dispatch) instead of automatic:
+#   Previously triggered by repository_dispatch alongside E2E tests. This caused
+#   a cascade: merge to main → Vercel deploys → dispatch fires sync + E2E →
+#   sync pushes to staging → Vercel deploys staging → new dispatch fires →
+#   second E2E run cancels the first (concurrency group). Making sync manual
+#   prevents this cascade and lets E2E runs complete uninterrupted.
 #
 # Why SYNC_PAT instead of GITHUB_TOKEN:
 #   Pushes made with the default GITHUB_TOKEN do not trigger Vercel's native
 #   git integration. Using a Personal Access Token (SYNC_PAT) ensures that the
 #   force-push to `staging` is detected by Vercel, which then creates a preview
 #   deployment with branch-scoped environment overrides.
-#
-# Trigger strategy:
-#   Same `repository_dispatch` event as `e2e.yml` — fired by the Vercel server
-#   project after a successful preview deployment. Both workflows run in
-#   parallel from the same event; they are fully independent.
 name: Sync main → staging
 
 on:
-  repository_dispatch:
-    types: [vercel.deployment.success]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -43,14 +38,6 @@ jobs:
   sync:
     name: Sync main → staging
     runs-on: ubuntu-latest
-
-    # Only run for SERVER deployments from main — skip staging deployments
-    # to prevent a feedback loop (this workflow pushes to staging, which
-    # triggers a Vercel deployment, which fires repository_dispatch again).
-    if: >-
-      github.event_name == 'repository_dispatch' &&
-      contains(github.event.client_payload.project.name || '', 'server') &&
-      (github.event.client_payload.deployment.meta.githubCommitRef || github.event.client_payload.branch || '') != 'staging'
 
     steps:
       - name: Checkout main (full clone with SYNC_PAT)
