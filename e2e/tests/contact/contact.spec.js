@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { waitForAppReady } from '../helpers/app.js';
+import { waitForAppReady, waitForAuthedAppReady } from '../helpers/app.js';
 import { loginAsUser } from '../helpers/auth.js';
 import { USER, isConfigured } from '../helpers/credentials.js';
 import { ContactPage } from '../pages/ContactPage.js';
@@ -23,7 +23,7 @@ test.describe('Contact Page - Submit Inquiry', { tag: ['@contact'] }, () => {
   test.beforeEach(async ({ page }) => {
     test.skip(!isConfigured(USER), 'User E2E credentials not configured');
     await loginAsUser(page);
-    await waitForAppReady(page, '/contact');
+    await waitForAuthedAppReady(page, '/contact');
   });
 
   test('submit an inquiry successfully', async ({ page }) => {
@@ -61,9 +61,9 @@ test.describe('Contact Page - Auth-interrupted Submission', { tag: ['@contact'] 
     await contact.clickSubmitInquiry();
     await expect(contact.contactModal).toBeVisible();
 
-    await contact.contactModal.getByLabel('Question 1').fill('Test question');
-    await contact.contactModal.getByRole('checkbox').click({ force: true });
-    await contact.contactModal.getByRole('button', { name: 'Submit Inquiry' }).click();
+    await contact.fillQuestion('Test question');
+    await contact.checkPrivacy();
+    await contact.submitModalInquiry();
 
     await expect(auth.authModal).toBeVisible();
     await expect(
@@ -97,7 +97,7 @@ test.describe('Contact Page - Returning User Flow', { tag: ['@contact'] }, () =>
       }),
     );
 
-    await waitForAppReady(page, '/contact');
+    await waitForAuthedAppReady(page, '/contact');
   });
 
   test('shows inquiry status list for returning user', async ({ page }) => {
