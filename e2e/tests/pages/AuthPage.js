@@ -32,7 +32,9 @@ export class AuthPage {
   }
 
   get userMenuToggle() {
-    return this.page.getByTestId('user-menu-toggle');
+    // .first() avoids strict-mode violation — both desktop Navbar and
+    // MobileNavOverlay render a UserMenu with this test ID.
+    return this.page.getByTestId('user-menu-toggle').first();
   }
 
   get signUpTab() {
