@@ -29,7 +29,7 @@ test.describe('Contact Page - Submit Inquiry', { tag: ['@contact'] }, () => {
   test('submit an inquiry successfully', async ({ page }) => {
     const contact = new ContactPage(page);
     await contact.clickSubmitInquiry();
-    await expect(page.getByText('Submit an Inquiry')).toBeVisible();
+    await expect(contact.contactModal.getByText('Submit an Inquiry')).toBeVisible();
 
     await contact.fillQuestion('Test inquiry from E2E');
     await contact.checkPrivacy();
