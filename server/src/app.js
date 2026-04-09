@@ -33,10 +33,13 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Rate limiting for public endpoints
+// Rate limiting for public endpoints.
+// Preview deployments use a higher limit to avoid E2E test failures —
+// preview URLs are protected by Vercel Deployment Protection anyway.
+const isPreview = process.env.VERCEL_ENV === "preview";
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: isPreview ? 1000 : 100,
   message: "Too many requests from this IP, please try again later.",
 });
 app.use("/api/", limiter);
