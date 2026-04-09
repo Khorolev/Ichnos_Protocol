@@ -3,6 +3,7 @@ import { waitForAppReady, TIMEOUTS } from './app.js';
 import { ADMIN, USER, SUPER_ADMIN } from './credentials.js';
 import { AuthPage } from '../pages/AuthPage.js';
 import { setupFirebaseProxy } from './firebase-proxy.js';
+import { dismissProfileModalIfVisible } from './profile-modal.js';
 
 export async function loginAs(page, email, password) {
   // Set up Firebase API proxy on the context to bypass CORS issues in CI.
@@ -36,12 +37,15 @@ export async function loginAs(page, email, password) {
 
   await auth.submitForm();
 
+  // After submitting, the app may either show the user menu (happy path)
+  // or open the profile-completion modal (race between syncProfile and
+  // onAuthStateChanged → getMe). Handle the modal first, then verify.
   try {
+    await dismissProfileModalIfVisible(page);
     await expect(auth.userMenuToggle).toBeVisible({
       timeout: TIMEOUTS.authVerify,
     });
   } catch (err) {
-    // Capture the Firebase error message displayed in the modal alert
     const alertText = await auth.alert.textContent().catch(() => 'no alert visible');
 
     console.error(
