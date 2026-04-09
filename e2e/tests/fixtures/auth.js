@@ -36,9 +36,11 @@
 import { test as base, expect } from "@playwright/test";
 import { loginAs } from "../helpers/auth.js";
 import { ADMIN, USER, SUPER_ADMIN, isConfigured } from "../helpers/credentials.js";
-// Profile-modal handling is done inside loginAs() during initial login.
-// Route guards (AdminRoute, ProtectedRoute) now wait for auth loading
-// before redirecting, so page fixtures no longer need warmAuth.
+import { setupAutoModalDismiss } from "../helpers/profile-modal.js";
+// Profile-modal handling uses two layers:
+// 1. loginAs() registers addLocatorHandler + one-shot dismiss during login.
+// 2. Page fixtures register addLocatorHandler on every new page so the
+//    modal is auto-dismissed on post-login navigations (e.g. /admin).
 
 const BASE_URL = process.env.BASE_URL || "http://localhost:5173";
 const BYPASS_SECRET = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
@@ -121,6 +123,7 @@ export const test = base.extend({
       return;
     }
     const page = await adminContext.newPage();
+    await setupAutoModalDismiss(page);
     await use(page);
   },
 
@@ -161,6 +164,7 @@ export const test = base.extend({
       return;
     }
     const page = await userContext.newPage();
+    await setupAutoModalDismiss(page);
     await use(page);
   },
 
@@ -201,6 +205,7 @@ export const test = base.extend({
       return;
     }
     const page = await superAdminContext.newPage();
+    await setupAutoModalDismiss(page);
     await use(page);
   },
 });
