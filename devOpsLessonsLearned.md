@@ -19,7 +19,8 @@
 6. [Part D — Database & Seeding](#part-d--database--seeding)
 7. [Part E — Same-Origin API Routing](#part-e--same-origin-api-routing)
 8. [Part F — E2E Test Infrastructure & Browser Auth](#part-f--e2e-test-infrastructure--browser-auth)
-9. [Quick Reference Checklists](#quick-reference-checklists)
+9. [Part G — E2E Selector Pitfalls & CI Cascade Prevention](#part-g--e2e-selector-pitfalls--ci-cascade-prevention)
+10. [Quick Reference Checklists](#quick-reference-checklists)
 
 ---
 
@@ -723,6 +724,158 @@ Register this on the browser context (not page) so it applies to all pages.
 
 ---
 
+## Part G — E2E Selector Pitfalls & CI Cascade Prevention
+
+### G1. Bootstrap Nav.Link Role Depends on Context
+
+**What went wrong**: `getByRole('link', { name: 'Chat-only Leads' })` timed out
+after 15s — the element existed on the page but didn't match the role.
+
+**Why it happened**: Bootstrap's `Nav.Link` renders different ARIA roles
+depending on its parent context:
+- Inside `<Tabs>` → renders with `role="tab"`
+- Standalone `<Nav>` → renders as a plain `<a>` or `<button>` with no explicit
+  ARIA role (no `role="tab"`, no `role="link"`)
+
+The admin dashboard uses a standalone `<Nav variant="pills">` for sub-tabs
+(Inquiries / Chat-only Leads) inside the Requests tab panel. Since it's not
+wrapped in Bootstrap's `<Tabs>`, the rendered `<a>` has no semantic role.
+
+**The simple rule**: When targeting Bootstrap Nav elements in E2E tests:
+1. First try `getByRole('tab')` if the Nav is inside `<Tabs>`
+2. For standalone `<Nav>`, use CSS class selectors:
+   ```js
+   page.locator('.nav-link', { hasText: 'Chat-only Leads' })
+   ```
+3. Never assume `getByRole('link')` — Bootstrap Nav.Link rarely renders as a
+   true link element.
+
+### G2. Case-Sensitive Text Matching in Playwright
+
+**What went wrong**: `getByText('new')` and `getByText('contacted')` didn't
+match column headers rendering `New` and `Contacted`.
+
+**Why it happened**: Playwright's `getByText()` is **case-sensitive** by
+default. The test used lowercase but the app renders Title Case.
+
+**The simple rule**: Always match the exact case as rendered in the UI. Use
+`{ exact: true }` for short words to avoid substring matching across unrelated
+elements:
+```js
+// Bad — case-sensitive mismatch
+adminPage.getByText('new');
+
+// Good — matches exactly
+adminPage.getByText('New', { exact: true });
+```
+
+### G3. Bootstrap ListGroup.Item Renders as `<div>`, Not `<li>`
+
+**What went wrong**: `getByRole('listitem')` returned no matches when targeting
+Bootstrap `<ListGroup.Item>` elements.
+
+**Why it happened**: `ListGroup.Item` renders as `<div class="list-group-item">`
+by default, not as `<li>`. The `listitem` ARIA role requires an actual `<li>`
+element or explicit `role="listitem"`.
+
+**The simple rule**: Use CSS class selectors for Bootstrap list components:
+```js
+// Bad — Bootstrap doesn't render <li>
+page.getByRole('listitem').filter({ hasText: 'text' });
+
+// Good — matches the actual DOM
+page.locator('.list-group-item').filter({ hasText: 'text' });
+```
+
+### G4. RTK Query Timing After Auth Restoration
+
+**What went wrong**: `waitForAuthedAppReady` returned (user-menu visible), but
+`useGetMyRequestsQuery` hadn't fired yet, so `MyInquiriesList` wasn't rendered
+when the test immediately checked for it.
+
+**Why it happened**: RTK Query hooks with `skip: !isAuthenticated` only fire
+AFTER the Redux state updates. The auth restoration flow is:
+1. `onAuthStateChanged` fires → `setUser`, `setLoading(false)`
+2. React re-renders → user-menu-toggle appears (waitForAuthedAppReady returns)
+3. `isAuthenticated` flips to `true` → RTK Query hook activates
+4. Network request fires → response received → component re-renders with data
+
+Steps 3-4 happen AFTER `waitForAuthedAppReady` resolves.
+
+**The simple rule**: After `waitForAuthedAppReady`, add an explicit timeout on
+the data-dependent element:
+```js
+await waitForAuthedAppReady(page, '/contact');
+// Data-dependent element needs extra time for RTK Query to complete
+await expect(heading).toBeVisible({ timeout: 10_000 });
+```
+
+### G5. Route Mocks Must Be Set Before Login Navigation
+
+**What went wrong**: `page.route()` for `/api/contact/my-requests` was set
+after `loginAsUser()`, so the RTK Query request fired before the mock was in
+place.
+
+**Why it happened**: `loginAsUser()` navigates to `/` and sets up auth state.
+Then `waitForAuthedAppReady(page, '/contact')` navigates to `/contact`. If the
+route mock is set between these calls, it works. But if `loginAsUser` itself
+triggers a request to the mocked endpoint (via page navigation), the mock
+misses it.
+
+**The simple rule**: Always set `page.route()` mocks BEFORE any navigation
+that could trigger the mocked request:
+```js
+// Good — mock before login so it's ready for any subsequent navigation
+await page.route('**/api/contact/my-requests', handler);
+await loginAsUser(page);
+await waitForAuthedAppReady(page, '/contact');
+```
+
+### G6. Auto-Sync Staging Creates E2E Cascade Cancellation
+
+**What went wrong**: E2E runs were cancelled mid-test, showing 0 results.
+
+**Why it happened**: The `sync-staging.yml` workflow was triggered by the same
+`repository_dispatch` event as `e2e.yml`. The cascade:
+1. Merge to main → Vercel deploys server → fires `repository_dispatch`
+2. Both `sync-staging` and `e2e` workflows start
+3. `sync-staging` force-pushes main to staging
+4. Staging push triggers a Vercel deployment
+5. Staging deployment fires another `repository_dispatch`
+6. A second `e2e` workflow starts
+7. The `e2e-tests` concurrency group cancels the first E2E run
+
+**The simple rule**: Never trigger a branch sync from the same event that
+triggers E2E tests. Either:
+- Make the sync manual (`workflow_dispatch`) — chosen approach
+- Use a separate concurrency group for sync-triggered E2E runs
+- Add a filter in the E2E workflow to skip staging-triggered dispatches
+
+### G7. Redux Initial State Must Match App Lifecycle
+
+**What went wrong**: All 14 admin tests failed because `AdminRoute` redirected
+to `/` on first render, before auth could restore.
+
+**Why it happened**: `authSlice` had `loading: false` in its initial state.
+On app start, React renders immediately with this state. `AdminRoute` checks
+`if (loading) return null; if (!isAuthenticated) redirect('/')`. Since
+`loading` was `false` and `isAuthenticated` was also `false` (auth not yet
+restored), the redirect fired instantly.
+
+**The simple rule**: For auth-gated routes, the initial `loading` state must
+be `true` — indicating "we don't know the auth state yet, don't make
+decisions." Only set `loading: false` after auth initialization completes
+(either authenticated or confirmed unauthenticated):
+```js
+const initialState = {
+  loading: true,  // NOT false — prevents premature routing decisions
+  isAuthenticated: false,
+  // ...
+};
+```
+
+---
+
 ## Quick Reference Checklists
 
 ### New Project Setup
@@ -764,3 +917,11 @@ Register this on the browser context (not page) so it applies to all pages.
 11. If admin dashboard never renders — check `waitForDashboardReady` diagnostic
     logs for URL, body text, and API responses (F3)
 12. If "strict mode violation" on selectors — scope to nearest container (F4)
+13. If `getByRole('link')` or `getByRole('tab')` times out on Bootstrap Nav —
+    check parent context: standalone Nav has no ARIA role, use `.nav-link` (G1)
+14. If `getByText` doesn't match — check case sensitivity, use exact case (G2)
+15. If `getByRole('listitem')` fails on Bootstrap ListGroup — use
+    `.list-group-item` CSS selector (G3)
+16. If data-dependent elements missing after auth — add explicit timeout,
+    RTK Query fires after `waitForAuthedAppReady` returns (G4)
+17. If E2E run cancelled mid-test — check for cascade from staging sync (G6)
