@@ -1,6 +1,18 @@
+const IS_CI = !!process.env.CI;
+const DASHBOARD_READY_TIMEOUT = IS_CI ? 20_000 : 10_000;
+
 export class AdminPage {
   constructor(page) {
     this.page = page;
+  }
+
+  /**
+   * Wait for the admin dashboard to finish loading after navigation.
+   * Firebase auth restoration + getMe API call can take several seconds
+   * in CI, so the default 5s assertion timeout is often insufficient.
+   */
+  async waitForDashboardReady() {
+    await this.requestsTab.waitFor({ state: 'visible', timeout: DASHBOARD_READY_TIMEOUT });
   }
 
   get requestsTab() {
