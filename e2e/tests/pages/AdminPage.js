@@ -88,7 +88,7 @@ export class AdminPage {
   }
 
   get chatOnlyLeadsLink() {
-    return this.page.getByRole('link', { name: 'Chat-only Leads' });
+    return this.page.locator('.nav-link', { hasText: 'Chat-only Leads' });
   }
 
   get laneRow() {

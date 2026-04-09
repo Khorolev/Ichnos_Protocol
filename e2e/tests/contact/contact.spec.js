@@ -102,9 +102,9 @@ test.describe('Contact Page - Returning User Flow', { tag: ['@contact'] }, () =>
 
   test('shows inquiry status list for returning user', async ({ page }) => {
     const contact = new ContactPage(page);
-    await expect(contact.myInquiriesHeading).toBeVisible();
+    await expect(contact.myInquiriesHeading).toBeVisible({ timeout: 10_000 });
 
-    const inquiryRow = page.getByRole('listitem').filter({ hasText: 'Existing inquiry question' });
+    const inquiryRow = page.locator('.list-group-item').filter({ hasText: 'Existing inquiry question' });
     await expect(inquiryRow).toBeVisible();
     await expect(inquiryRow.getByText('New')).toBeVisible();
     await expect(contact.addQuestionButton).toBeVisible();

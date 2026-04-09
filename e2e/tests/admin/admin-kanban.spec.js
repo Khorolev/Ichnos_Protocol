@@ -32,9 +32,9 @@ test.describe('Admin Kanban - Basic Flow', { tag: ['@admin'] }, () => {
 
     await firstExpand.click();
 
-    const newCol = adminPage.getByText('new');
-    const inProgressCol = adminPage.getByText('in progress');
-    const contactedCol = adminPage.getByText('contacted');
+    const newCol = adminPage.getByText('New', { exact: true });
+    const inProgressCol = adminPage.getByText('In Progress', { exact: true });
+    const contactedCol = adminPage.getByText('Contacted', { exact: true });
 
     const anyVisible =
       (await newCol.isVisible().catch(() => false)) ||
