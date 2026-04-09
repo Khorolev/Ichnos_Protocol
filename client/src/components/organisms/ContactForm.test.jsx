@@ -117,7 +117,7 @@ describe("ContactForm", () => {
     expect(screen.getByText("john@test.com")).toBeInTheDocument();
   });
 
-  it("dispatches openAuthModal when unauthenticated user opens form", async () => {
+  it("does not open auth modal on mount for unauthenticated user", async () => {
     const { default: ContactForm } = await import("./ContactForm");
     const store = createStore({
       auth: { isAuthenticated: false, user: null },
@@ -129,6 +129,27 @@ describe("ContactForm", () => {
         </MemoryRouter>
       </Provider>,
     );
+
+    expect(store.getState().auth.modalMode).toBeNull();
+  });
+
+  it("opens auth modal when unauthenticated user submits form", async () => {
+    const user = userEvent.setup();
+    const { default: ContactForm } = await import("./ContactForm");
+    const store = createStore({
+      auth: { isAuthenticated: false, user: null },
+    });
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <ContactForm />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    await user.type(screen.getByLabelText("Question 1"), "My question");
+    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: "Submit Inquiry" }));
 
     expect(store.getState().auth.modalMode).toBe("login");
   });

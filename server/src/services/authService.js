@@ -52,9 +52,13 @@ export async function syncProfile(firebaseUid, profileData) {
     email: firebaseUser.email,
   };
 
+  const profileForUpsert = Object.fromEntries(
+    Object.entries(mergedProfile).filter(([, v]) => v !== undefined),
+  );
+
   const profile = await userRepository.upsertProfile(
     firebaseUid,
-    mergedProfile,
+    profileForUpsert,
   );
   await userRepository.updateUserActivity(firebaseUid);
 

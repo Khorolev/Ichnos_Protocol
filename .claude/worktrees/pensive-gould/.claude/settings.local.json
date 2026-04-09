@@ -58,7 +58,18 @@
       "Bash(curl -sL -w \"\\\\n%{http_code}\" -H \"x-vercel-protection-bypass: MPaSmqp4KvVugGeD2oO8yzlakdspUVJs\" \"https://e2e-client.ichnos-protocol.com/api/health\")",
       "Bash(grep -oE \"AIza[A-Za-z0-9_-]{30,}\")",
       "Bash(sed 's/.*2026-04-08T[0-9:.]*Z\\\\s*//')",
-      "mcp__github__get_file_contents"
+      "mcp__github__get_file_contents",
+      "mcp__vercel__web_fetch_vercel_url",
+      "Bash(curl -s -D - -X OPTIONS -H \"Origin: https://e2e-client.ichnos-protocol.com\" -H \"Access-Control-Request-Method: POST\" -H \"Access-Control-Request-Headers: content-type\" \"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=AIzaSyCeZ8VvVQ7bt3YFqaxZIa04k9heH6x4w6U\" -o /dev/null)",
+      "Bash(curl -s -D - -X POST -H \"Origin: https://e2e-client.ichnos-protocol.com\" -H \"Content-Type: application/json\" -H \"Referer: https://e2e-client.ichnos-protocol.com/\" -d '{\"email\":\"e2e-admin@ichnos-test.com\",\"password\":\"test\",\"returnSecureToken\":true}' \"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=AIzaSyCeZ8VvVQ7bt3YFqaxZIa04k9heH6x4w6U\")",
+      "Bash(curl -sI -H \"x-vercel-protection-bypass: dummy\" \"https://e2e-client.ichnos-protocol.com\")",
+      "Bash(curl -sI \"https://e2e-client.ichnos-protocol.com\")",
+      "mcp__db__execute_sql",
+      "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(f\\\\\"{j['name']}: {j['status']} {j['conclusion']}\\\\\"\\) for j in data['jobs']]\")",
+      "mcp__vercel__get_runtime_logs",
+      "Bash(Select-String -Pattern \"passed|failed|skipped\")",
+      "Bash(Select-Object -Last 5)",
+      "mcp__vercel__get_deployment"
     ]
   }
 }
