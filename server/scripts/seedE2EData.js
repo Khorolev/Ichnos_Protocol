@@ -35,7 +35,9 @@ async function upsertUser(pool, uid, firstName, lastName, email) {
   );
   await pool.query(
     `INSERT INTO user_profiles (user_id, name, surname, email, company)
-     VALUES ($1, $2, $3, $4, $5) ON CONFLICT (user_id) DO NOTHING`,
+     VALUES ($1, $2, $3, $4, $5)
+     ON CONFLICT (user_id) DO UPDATE
+       SET name = $2, surname = $3, email = $4, company = $5`,
     [uid, firstName, lastName, email, "E2E Corp"],
   );
   console.log(`users + profile: upserted (${email})`);
