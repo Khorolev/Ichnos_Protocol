@@ -88,7 +88,7 @@ export class AdminPage {
   }
 
   get chatOnlyLeadsLink() {
-    return this.page.getByRole('link', { name: 'Chat-only Leads' });
+    return this.page.getByRole('tab', { name: 'Chat-only Leads' });
   }
 
   get laneRow() {
