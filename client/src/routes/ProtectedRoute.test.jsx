@@ -6,7 +6,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import authReducer from '../features/auth/authSlice';
 import ProtectedRoute from './ProtectedRoute';
 
-function renderWithAuth(isAuthenticated) {
+function renderWithAuth(isAuthenticated, loading = false) {
   const store = configureStore({
     reducer: { auth: authReducer },
     preloadedState: {
@@ -14,7 +14,7 @@ function renderWithAuth(isAuthenticated) {
         user: isAuthenticated ? { uid: '1' } : null,
         isAuthenticated,
         isAdmin: false,
-        loading: false,
+        loading,
         error: null,
       },
     },
@@ -51,5 +51,12 @@ describe('ProtectedRoute', () => {
 
     expect(screen.queryByText('Secret')).not.toBeInTheDocument();
     expect(screen.getByText('Home')).toBeInTheDocument();
+  });
+
+  it('renders nothing while auth is loading', () => {
+    renderWithAuth(false, true);
+
+    expect(screen.queryByText('Secret')).not.toBeInTheDocument();
+    expect(screen.queryByText('Home')).not.toBeInTheDocument();
   });
 });
