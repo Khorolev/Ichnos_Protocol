@@ -3,7 +3,7 @@ import { waitForAppReady, TIMEOUTS } from './app.js';
 import { ADMIN, USER, SUPER_ADMIN } from './credentials.js';
 import { AuthPage } from '../pages/AuthPage.js';
 import { setupFirebaseProxy } from './firebase-proxy.js';
-import { dismissProfileModalIfVisible } from './profile-modal.js';
+import { setupAutoModalDismiss, dismissProfileModalIfVisible } from './profile-modal.js';
 
 export async function loginAs(page, email, password) {
   // Set up Firebase API proxy on the context to bypass CORS issues in CI.
@@ -13,6 +13,11 @@ export async function loginAs(page, email, password) {
     await setupFirebaseProxy(context);
     context.__firebaseProxyReady = true;
   }
+
+  // Register the auto-dismiss handler BEFORE any navigation so it covers
+  // the profile modal appearing both during login and on subsequent page
+  // loads (e.g. when tests navigate to /contact after loginAsUser).
+  await setupAutoModalDismiss(page);
 
   const auth = new AuthPage(page);
   await waitForAppReady(page, '/');
