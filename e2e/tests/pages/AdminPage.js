@@ -1,5 +1,5 @@
 const IS_CI = !!process.env.CI;
-const DASHBOARD_READY_TIMEOUT = IS_CI ? 20_000 : 10_000;
+const DASHBOARD_READY_TIMEOUT = IS_CI ? 30_000 : 10_000;
 
 export class AdminPage {
   constructor(page) {
@@ -10,9 +10,37 @@ export class AdminPage {
    * Wait for the admin dashboard to finish loading after navigation.
    * Firebase auth restoration + getMe API call can take several seconds
    * in CI, so the default 5s assertion timeout is often insufficient.
+   *
+   * Captures diagnostic info if the dashboard fails to appear.
    */
   async waitForDashboardReady() {
-    await this.requestsTab.waitFor({ state: 'visible', timeout: DASHBOARD_READY_TIMEOUT });
+    const apiResponses = [];
+    const listener = async (res) => {
+      const url = res.url();
+      if (url.includes('/api/') || url.includes('identitytoolkit') || url.includes('securetoken')) {
+        const body = await res.text().catch(() => '<unreadable>');
+        apiResponses.push({ url: url.slice(0, 120), status: res.status(), body: body.slice(0, 300) });
+      }
+    };
+    this.page.on('response', listener);
+
+    try {
+      await this.requestsTab.waitFor({ state: 'visible', timeout: DASHBOARD_READY_TIMEOUT });
+    } catch (err) {
+      const currentUrl = this.page.url();
+      const pageTitle = await this.page.title().catch(() => '<unknown>');
+      const bodyText = await this.page.locator('body').innerText({ timeout: 3_000 }).catch(() => '<unreadable>');
+      console.error(
+        `[waitForDashboardReady] Admin dashboard did not render within ${DASHBOARD_READY_TIMEOUT}ms.\n` +
+          `  Current URL: ${currentUrl}\n` +
+          `  Page title: ${pageTitle}\n` +
+          `  Body text (first 500 chars): ${bodyText.slice(0, 500)}\n` +
+          `  API responses captured:\n${JSON.stringify(apiResponses, null, 2)}`,
+      );
+      throw err;
+    } finally {
+      this.page.removeListener('response', listener);
+    }
   }
 
   get requestsTab() {
