@@ -26,12 +26,13 @@ export async function dismissProfileModalIfVisible(page, defaults = {}) {
   const modal = page.getByTestId('auth-modal');
   const completeHeading = modal.getByText('Complete Your Profile');
 
-  // Quick check — don't wait the full test timeout.
-  const isVisible = await completeHeading
-    .isVisible({ timeout: PROFILE_MODAL_TIMEOUT })
-    .catch(() => false);
-
-  if (!isVisible) return;
+  // Wait briefly for the modal to appear — isVisible() is instant and
+  // doesn't accept a timeout, so we use waitFor + catch instead.
+  try {
+    await completeHeading.waitFor({ state: 'visible', timeout: PROFILE_MODAL_TIMEOUT });
+  } catch {
+    return; // Modal didn't appear within the timeout — nothing to do.
+  }
 
   console.log('[profile-modal] Profile completion modal detected — filling and submitting.');
 
