@@ -2,10 +2,17 @@ import { test, expect } from '@playwright/test';
 import { waitForAppReady } from '../helpers/app.js';
 import { USER, isConfigured } from '../helpers/credentials.js';
 import { AuthPage } from '../pages/AuthPage.js';
+import { setupFirebaseProxy } from '../helpers/firebase-proxy.js';
 
 test.describe('Login Flow', { tag: ['@auth'] }, () => {
   test.beforeEach(async ({ page }) => {
     test.skip(!isConfigured(USER), 'User E2E credentials not configured');
+    // Set up Firebase proxy to bypass CORS issues in CI
+    const context = page.context();
+    if (!context.__firebaseProxyReady) {
+      await setupFirebaseProxy(context);
+      context.__firebaseProxyReady = true;
+    }
     await waitForAppReady(page);
     const auth = new AuthPage(page);
     await auth.openLoginModal();
