@@ -46,6 +46,7 @@ export async function loginAs(page, email, password) {
 
     console.error(
       `[loginAs] Auth failed for ${email}.\n` +
+        `  Error: ${err.message?.split('\n')[0]}\n` +
         `  Alert text: "${alertText}"\n` +
         `  Console errors: ${JSON.stringify(consoleErrors)}\n` +
         `  API/Firebase responses: ${JSON.stringify(apiResponses, null, 2)}`,
