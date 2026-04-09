@@ -20,7 +20,7 @@ export async function loginAs(page, email, password) {
   await expect(auth.welcomeBackText).toBeVisible();
   await auth.fillLoginForm(email, password);
 
-  // Capture console errors and API responses for diagnostics
+  // Capture console errors and API responses (with bodies) for diagnostics
   const consoleErrors = [];
   const apiResponses = [];
   page.on('console', (msg) => {
@@ -28,10 +28,15 @@ export async function loginAs(page, email, password) {
       consoleErrors.push(msg.text());
     }
   });
-  page.on('response', (res) => {
+  page.on('response', async (res) => {
     const url = res.url();
-    if (url.includes('/api/') || url.includes('identitytoolkit') || url.includes('securetoken')) {
-      apiResponses.push({ url, status: res.status(), type: res.headers()['content-type'] });
+    if (url.includes('/api/')) {
+      const body = await res.text().catch(() => '<unreadable>');
+      apiResponses.push({ url, status: res.status(), body });
+      // Log sync-profile and me responses immediately for diagnostics
+      if (url.includes('sync-profile') || url.includes('/me')) {
+        console.log(`[loginAs] ${res.status()} ${url} → ${body.slice(0, 500)}`);
+      }
     }
   });
 
