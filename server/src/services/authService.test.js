@@ -118,6 +118,35 @@ describe("authService", () => {
       expect(result.isAdmin).toBe(false);
     });
 
+    it("succeeds for brand-new user with no name or surname in payload", async () => {
+      mockGetUserById.mockResolvedValue(null);
+      mockCreateUser.mockResolvedValue({ firebase_uid: "uid-new" });
+      mockUpsertProfile.mockResolvedValue({
+        user_id: "uid-new",
+        email: "new@firebase.com",
+        name: "",
+        surname: "",
+      });
+      mockUpdateUserActivity.mockResolvedValue();
+      mockGetUser.mockResolvedValue({
+        email: "new@firebase.com",
+        customClaims: {},
+      });
+
+      const result = await syncProfile("uid-new", {});
+
+      expect(mockUpsertProfile).toHaveBeenCalledWith(
+        "uid-new",
+        expect.objectContaining({ email: "new@firebase.com" }),
+      );
+      const upsertCall = mockUpsertProfile.mock.calls[0][1];
+      expect(upsertCall).not.toHaveProperty("name");
+      expect(upsertCall).not.toHaveProperty("surname");
+      expect(result.profileState.isProfileComplete).toBe(false);
+      expect(result.profileState.missingRequiredFields).toContain("name");
+      expect(result.profileState.missingRequiredFields).toContain("surname");
+    });
+
     it("propagates database errors", async () => {
       mockGetUserById.mockRejectedValue(new Error("DB connection lost"));
 

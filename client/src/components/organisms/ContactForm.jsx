@@ -48,13 +48,6 @@ export default function ContactForm() {
       setPendingSubmit(false);
       return;
     }
-    if (isOpen && !isAuthenticated) {
-      dispatch(openAuthModal('login'));
-    }
-  }, [isOpen, isAuthenticated, enforcedLogout, dispatch]);
-
-  useEffect(() => {
-    if (enforcedLogout) return;
     if (authSuccess && pendingSubmit) {
       const restored = savedFormData.questions || questions;
       setPendingSubmit(false);
