@@ -19,7 +19,11 @@ import { ensureSeeded, seedStatus } from "../scripts/seedE2EOnPreview.js";
 
 const app = express();
 
-// Security headers
+// Required on Vercel serverless so express-rate-limit accepts the
+// X-Forwarded-For header set by the edge proxy. Without this, every
+// rate-limited request throws ValidationError and returns 500.
+app.set("trust proxy", 1);
+
 app.use(helmet());
 
 // CORS configuration
