@@ -51,6 +51,8 @@ describe("seedE2EOnPreview", () => {
     process.env.E2E_ADMIN_UID = "admin-uid";
     delete process.env.E2E_USER_EMAIL;
     delete process.env.E2E_USER_UID;
+    delete process.env.E2E_INCOMPLETE_USER_EMAIL;
+    delete process.env.E2E_INCOMPLETE_USER_UID;
     delete process.env.E2E_SUPER_ADMIN_EMAIL;
     delete process.env.E2E_SUPER_ADMIN_UID;
     delete process.env.SKIP_E2E_SEED;
@@ -224,6 +226,8 @@ describe("GET /api/health — seed contract", () => {
     process.env.E2E_ADMIN_UID = "admin-uid";
     delete process.env.E2E_USER_EMAIL;
     delete process.env.E2E_USER_UID;
+    delete process.env.E2E_INCOMPLETE_USER_EMAIL;
+    delete process.env.E2E_INCOMPLETE_USER_UID;
     delete process.env.E2E_SUPER_ADMIN_EMAIL;
     delete process.env.E2E_SUPER_ADMIN_UID;
     delete process.env.SKIP_E2E_SEED;

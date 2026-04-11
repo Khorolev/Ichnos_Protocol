@@ -3,6 +3,7 @@
  *
  * Required env vars: DATABASE_URL, E2E_ADMIN_EMAIL, E2E_ADMIN_UID.
  * Optional env vars: E2E_USER_EMAIL, E2E_USER_UID,
+ *                    E2E_INCOMPLETE_USER_EMAIL, E2E_INCOMPLETE_USER_UID,
  *                    E2E_SUPER_ADMIN_EMAIL, E2E_SUPER_ADMIN_UID.
  * If required vars are missing the script exits silently (exit 0).
  * Note: In Vercel preview environments, seeding is done automatically via seedE2EOnPreview.js on server startup.
@@ -15,6 +16,8 @@ const {
   DATABASE_URL,
   E2E_USER_EMAIL,
   E2E_USER_UID,
+  E2E_INCOMPLETE_USER_EMAIL,
+  E2E_INCOMPLETE_USER_UID,
   E2E_ADMIN_EMAIL,
   E2E_ADMIN_UID,
   E2E_SUPER_ADMIN_EMAIL,
@@ -41,6 +44,34 @@ async function upsertUser(pool, uid, firstName, lastName, email) {
     [uid, firstName, lastName, email, "E2E Corp"],
   );
   console.log(`users + profile: upserted (${email})`);
+}
+
+/**
+ * Seed a user whose profile is deliberately incomplete (empty name/surname).
+ *
+ * The profile-completion E2E spec relies on this account so that a real
+ * login always opens the "Complete Your Profile" modal. We store empty
+ * strings (not NULL) because the user_profiles.name / surname columns are
+ * NOT NULL, and computeProfileState() treats empty strings as missing.
+ *
+ * Idempotent: re-running the seed resets name/surname back to '' even if a
+ * prior test run successfully completed the profile.
+ */
+async function upsertIncompleteUser(pool, uid, email) {
+  await pool.query(
+    `INSERT INTO users (firebase_uid)
+     VALUES ($1)
+     ON CONFLICT (firebase_uid) DO UPDATE SET deleted_at = NULL`,
+    [uid],
+  );
+  await pool.query(
+    `INSERT INTO user_profiles (user_id, name, surname, email, company)
+     VALUES ($1, '', '', $2, NULL)
+     ON CONFLICT (user_id) DO UPDATE
+       SET name = '', surname = '', email = $2, company = NULL`,
+    [uid, email],
+  );
+  console.log(`users + profile: upserted INCOMPLETE (${email})`);
 }
 
 async function upsertContactRequest(pool, uid) {
@@ -81,6 +112,14 @@ const pool = new Pool({ connectionString: DATABASE_URL });
 try {
   if (E2E_USER_UID && E2E_USER_EMAIL) {
     await upsertUser(pool, E2E_USER_UID, "E2E", "User", E2E_USER_EMAIL);
+  }
+
+  if (E2E_INCOMPLETE_USER_UID && E2E_INCOMPLETE_USER_EMAIL) {
+    await upsertIncompleteUser(
+      pool,
+      E2E_INCOMPLETE_USER_UID,
+      E2E_INCOMPLETE_USER_EMAIL,
+    );
   }
 
   await upsertUser(pool, E2E_ADMIN_UID, "E2E", "Admin", E2E_ADMIN_EMAIL);

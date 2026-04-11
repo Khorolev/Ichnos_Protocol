@@ -234,6 +234,10 @@ Rules:
 - **Admin role**: Set via Firebase custom claims (`{ role: 'admin' }`). Only users with this claim can access `/admin/*` routes.
 - Frontend route guards: A `ProtectedRoute` component checks auth state and role before rendering admin pages. Redirect unauthenticated users to login.
 - Never trust client-side role checks alone. Always verify server-side.
+- **`POST /api/auth/sync-profile`** is auth-protected (Bearer token required). The `auth` middleware runs before the controller. The server derives user identity from `req.user.uid` — the verified token claim. The client must **not** send `firebaseUid` in the request body; the body carries only profile fields (`name`, `surname`, `phone`, `company`, `linkedin`).
+- **Auth API response shape**: `GET /api/auth/me` returns `data.user` in camelCase: `{ firebaseUid, email, name, surname, phone, company, linkedin }`. DB snake_case keys (`firebase_uid`) are normalized via `mapUserRow` at the service layer and must never appear in API responses or Redux state.
+- **`400` UX behavior**: Profile-completion validation failures return a stable generic message (`"An unexpected error occurred."`), not field-level Zod detail. This is intentional — do not change it to expose field errors.
+- **Redux `auth.user`**: Always stores the canonical camelCase server shape after the T3/T4/T5 refactor. Selectors and components must reference `firebaseUid`, never `firebase_uid`.
 
 ---
 
@@ -423,7 +427,7 @@ Before every commit, verify:
 
 ## 16. Deployment (Vercel Monorepo)
 
-Two Vercel projects from one repo: `ichnos-client` (Vite static) and `ichnos-protocolserver` (Express serverless via `@vercel/node`).
+Two Vercel projects from one repo: `ichnos-client` (Vite static) and `ichnos-protocol_server` (Express serverless via `@vercel/node`).
 
 ### Rules Claude must follow when writing code
 

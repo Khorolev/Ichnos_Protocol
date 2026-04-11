@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from "fs";
 import { parse } from "dotenv";
 
-const UID_KEY_PATTERN = /^(E2E_(?:ADMIN|USER|SUPER_ADMIN|MANAGE_ADMIN_TARGET)_UID)=[^#]*?(#.*)?$/;
+const UID_KEY_PATTERN = /^(E2E_(?:ADMIN|USER|INCOMPLETE_USER|SUPER_ADMIN|MANAGE_ADMIN_TARGET)_UID)=[^#]*?(#.*)?$/;
 const PASSWORD_KEY_PATTERN = /^E2E_\w+_PASSWORD$/;
 
 export function readEnvFile(filePath) {

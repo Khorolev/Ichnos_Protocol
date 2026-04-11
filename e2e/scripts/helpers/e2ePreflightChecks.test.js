@@ -54,7 +54,7 @@ describe("checkVercelProject", () => {
   beforeEach(() => {
     existsSync.mockReturnValue(true);
     readFileSync.mockReturnValue(
-      JSON.stringify({ projectId: "prj_123", orgId: "org_456", projectName: "ichnos-protocolserver" }),
+      JSON.stringify({ projectId: "prj_123", orgId: "org_456", projectName: "ichnos-protocol_server" }),
     );
   });
 
@@ -84,7 +84,7 @@ describe("checkVercelProject", () => {
   });
 
   it("throws when projectId is missing", () => {
-    readFileSync.mockReturnValue(JSON.stringify({ orgId: "org_456", projectName: "ichnos-protocolserver" }));
+    readFileSync.mockReturnValue(JSON.stringify({ orgId: "org_456", projectName: "ichnos-protocol_server" }));
     expect(() => checkVercelProject(SERVER_DIR)).toThrow(
       /missing projectId or orgId/,
     );
@@ -92,7 +92,7 @@ describe("checkVercelProject", () => {
 
   it("throws when orgId is missing", () => {
     readFileSync.mockReturnValue(
-      JSON.stringify({ projectId: "prj_123", projectName: "ichnos-protocolserver" }),
+      JSON.stringify({ projectId: "prj_123", projectName: "ichnos-protocol_server" }),
     );
     expect(() => checkVercelProject(SERVER_DIR)).toThrow(
       /missing projectId or orgId/,
@@ -118,6 +118,15 @@ describe("checkVercelProject", () => {
   it("throws when projectName does not match expected identity", () => {
     readFileSync.mockReturnValue(
       JSON.stringify({ projectId: "prj_123", orgId: "org_456", projectName: "wrong-project" }),
+    );
+    expect(() => checkVercelProject(SERVER_DIR)).toThrow(
+      /does not match the expected server project/,
+    );
+  });
+
+  it("throws when projectName is the stale deleted 'ichnos-protocolserver'", () => {
+    readFileSync.mockReturnValue(
+      JSON.stringify({ projectId: "prj_123", orgId: "org_456", projectName: "ichnos-protocolserver" }),
     );
     expect(() => checkVercelProject(SERVER_DIR)).toThrow(
       /does not match the expected server project/,

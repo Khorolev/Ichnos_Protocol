@@ -79,10 +79,10 @@ export function checkVercelProject(serverDir) {
     );
   }
 
-  if (projectJson.projectName !== "ichnos-protocolserver") {
+  if (projectJson.projectName !== "ichnos-protocol_server") {
     fail(
-      `Linked Vercel project '${projectJson.projectName}' does not match the expected server project 'ichnos-protocolserver'.`,
-      "Run `cd server && vercel link` and select the 'ichnos-protocolserver' project.",
+      `Linked Vercel project '${projectJson.projectName}' does not match the expected server project 'ichnos-protocol_server'.`,
+      "Run `cd server && vercel link` and select the 'ichnos-protocol_server' project.",
     );
   }
 }
