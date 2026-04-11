@@ -1,6 +1,5 @@
-export function buildSignupSyncPayload(signupFields, firebaseUser) {
+export function buildSignupSyncPayload(signupFields) {
   return {
-    firebaseUid: firebaseUser.uid,
     email: signupFields.email,
     name: signupFields.name,
     surname: signupFields.surname,
@@ -10,13 +9,8 @@ export function buildSignupSyncPayload(signupFields, firebaseUser) {
   };
 }
 
-export function buildCompletionSyncPayload(
-  currentUser,
-  canonicalEmail,
-  fields,
-) {
+export function buildCompletionSyncPayload(canonicalEmail, fields) {
   return {
-    firebaseUid: currentUser?.firebaseUid || currentUser?.uid,
     email: canonicalEmail,
     name: fields.name,
     surname: fields.surname,

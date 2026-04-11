@@ -12,12 +12,11 @@ export function useAuthActions({
   dispatch,
   syncProfile,
   form,
-  currentUser,
   canonicalEmail,
 }) {
   const syncAndDispatch = async (data) => {
     const result = await syncProfile(data).unwrap();
-    dispatch(setUser(result.data?.user || data));
+    dispatch(setUser(result.data.user));
     dispatch(setAdmin(result.data?.isAdmin || false));
     const profile = result.data?.profileState;
     if (profile) dispatch(setProfileState(profile));
@@ -60,7 +59,7 @@ export function useAuthActions({
     const { email, password } = form.loginFields;
     executeAuthFlow(
       () => signInWithEmailAndPassword(auth, email, password),
-      (u) => ({ firebaseUid: u.uid, email: u.email }),
+      (u) => ({ email: u.email }),
     );
   };
 
@@ -69,7 +68,7 @@ export function useAuthActions({
     const { email, password } = form.signupFields;
     executeAuthFlow(
       () => createUserWithEmailAndPassword(auth, email, password),
-      (u) => buildSignupSyncPayload(form.signupFields, u),
+      () => buildSignupSyncPayload(form.signupFields),
     );
   };
 
@@ -79,7 +78,6 @@ export function useAuthActions({
     form.setLoading(true);
     try {
       const payload = buildCompletionSyncPayload(
-        currentUser,
         canonicalEmail,
         form.completionFields,
       );

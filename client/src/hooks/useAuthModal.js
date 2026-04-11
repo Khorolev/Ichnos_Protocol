@@ -43,7 +43,6 @@ export function useAuthModal() {
       dispatch,
       syncProfile,
       form,
-      currentUser,
       canonicalEmail,
     });
 

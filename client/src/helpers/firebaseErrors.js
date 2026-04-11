@@ -21,5 +21,8 @@ export function formatSyncError(error) {
   if (typeof status === 'number' && status >= 500) {
     return 'An unexpected server error occurred.';
   }
+  if (status === 400) {
+    return 'An unexpected error occurred.';
+  }
   return 'An unexpected error occurred.';
 }

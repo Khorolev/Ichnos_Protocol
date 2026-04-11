@@ -228,4 +228,102 @@ describe('useAuthInit', () => {
     });
     expect(clearCompletionShown).toHaveBeenCalled();
   });
+
+  describe('user shape contract from /me response', () => {
+    // NOTE: T1 runtime /me still returns repository-shaped snake_case keys
+    // (e.g. firebase_uid). useAuthInit must store whatever /me returns into
+    // Redux unchanged — it does not synthesize a camelCase firebaseUid.
+    // Later server tickets will normalize the /me contract to camelCase.
+    it('stores T1 /me user object (firebase_uid) into Redux unchanged', async () => {
+      const store = createStore();
+      isCompletionRequired.mockReturnValue(false);
+      const meUser = {
+        firebase_uid: 'uid-1',
+        name: 'John',
+        surname: 'Doe',
+        email: 'a@b.com',
+        phone: '+1234567890',
+        company: 'Acme',
+        linkedin: 'https://linkedin.com/in/johndoe',
+      };
+      mockGetMeResponse = {
+        data: {
+          data: {
+            user: meUser,
+            isAdmin: false,
+            profileState: {
+              isProfileComplete: true,
+              missingRequiredFields: [],
+            },
+          },
+        },
+      };
+
+      renderUseAuthInit(store);
+      await mockAuthCallback({ uid: 'uid-1', email: 'a@b.com' });
+
+      await waitFor(() => {
+        expect(store.getState().auth.isAuthenticated).toBe(true);
+      });
+
+      const storedUser = store.getState().auth.user;
+      // Passthrough contract: the stored user must be deep-equal to the
+      // mocked /me user — no synthesized keys, no transformed keys, no drops.
+      expect(storedUser).toEqual(meUser);
+      expect(Object.keys(storedUser).sort()).toEqual(
+        Object.keys(meUser).sort(),
+      );
+      // Explicit opposite-key absence: this test must fail if a future
+      // normalization step starts synthesizing a camelCase firebaseUid.
+      expect(storedUser).not.toHaveProperty('firebaseUid');
+    });
+
+    // Passthrough behavior: if an already-normalized (camelCase) user object
+    // is ever returned by /me, useAuthInit must also store it unchanged.
+    // This is NOT the current T1 /me contract — it characterizes the generic
+    // passthrough behavior of the hook against a future normalized shape.
+    it('stores an already-normalized camelCase user object into Redux unchanged (passthrough)', async () => {
+      const store = createStore();
+      isCompletionRequired.mockReturnValue(false);
+      const meUser = {
+        firebaseUid: 'uid-1',
+        email: 'a@b.com',
+        name: 'John',
+        surname: 'Doe',
+        phone: '+1234567890',
+        company: 'Acme',
+        linkedin: 'https://linkedin.com/in/johndoe',
+      };
+      mockGetMeResponse = {
+        data: {
+          data: {
+            user: meUser,
+            isAdmin: false,
+            profileState: {
+              isProfileComplete: true,
+              missingRequiredFields: [],
+            },
+          },
+        },
+      };
+
+      renderUseAuthInit(store);
+      await mockAuthCallback({ uid: 'uid-1', email: 'a@b.com' });
+
+      await waitFor(() => {
+        expect(store.getState().auth.isAuthenticated).toBe(true);
+      });
+
+      const storedUser = store.getState().auth.user;
+      // Passthrough contract: the stored user must be deep-equal to the
+      // mocked /me user — no synthesized keys, no transformed keys, no drops.
+      expect(storedUser).toEqual(meUser);
+      expect(Object.keys(storedUser).sort()).toEqual(
+        Object.keys(meUser).sort(),
+      );
+      // Explicit opposite-key absence: this test must fail if a future
+      // denormalization step starts introducing a snake_case firebase_uid.
+      expect(storedUser).not.toHaveProperty('firebase_uid');
+    });
+  });
 });
