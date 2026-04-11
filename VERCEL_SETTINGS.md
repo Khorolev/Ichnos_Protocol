@@ -216,13 +216,20 @@ The `sync-staging.yml` workflow pushes to the `staging` branch using a Personal 
 - Navigate to **GitHub → Settings → Secrets and variables → Actions → New repository secret** and create `SYNC_PAT` with the PAT value.
 - See [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md) §2 for the full secrets list.
 
-### Neon Ephemeral Branch Behavior
+### Neon Ephemeral Branch Behavior — Disable for `staging`
 
-The Neon–Vercel integration will still create an ephemeral Neon branch when a `staging` preview is built — this is automatic and cannot be prevented.
+By default, the Neon–Vercel integration creates an ephemeral Neon branch for **every** preview deployment, including `staging`. The `DATABASE_URL` branch-scoped override in §6 routes the staging server to the production Neon database anyway, so the ephemeral branch is **unused** — but it still counts against the Neon project's branch-count limit (10 on the free tier). Because `staging` redeploys on every `main → staging` sync **and** on every manual-QA push, these unused branches accumulate fast and eventually surface as **"Neon branching: Branch limit exceeded"** on unrelated preview deployments, blocking CI.
 
-This is **benign**: the `DATABASE_URL` branch-scoped override supersedes the ephemeral branch's connection string. The server connects to the production Neon database, not the ephemeral branch.
+**Required action:** disable Neon preview-branch creation for the `staging` git branch in Vercel.
 
-The ephemeral branch is unused and will expire automatically per Neon's free-tier retention policy. **No manual cleanup or action is needed.**
+1. Open **Vercel → `ichnos-protocolserver` → Integrations → Neon → Settings**.
+2. Locate the **"Create preview branch for preview deployments"** option (name varies slightly by integration version).
+3. Add `staging` to the list of **excluded git branches** (or disable the integration entirely for `staging` — the server's `DATABASE_URL` override already points at production Neon, so branch creation is pure waste).
+4. Save and trigger a throwaway staging deployment to confirm no new Neon branch appears for that deployment.
+
+This change has **zero runtime impact** on staging — the server connects to production Neon either way — but it eliminates the silent branch accumulation that caused the PR #122 deployment-check failure. Feature-branch and `main` previews are unaffected; they continue creating ephemeral branches as designed (and those branches are now cleaned up automatically by the E2E workflow's post-run `cleanupNeonBranch.js` step).
+
+**Complementary safety net:** [`cleanupNeonBranch.js`](e2e/scripts/cleanupNeonBranch.js) runs with `if: always()` at the end of every E2E workflow run and deletes `preview/{gitBranch}*` Neon branches via the Neon API. It requires two new GitHub Actions repository secrets: `NEON_API_KEY` and `NEON_PROJECT_ID`. See [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md) §2.
 
 ### Staging Verification Checklist
 
@@ -232,6 +239,7 @@ The ephemeral branch is unused and will expire automatically per Neon's free-tie
 - [ ] **`CORS_ORIGIN`** — Value matches the staging client preview URL exactly
 - [ ] **`DATABASE_URL`** — Value matches the production Neon connection string (not an ephemeral branch URL)
 - [ ] **`SYNC_PAT`** — GitHub Actions secret exists with `contents: write` scope
+- [ ] **Neon integration excludes `staging`** — In Vercel → `ichnos-protocolserver` → Integrations → Neon, the `staging` git branch is excluded from preview-branch creation (prevents silent Neon branch accumulation that eventually trips "Branch limit exceeded" on unrelated PRs)
 - [ ] **Override scoping** — All overrides are scoped to **Preview + Git branch: `staging`**, not global Preview
 - [ ] **Feature branch isolation** — Push a `feature/*` branch and confirm its preview uses the default (non-production) env vars
 - [ ] **`/api/health`** — Deploy `staging` and confirm response shows `seed.mode: skipped`

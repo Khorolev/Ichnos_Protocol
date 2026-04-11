@@ -115,6 +115,19 @@ This secret is required by `sync-staging.yml` to force-push `main` to `staging` 
 
 > **Why a PAT?** Pushes made with the default `GITHUB_TOKEN` do not trigger Vercel's native Git integration (Vercel ignores events from GitHub Actions bots). A PAT makes the push appear as a real user, which triggers the Vercel preview deployment for the `staging` branch.
 
+### Neon Preview-Branch Cleanup Secrets
+
+These two secrets are required by the `Delete Neon preview branch` step in `e2e.yml`. The step runs with `if: always()` at the end of every E2E workflow run and deletes `preview/{gitBranch}*` Neon branches via the Neon API so they do not accumulate past the project's branch-count limit. Without these secrets the step soft-skips (exit 0) and cleanup falls back to the manual Neon console or Neon's retention policy — the workflow itself still runs normally.
+
+| Secret            | Description                                      | Where to Find                                                                        |
+| ----------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| `NEON_API_KEY`    | Neon personal or organization API key            | Neon Console → Account Settings → API Keys → Create new API key                      |
+| `NEON_PROJECT_ID` | Neon project ID (e.g. `wispy-bar-12345678`)      | Neon Console → Project → Settings → General → Project ID                             |
+
+> **Minimum scope:** The API key needs permission to list and delete branches on the target project. A project-scoped key is preferred over an account-wide key. The key is read only by the `Delete Neon preview branch` step — it is never exposed to test code or the Playwright runner.
+>
+> **Safety:** The cleanup script (`e2e/scripts/cleanupNeonBranch.js`) refuses to touch `primary` branches, `protected` branches, or any branch literally named `main` / `production` / `staging`. It only targets names matching `preview/{gitBranch}` or `preview/{gitBranch}-*`. See `e2e/scripts/helpers/cleanupNeonBranch.test.js` for the pinned safety contract.
+
 ---
 
 ## 3. Environments
@@ -211,6 +224,8 @@ After completing setup (or when verifying an existing configuration), confirm ev
 | `VERCEL_ORG_ID` secret (production promotion)            | Set, non-empty                                     | Settings → Secrets → Actions                           |
 | `VERCEL_PROJECT_ID_CLIENT` secret (production promotion) | Set, non-empty                                     | Settings → Secrets → Actions                           |
 | `VERCEL_PROJECT_ID_SERVER` secret (production promotion) | Set, non-empty                                     | Settings → Secrets → Actions                           |
+| `NEON_API_KEY` secret (E2E branch cleanup)               | Set, non-empty                                     | Settings → Secrets → Actions                           |
+| `NEON_PROJECT_ID` secret (E2E branch cleanup)            | Set, non-empty                                     | Settings → Secrets → Actions                           |
 | `production` environment                                 | Exists with ≥1 required reviewer                   | Settings → Environments                                |
 | `main` branch protection                                 | PR required + 5 status checks                      | Settings → Branches (or Rules → Rulesets)              |
 | `release` branch protection                              | PR required + `Release Policy Check`               | Settings → Branches (or Rules → Rulesets)              |
@@ -242,6 +257,9 @@ Use this checklist when setting up a new repository or verifying an existing one
   - [ ] `VERCEL_PROJECT_ID_CLIENT`
   - [ ] `VERCEL_PROJECT_ID_SERVER`
 - [ ] **Secret (staging sync)** — `SYNC_PAT` is set (§2)
+- [ ] **Secrets (Neon preview cleanup)** — Both set if ephemeral preview branches are desired (§2)
+  - [ ] `NEON_API_KEY`
+  - [ ] `NEON_PROJECT_ID`
 - [ ] **Environment** — `production` environment exists with at least one required reviewer (§3)
 - [ ] **Branch protection: `main`** — 5 required status checks configured: `Client — Lint & Test`, `Server — Lint & Test`, the two Vercel deployment checks (copy exact names from a recent PR's check list), `E2E Tests (Playwright)` (§4)
 - [ ] **Branch protection: `release`** — `Release Policy Check` required + PR required (§4)
