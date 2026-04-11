@@ -111,12 +111,14 @@ jobs:
             SHA="${{ github.event.client_payload.deployment.meta.githubCommitSha || github.event.client_payload.commitSha || '' }}"
             REF="${{ github.event.client_payload.deployment.meta.githubCommitRef || github.event.client_payload.branch || '' }}"
             echo "commit_sha=$SHA" >> "$GITHUB_OUTPUT"
+            echo "git_branch=$REF" >> "$GITHUB_OUTPUT"
             echo "Vercel payload URL: ${{ github.event.client_payload.url }}"
             echo "Commit SHA: $SHA"
             echo "Branch: $REF"
           else
             echo "commit_sha=" >> "$GITHUB_OUTPUT"
-            echo "Manual run — commit SHA defaults to github.sha"
+            echo "git_branch=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+            echo "Manual run — commit SHA defaults to github.sha, branch=${{ github.ref_name }}"
           fi
 
       - name: Checkout repository
@@ -424,6 +426,23 @@ jobs:
           fi
           echo "Running: npx playwright test ${GREP_ARGS[*]}"
           npx playwright test "${GREP_ARGS[@]}"
+
+      # ── Neon branch cleanup ──────────────────────────────────────────
+      # Deletes the ephemeral Neon preview branch(es) that the Vercel ↔ Neon
+      # integration created for this git branch. Runs AFTER the Playwright
+      # step so the test DB is never yanked mid-test, but uses `if: always()`
+      # so the branch is still freed on test failures. The script is
+      # best-effort — it exits 0 even when deletion fails, so a flaky Neon
+      # API call never masks the actual Playwright result. Requires the
+      # NEON_API_KEY and NEON_PROJECT_ID repository secrets to be set;
+      # missing secrets cause a soft skip.
+      - name: Delete Neon preview branch
+        if: always()
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+          GIT_BRANCH: ${{ steps.deploy.outputs.git_branch }}
+        run: node e2e/scripts/cleanupNeonBranch.js
 
       - name: Set final commit status
         if: always() && steps.deploy.outputs.commit_sha != ''
