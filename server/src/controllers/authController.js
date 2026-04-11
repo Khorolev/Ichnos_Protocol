@@ -9,7 +9,8 @@ import { formatResponse } from "../helpers/formatResponse.js";
 
 export async function syncProfile(req, res, next) {
   try {
-    const { firebaseUid, ...profileData } = req.body;
+    const firebaseUid = req.user.uid;
+    const profileData = req.body;
 
     const result = await authService.syncProfile(firebaseUid, profileData);
 

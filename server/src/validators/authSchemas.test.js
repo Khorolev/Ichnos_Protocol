@@ -7,7 +7,6 @@ import {
 
 describe("syncProfileSchema", () => {
   const validProfile = {
-    firebaseUid: "uid-1",
     name: "John",
     surname: "Doe",
     email: "john@example.com",
@@ -28,15 +27,13 @@ describe("syncProfileSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects missing firebaseUid", () => {
-    const { firebaseUid: _firebaseUid, ...noUid } = validProfile;
-    const result = syncProfileSchema.safeParse(noUid);
-    expect(result.success).toBe(false);
+  it("accepts empty object (all fields optional, none required)", () => {
+    const result = syncProfileSchema.safeParse({});
+    expect(result.success).toBe(true);
   });
 
   it("accepts missing name (now optional)", () => {
     const result = syncProfileSchema.safeParse({
-      firebaseUid: "uid-1",
       surname: "Doe",
       email: "a@b.com",
     });
@@ -45,7 +42,6 @@ describe("syncProfileSchema", () => {
 
   it("accepts missing surname (now optional)", () => {
     const result = syncProfileSchema.safeParse({
-      firebaseUid: "uid-1",
       name: "John",
       email: "a@b.com",
     });
@@ -54,14 +50,13 @@ describe("syncProfileSchema", () => {
 
   it("accepts missing email (now optional)", () => {
     const result = syncProfileSchema.safeParse({
-      firebaseUid: "uid-1",
       name: "John",
       surname: "Doe",
     });
     expect(result.success).toBe(true);
   });
 
-  it("accepts payload with only firebaseUid", () => {
+  it("accepts unknown legacy fields such as firebaseUid without error", () => {
     const result = syncProfileSchema.safeParse({ firebaseUid: "uid-1" });
     expect(result.success).toBe(true);
   });
