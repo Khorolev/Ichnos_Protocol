@@ -102,6 +102,33 @@ async function upsertUser(pool, uid, firstName, lastName, email) {
   );
 }
 
+/**
+ * Seed a user whose profile is deliberately incomplete (empty name/surname).
+ *
+ * The profile-completion E2E spec relies on this account so that a real
+ * login always opens the "Complete Your Profile" modal. We store empty
+ * strings (not NULL) because the user_profiles.name / surname columns are
+ * NOT NULL, and computeProfileState() treats empty strings as missing.
+ *
+ * Idempotent: re-running the seed resets name/surname back to '' even if a
+ * prior test run successfully completed the profile.
+ */
+async function upsertIncompleteUser(pool, uid, email) {
+  await pool.query(
+    `INSERT INTO users (firebase_uid)
+     VALUES ($1)
+     ON CONFLICT (firebase_uid) DO UPDATE SET deleted_at = NULL`,
+    [uid],
+  );
+  await pool.query(
+    `INSERT INTO user_profiles (user_id, name, surname, email, company)
+     VALUES ($1, '', '', $2, NULL)
+     ON CONFLICT (user_id) DO UPDATE
+       SET name = '', surname = '', email = $2, company = NULL`,
+    [uid, email],
+  );
+}
+
 async function findOrCreateRequest(pool, uid) {
   const existing = await pool.query(
     "SELECT id FROM contact_requests WHERE user_id = $1 LIMIT 1",
@@ -139,6 +166,20 @@ async function upsertContactRequest(pool, uid) {
 async function seedOptionalUser(pool) {
   if (!process.env.E2E_USER_UID || !process.env.E2E_USER_EMAIL) return;
   await upsertUser(pool, process.env.E2E_USER_UID, "E2E", "User", process.env.E2E_USER_EMAIL);
+}
+
+async function seedOptionalIncompleteUser(pool) {
+  if (
+    !process.env.E2E_INCOMPLETE_USER_UID ||
+    !process.env.E2E_INCOMPLETE_USER_EMAIL
+  ) {
+    return;
+  }
+  await upsertIncompleteUser(
+    pool,
+    process.env.E2E_INCOMPLETE_USER_UID,
+    process.env.E2E_INCOMPLETE_USER_EMAIL,
+  );
 }
 
 async function seedAdmin(pool) {
@@ -225,6 +266,7 @@ export async function seedE2EOnPreview() {
 
       // Phase 2: Run seed operations
       await seedOptionalUser(pool);
+      await seedOptionalIncompleteUser(pool);
       await seedAdmin(pool);
       await seedOptionalSuperAdmin(pool);
       seedStatus.seeded = true;

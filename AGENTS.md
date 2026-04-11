@@ -138,7 +138,7 @@ cd server && vercel --prod   # deploy backend
 
 - E2E tests live in `e2e/tests/` at the repository root (separate from client/server).
 - **Local**: Start client + server locally, run `cd e2e && npx playwright test`.
-- **CI**: E2E is triggered by `repository_dispatch (vercel.deployment.success)` from the **server** Vercel project (`ichnos-protocolserver`) only. Repository Dispatch Events are enabled on the server project; the client project does not emit dispatches.
+- **CI**: E2E is triggered by `repository_dispatch (vercel.deployment.success)` from the **server** Vercel project (`ichnos-protocol_server`) only. Repository Dispatch Events are enabled on the server project; the client project does not emit dispatches.
   - **Filter**: The workflow guards on `contains(github.event.client_payload.project.name || '', 'server')` — a safety check since only the server emits dispatches.
   - **Target URLs**: Stable E2E URLs from the committed `e2e/.env.e2e` file (`E2E_BASE_URL` for client, `E2E_API_BASE_URL` for API) — not per-deployment hash URLs.
   - **Client readiness**: The workflow polls `E2E_BASE_URL` (loaded from `e2e/.env.e2e`) to verify the client is live before running Playwright.
@@ -193,6 +193,13 @@ cd server && vercel --prod   # deploy backend
 - Never call `admin.auth()`, `admin.storage()`, or `admin.firestore()` before the app is fully initialized.
 - Reference implementation: `server/src/config/firebase.js`.
 
+### Auth API contract (post-T3/T4/T5 refactor)
+- **`POST /api/auth/sync-profile`** is auth-protected — the `auth` middleware must be present on this route. Identity is derived exclusively from `req.user.uid` (the verified Firebase token). The request body must **not** include `firebaseUid`; any body-supplied UID is ignored.
+- **`GET /api/auth/me`** returns `data.user` in camelCase shape: `{ firebaseUid, email, name, surname, phone, company, linkedin }`. The DB snake_case row is normalized via `mapUserRow` at the service boundary before reaching the client.
+- **`400` validation failures** from profile-completion flows render a stable generic message (`"An unexpected error occurred."`) — not field-level detail — to avoid leaking schema information.
+- **Redux `auth.user`** always stores the canonical camelCase server shape. Never read `firebase_uid` from Redux state; always use `firebaseUid`.
+- **Rule**: Never trust body-supplied UIDs. Always verify Firebase identity server-side via middleware. Normalize DB shapes at the service boundary (`mapUserRow`) before returning to clients.
+
 ## Deployment (Vercel Monorepo)
 
 - Deployed on **Vercel** as two projects from the same repo.
@@ -200,7 +207,7 @@ cd server && vercel --prod   # deploy backend
 - **Backend** (`server/`): Express app wrapped as a Vercel serverless function via `server/api/index.js` using `@vercel/node`.
 - **Vercel Git integration handles preview deployments** automatically on every branch push and PR — no GitHub Actions workflow is involved in creating previews.
 - **Enforced pipeline order**: CI → Vercel Preview (native) → E2E (Playwright via `repository_dispatch (vercel.deployment.success)`) → approval-gated production promotion.
-- `repository_dispatch (vercel.deployment.success)` events from the **server** Vercel project (`ichnos-protocolserver`) trigger `e2e.yml`. The workflow uses project-name filtering (`contains(project.name, 'server')`) and targets stable E2E URLs from the committed `e2e/.env.e2e` file (`E2E_BASE_URL`, `E2E_API_BASE_URL`).
+- `repository_dispatch (vercel.deployment.success)` events from the **server** Vercel project (`ichnos-protocol_server`) trigger `e2e.yml`. The workflow uses project-name filtering (`contains(project.name, 'server')`) and targets stable E2E URLs from the committed `e2e/.env.e2e` file (`E2E_BASE_URL`, `E2E_API_BASE_URL`).
 - Production promotion is triggered automatically on push to `release` and requires human approval via the GitHub `production` environment before the latest validated `main` preview is promoted.
 - Environment variables set in Vercel project settings, never committed.
 - `server/api/index.js` only re-exports the Express app. All setup stays in `server/src/app.js`.
@@ -248,7 +255,7 @@ cd server && vercel --prod   # deploy backend
 - The `staging` branch does **not** use an ephemeral Neon branch — it connects directly to the production Neon database via a branch-scoped `DATABASE_URL` override. Any Neon ephemeral branch auto-created for the `staging` preview is unused and expires automatically.
 
 ### E2E URL targeting in GitHub Actions
-- E2E tests are triggered by `repository_dispatch (vercel.deployment.success)` from the **server** Vercel project (`ichnos-protocolserver`) via `e2e.yml`, not as a dependent job inside another workflow.
+- E2E tests are triggered by `repository_dispatch (vercel.deployment.success)` from the **server** Vercel project (`ichnos-protocol_server`) via `e2e.yml`, not as a dependent job inside another workflow.
 - The workflow uses **project-name filtering** (`contains(project.name, 'server')`) as the event guard — not hostname pattern matching.
 - Tests target stable E2E URLs from the committed `e2e/.env.e2e` file (`E2E_BASE_URL`, `E2E_API_BASE_URL`), not per-deployment hash URLs and not secrets.
 - Detection does not use `VERCEL_PROJECT_ID_CLIENT` or hostname matching.

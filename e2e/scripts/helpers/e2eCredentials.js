@@ -1,6 +1,7 @@
 const ROLES = [
   { key: "ADMIN", name: "E2E Admin", claims: { admin: true } },
   { key: "USER", name: "E2E Test User", claims: {} },
+  { key: "INCOMPLETE_USER", name: "E2E Incomplete User", claims: {} },
   { key: "SUPER_ADMIN", name: "E2E Super Admin", claims: { admin: true, superAdmin: true } },
   { key: "MANAGE_ADMIN_TARGET", name: "E2E Manage-Admin Target", claims: {} },
 ];

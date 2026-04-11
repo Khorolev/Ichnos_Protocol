@@ -876,6 +876,50 @@ const initialState = {
 
 ---
 
+## Part H — Auth Boundary & DTO Normalization
+
+### H1. Unprotected sync-profile + snake_case DTO caused orphan rows and identity failures
+
+**What went wrong**: Profile completion silently failed for users who had just
+registered. The completion form submitted successfully on the client but the
+server either created orphan DB rows or returned identity data the client
+couldn't use.
+
+**Why it happened** (two compounding root causes):
+
+1. `/api/auth/sync-profile` had no `auth` middleware. The service called
+   `createUser` before performing the Firebase lookup, so any failure after
+   the INSERT into `users` (e.g., Firebase token invalid) left an orphan
+   row in `users` — typically with no matching `user_profiles` row and no
+   verified Firebase account behind it. Cleanup must target the `users`
+   table (and any dangling `user_profiles` children), not `user_profiles`
+   alone.
+2. The service returned raw DB rows with snake_case keys (`firebase_uid`,
+   `created_at`). The client read `data.user.firebase_uid` to derive identity
+   for subsequent requests. After the T3/T4/T5 refactor, the client expected
+   `firebaseUid` (camelCase), causing a silent `undefined` identity that
+   broke all post-completion flows.
+
+**The fix**:
+- Added `auth` middleware to the `/sync-profile` route. The controller now
+  reads identity from `req.user.uid` (token-derived), never from the request
+  body.
+- Introduced `mapUserRow` in the auth service to normalize DB snake_case to
+  camelCase at the service boundary before any response is built.
+- The client's sync payload no longer includes `firebaseUid` — the server
+  derives it from the verified token.
+
+**The simple rule**:
+- Always protect identity-mutating endpoints with auth middleware — never
+  rely on body-supplied UIDs.
+- Normalize DB shapes at the **service boundary** via a dedicated mapper
+  (`mapUserRow`). Raw DB column names (`snake_case`) must never reach API
+  responses or Redux state.
+- Verify Firebase identity server-side on every write. Never call
+  `createUser` before the Firebase lookup succeeds.
+
+---
+
 ## Quick Reference Checklists
 
 ### New Project Setup
@@ -916,6 +960,9 @@ const initialState = {
     verify `user_profiles` table has rows for E2E test users
 11. If admin dashboard never renders — check `waitForDashboardReady` diagnostic
     logs for URL, body text, and API responses (F3)
+11a. If profile completion redirects back to the completion form after submit —
+    check that `auth` middleware is on `/api/auth/sync-profile` and that
+    `mapUserRow` normalizes the response to camelCase before it reaches Redux (H1)
 12. If "strict mode violation" on selectors — scope to nearest container (F4)
 13. If `getByRole('link')` or `getByRole('tab')` times out on Bootstrap Nav —
     check parent context: standalone Nav has no ARIA role, use `.nav-link` (G1)

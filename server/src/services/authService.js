@@ -6,6 +6,7 @@
  */
 import firebaseAdmin from "../config/firebase.js";
 import * as userRepository from "../repositories/userRepository.js";
+import { mapUserRow } from "../helpers/mapUserRow.js";
 
 const REQUIRED_PROFILE_FIELDS = ["name", "surname", "email"];
 
@@ -33,12 +34,12 @@ export function computeProfileState(profile) {
 export async function syncProfile(firebaseUid, profileData) {
   let user = await userRepository.getUserById(firebaseUid);
 
+  const firebaseUser = await firebaseAdmin.auth().getUser(firebaseUid);
+  const isAdmin = extractAdminFlag(firebaseUser.customClaims);
+
   if (!user) {
     user = await userRepository.createUser(firebaseUid);
   }
-
-  const firebaseUser = await firebaseAdmin.auth().getUser(firebaseUid);
-  const isAdmin = extractAdminFlag(firebaseUser.customClaims);
 
   const mergedProfile = {
     name: user?.name,
@@ -64,7 +65,21 @@ export async function syncProfile(firebaseUid, profileData) {
 
   const profileState = computeProfileState(profile);
 
-  return { user, profile, isAdmin, profileState };
+  const canonicalUserRow = {
+    firebase_uid: firebaseUid,
+    name: profile?.name,
+    surname: profile?.surname,
+    phone: profile?.phone,
+    company: profile?.company,
+    linkedin: profile?.linkedin,
+  };
+
+  return {
+    user: mapUserRow(canonicalUserRow, firebaseUser.email),
+    profile,
+    isAdmin,
+    profileState,
+  };
 }
 
 export async function verifyToken(idToken) {
@@ -83,7 +98,7 @@ export async function getUser(firebaseUid) {
 
   const firebaseUser = await firebaseAdmin.auth().getUser(firebaseUid);
   const isAdmin = extractAdminFlag(firebaseUser.customClaims);
-  const canonicalUser = { ...user, email: firebaseUser.email ?? user.email };
+  const canonicalUser = mapUserRow(user, firebaseUser.email ?? user.email);
   const profileState = computeProfileState(canonicalUser);
 
   return { user: canonicalUser, isAdmin, profileState };

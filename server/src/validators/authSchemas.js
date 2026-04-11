@@ -6,7 +6,6 @@
 import { z } from "zod/v4";
 
 export const syncProfileSchema = z.object({
-  firebaseUid: z.string().min(1, "firebaseUid is required"),
   name: z.string().min(1, "Name is required").max(255).optional(),
   surname: z.string().min(1, "Surname is required").max(255).optional(),
   email: z.email("Invalid email address").optional(),

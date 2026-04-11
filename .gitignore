@@ -16,8 +16,10 @@
 firebase-service-account*.json
 serviceAccountKey*.json
 credentials*.json
-.ichnos-protocol-firebase-adminsdk-fbsvc-2046c58e9e.json
-.ichnos-protocol-test-firebase-adminsdk-fbsvc-af7f7c29c0.json
+# Firebase admin SDK key files — catch current and historical filename variants
+# (e.g. *_staging.json, *_test.json, date-tagged keys) instead of exact names.
+.ichnos-protocol-*firebase-adminsdk*.json
+*firebase-adminsdk*.json
 secrets/
 
 # ============================================
