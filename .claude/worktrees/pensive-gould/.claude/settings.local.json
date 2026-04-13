@@ -69,7 +69,13 @@
       "mcp__vercel__get_runtime_logs",
       "Bash(Select-String -Pattern \"passed|failed|skipped\")",
       "Bash(Select-Object -Last 5)",
-      "mcp__vercel__get_deployment"
+      "mcp__vercel__get_deployment",
+      "Bash(npm run:*)",
+      "Bash(node e2e/scripts/cleanupNeonBranch.js --dry-run)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(python -c \"import yaml, sys; yaml.safe_load\\(open\\(r'C:/Users/malto/OneDrive/Documenti/GitHub/Ichnos_Protocol/.github/workflows/e2e.yml','r',encoding='utf-8'\\)\\); print\\('yaml OK'\\)\")",
+      "mcp__vercel__list_projects",
+      "Bash(npx eslint:*)"
     ]
   }
 }

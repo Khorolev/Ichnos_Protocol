@@ -14,7 +14,7 @@ import {
 } from "../helpers/chatHelpers.js";
 
 const DAILY_LIMIT = 3;
-const XAI_TIMEOUT_MS = 8000;
+export const XAI_TIMEOUT_MS = 9500;
 const TOPIC_TIMEOUT_MS = 2000;
 
 export function extractKeywords(text) {
@@ -78,7 +78,7 @@ async function classifyTopics(questionId, message) {
   }
 }
 
-export async function sendMessage(userId, message) {
+export async function prepareChat(userId, message) {
   const today = new Date().toISOString().split("T")[0];
   const dailyCount = await questionRepository.getDailyChatCount(userId, today);
 
@@ -90,25 +90,35 @@ export async function sendMessage(userId, message) {
   const documents = await knowledgeRepository.queryKnowledgeBase(keywords, null);
   const userContent = buildUserContent(buildContextString(documents), message);
 
-  const answer = await callXaiApi(
-    [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: userContent },
-    ],
-    XAI_TIMEOUT_MS,
-  );
+  const messages = [
+    { role: "system", content: SYSTEM_PROMPT },
+    { role: "user", content: userContent },
+  ];
 
-  const question = await questionRepository.createQuestion(userId, {
+  return { messages, dailyCount };
+}
+
+export async function persistChat(userId, message, answer) {
+  const questionData = {
     question: message,
     answer,
     source: "chat",
     contactRequestId: null,
+  };
+
+  const question = await questionRepository.createQuestion(userId, questionData);
+  const messageId = question.id;
+
+  runTailWork(userId, messageId, message);
+
+  return { messageId };
+}
+
+function runTailWork(userId, questionId, message) {
+  userRepository.updateUserActivity(userId).catch((err) => {
+    console.warn("User activity update failed (non-blocking):", err.message);
   });
-
-  await userRepository.updateUserActivity(userId);
-  await classifyTopics(question.id, message);
-
-  return { answer, messageId: question.id, dailyCount: dailyCount + 1 };
+  classifyTopics(questionId, message);
 }
 
 export async function getChatHistory(userId) {
