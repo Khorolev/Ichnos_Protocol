@@ -141,16 +141,17 @@ test.describe('Admin Kanban - Chat-only Leads', { tag: ['@admin'] }, () => {
     await admin.openChatOnlyLeads();
 
     const rows = adminPage.locator('tbody tr');
-    const hasRows = (await rows.count()) > 0;
+    const e2eRows = rows.filter({ hasText: 'E2E' });
+    const hasE2eRows = (await e2eRows.count()) > 0;
 
-    if (!hasRows) {
+    if (!hasE2eRows) {
       await expect(
         adminPage.getByRole('columnheader', { name: 'Name' }),
       ).toBeVisible();
       return;
     }
 
-    await rows.filter({ hasText: 'E2E' }).first().click();
+    await e2eRows.first().click();
 
     await expect(adminPage.getByText('Chat History')).toBeVisible({
       timeout: 5_000,
