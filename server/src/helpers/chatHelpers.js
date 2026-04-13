@@ -69,8 +69,10 @@ export function buildUserContent(context, message) {
  * @param {number} temperature - Sampling temperature (0–2)
  * @returns {{model: string, messages: {role: string, content: string}[], temperature: number}} xAI API request body
  */
-export function buildXaiPayload(messages, model, temperature) {
-  return { model, messages, temperature };
+export function buildXaiPayload(messages, model, temperature, { stream = false } = {}) {
+  const payload = { model, messages, temperature };
+  if (stream) payload.stream = true;
+  return payload;
 }
 
 /**

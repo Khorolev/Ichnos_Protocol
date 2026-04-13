@@ -9,11 +9,14 @@ import pool from "../config/database.js";
 export async function createQuestion(userId, questionData) {
   try {
     const { question, answer, source, contactRequestId } = questionData;
+
+    const cols = "user_id, question, answer, source, contact_request_id";
+    const params = [userId, question, answer || null, source, contactRequestId || null];
+    const ph = params.map((_, i) => `$${i + 1}`).join(", ");
+
     const { rows } = await pool.query(
-      `INSERT INTO questions (user_id, question, answer, source, contact_request_id)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [userId, question, answer || null, source, contactRequestId || null],
+      `INSERT INTO questions (${cols}) VALUES (${ph}) RETURNING *`,
+      params,
     );
     return rows[0];
   } catch (error) {

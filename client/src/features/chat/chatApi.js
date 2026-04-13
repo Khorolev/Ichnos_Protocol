@@ -20,14 +20,6 @@ export const chatApi = createApi({
   }),
   tagTypes: ['ChatHistory'],
   endpoints: (builder) => ({
-    sendMessage: builder.mutation({
-      query: (body) => ({
-        url: '/api/chat/message',
-        method: 'POST',
-        body,
-      }),
-      invalidatesTags: ['ChatHistory'],
-    }),
     getHistory: builder.query({
       query: () => '/api/chat/history',
       providesTags: ['ChatHistory'],
@@ -35,4 +27,7 @@ export const chatApi = createApi({
   }),
 });
 
-export const { useSendMessageMutation, useGetHistoryQuery } = chatApi;
+export const {
+  useGetHistoryQuery,
+  useLazyGetHistoryQuery,
+} = chatApi;

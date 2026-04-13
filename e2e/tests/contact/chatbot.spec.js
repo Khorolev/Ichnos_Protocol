@@ -91,13 +91,9 @@ test.describe('Chatbot - AI Unavailable Fallback (Authenticated)', { tag: ['@con
 
     await page.route('**/api/chat/message', (route) =>
       route.fulfill({
-        status: 503,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          data: null,
-          error: 'xAI API unavailable',
-          message: '',
-        }),
+        status: 200,
+        contentType: 'text/event-stream',
+        body: 'event: error\ndata: {"code":"STREAM_ERROR","message":"AI temporarily unavailable"}\n\n',
       }),
     );
 

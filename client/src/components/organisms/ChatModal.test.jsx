@@ -8,14 +8,22 @@ import { configureStore } from "@reduxjs/toolkit";
 import chatReducer from "../../features/chat/chatSlice";
 import authReducer from "../../features/auth/authSlice";
 
-const mockUnwrap = vi.fn();
+const mockSendStreamMessage = vi.fn().mockResolvedValue("completed");
+const mockTriggerHistory = vi.fn().mockReturnValue({
+  unwrap: () => Promise.resolve({ data: [] }),
+});
+
+vi.mock("../../hooks/useChatStream", () => ({
+  useChatStream: () => ({
+    streamingText: "",
+    isStreaming: false,
+    sendStreamMessage: mockSendStreamMessage,
+    cancelStream: vi.fn(),
+  }),
+}));
 
 vi.mock("../../features/chat/chatApi", () => ({
-  useSendMessageMutation: () => [
-    () => ({ unwrap: mockUnwrap }),
-    { isLoading: false },
-  ],
-  useGetHistoryQuery: () => ({ data: null }),
+  useLazyGetHistoryQuery: () => [mockTriggerHistory],
   chatApi: {
     reducerPath: "chatApi",
     reducer: (state = {}) => state,
@@ -24,7 +32,7 @@ vi.mock("../../features/chat/chatApi", () => ({
 }));
 
 vi.mock("../../helpers/chatMessageMapper", () => ({
-  mapHistoryToMessages: vi.fn(() => []),
+  mapHistoryToMessages: vi.fn((data) => data ?? []),
 }));
 
 vi.mock("../../config/firebase", () => ({
@@ -127,12 +135,16 @@ describe("ChatModal", () => {
     expect(store.getState().auth.modalMode).toBe("login");
   });
 
-  it("dispatches user message and AI reply from result.data on send success", async () => {
+  it("dispatches user message and calls sendStreamMessage on send", async () => {
     const user = userEvent.setup();
-    mockUnwrap.mockResolvedValue({
-      data: { answer: "AI response", dailyCount: 1 },
-      message: "Message sent",
-      error: null,
+
+    mockTriggerHistory.mockReturnValue({
+      unwrap: () =>
+        Promise.resolve({
+          data: [
+            { role: "user", content: "Test question", timestamp: "2025-01-01T00:00:00Z" },
+          ],
+        }),
     });
 
     const { default: ChatModal } = await import("./ChatModal");
@@ -151,24 +163,15 @@ describe("ChatModal", () => {
     await user.click(screen.getByRole("button", { name: "Send" }));
 
     await waitFor(() => {
-      const state = store.getState().chat;
-      expect(state.messages).toHaveLength(2);
-      expect(state.messages[0].content).toBe("Test question");
-      expect(state.messages[1].content).toBe("AI response");
-      expect(state.dailyCount).toBe(1);
+      expect(mockSendStreamMessage).toHaveBeenCalledWith("Test question");
+      expect(store.getState().chat.messages).toHaveLength(1);
+      expect(store.getState().chat.messages[0].content).toBe("Test question");
     });
   });
 
-  it("does not add AI message when answer is missing", async () => {
-    const user = userEvent.setup();
-    mockUnwrap.mockResolvedValue({
-      data: { answer: null, dailyCount: 1 },
-      message: "Message sent",
-      error: null,
-    });
-
+  it("shows rate limit alert when error state is rate_limit", async () => {
     const { default: ChatModal } = await import("./ChatModal");
-    const store = createStore();
+    const store = createStore({ chat: { error: "rate_limit" } });
 
     render(
       <Provider store={store}>
@@ -178,23 +181,14 @@ describe("ChatModal", () => {
       </Provider>,
     );
 
-    const textarea = screen.getByPlaceholderText("Type your message...");
-    await user.type(textarea, "Test");
-    await user.click(screen.getByRole("button", { name: "Send" }));
-
-    await waitFor(() => {
-      const msgs = store.getState().chat.messages;
-      expect(msgs).toHaveLength(1);
-      expect(msgs[0].role).toBe("user");
-    });
+    expect(
+      screen.getByText(/reached your daily message limit/i),
+    ).toBeInTheDocument();
   });
 
-  it("shows rate limit alert on 429 error", async () => {
-    const user = userEvent.setup();
-    mockUnwrap.mockRejectedValue({ status: 429 });
-
+  it("shows AI unavailable alert with contact CTA when error state is ai_unavailable", async () => {
     const { default: ChatModal } = await import("./ChatModal");
-    const store = createStore();
+    const store = createStore({ chat: { error: "ai_unavailable" } });
 
     render(
       <Provider store={store}>
@@ -204,23 +198,15 @@ describe("ChatModal", () => {
       </Provider>,
     );
 
-    const textarea = screen.getByPlaceholderText("Type your message...");
-    await user.type(textarea, "Test");
-    await user.click(screen.getByRole("button", { name: "Send" }));
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(/reached your daily message limit/i),
-      ).toBeInTheDocument();
-    });
+    expect(screen.getByText(/temporarily unavailable/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /leave your question/i }),
+    ).toBeInTheDocument();
   });
 
-  it("shows AI unavailable alert with contact CTA on 503 error", async () => {
-    const user = userEvent.setup();
-    mockUnwrap.mockRejectedValue({ status: 503 });
-
+  it("shows generic error when error state is generic", async () => {
     const { default: ChatModal } = await import("./ChatModal");
-    const store = createStore();
+    const store = createStore({ chat: { error: "generic" } });
 
     render(
       <Provider store={store}>
@@ -230,40 +216,7 @@ describe("ChatModal", () => {
       </Provider>,
     );
 
-    const textarea = screen.getByPlaceholderText("Type your message...");
-    await user.type(textarea, "Test");
-    await user.click(screen.getByRole("button", { name: "Send" }));
-
-    await waitFor(() => {
-      expect(screen.getByText(/temporarily unavailable/i)).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: /leave your question/i }),
-      ).toBeInTheDocument();
-    });
-  });
-
-  it("shows generic error on unknown error status", async () => {
-    const user = userEvent.setup();
-    mockUnwrap.mockRejectedValue({ status: 500 });
-
-    const { default: ChatModal } = await import("./ChatModal");
-    const store = createStore();
-
-    render(
-      <Provider store={store}>
-        <MemoryRouter>
-          <ChatModal />
-        </MemoryRouter>
-      </Provider>,
-    );
-
-    const textarea = screen.getByPlaceholderText("Type your message...");
-    await user.type(textarea, "Test");
-    await user.click(screen.getByRole("button", { name: "Send" }));
-
-    await waitFor(() => {
-      expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
-    });
+    expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
   });
 
   it("does not reopen auth modal after enforced logout", async () => {
@@ -314,9 +267,6 @@ describe("ChatModal", () => {
 
   it("does not auto-resume deferred work after enforced logout and later login", async () => {
     const user = userEvent.setup();
-    mockUnwrap.mockResolvedValue({
-      data: { answer: "AI response", dailyCount: 1 },
-    });
 
     const { default: ChatModal } = await import("./ChatModal");
     const store = createStore({
@@ -350,7 +300,7 @@ describe("ChatModal", () => {
     });
 
     await waitFor(() => {
-      expect(mockUnwrap).not.toHaveBeenCalled();
+      expect(mockSendStreamMessage).not.toHaveBeenCalled();
     });
 
     // Auth modal should not have reopened from stale pending action
@@ -372,5 +322,205 @@ describe("ChatModal", () => {
     expect(
       screen.queryByPlaceholderText("Type your message..."),
     ).not.toBeInTheDocument();
+  });
+
+  it("does not replace conversation with history after aborted send", async () => {
+    const user = userEvent.setup();
+
+    let resolveSend;
+    mockSendStreamMessage.mockImplementation(
+      () => new Promise((r) => { resolveSend = r; }),
+    );
+
+    // First call: modal-open hydration (empty). Later calls: stale history.
+    let callCount = 0;
+    mockTriggerHistory.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        return { unwrap: () => Promise.resolve({ data: [] }) };
+      }
+      return {
+        unwrap: () =>
+          Promise.resolve({
+            data: [
+              { role: "user", content: "Old msg", timestamp: "2025-01-01T00:00:00Z" },
+            ],
+          }),
+      };
+    });
+
+    const { default: ChatModal } = await import("./ChatModal");
+    const store = createStore();
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <ChatModal />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    // Wait for initial hydration to complete
+    await waitFor(() => {
+      expect(mockTriggerHistory).toHaveBeenCalledTimes(1);
+    });
+
+    const textarea = screen.getByPlaceholderText("Type your message...");
+    await user.type(textarea, "My question");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => {
+      expect(store.getState().chat.messages).toHaveLength(1);
+      expect(store.getState().chat.messages[0].content).toBe("My question");
+    });
+
+    // Simulate aborted send returning "aborted" outcome
+    await act(async () => { resolveSend("aborted"); });
+
+    // sendStreamMessage resolved with "aborted" — no additional triggerHistory
+    await waitFor(() => {
+      expect(mockTriggerHistory).toHaveBeenCalledTimes(1);
+    });
+
+    // The optimistic message must still be intact
+    expect(store.getState().chat.messages).toHaveLength(1);
+    expect(store.getState().chat.messages[0].content).toBe("My question");
+  });
+
+  it("does not overwrite streamed conversation with stale history", async () => {
+    const user = userEvent.setup();
+
+    let resolveSend;
+    mockSendStreamMessage.mockImplementation(
+      () => new Promise((r) => { resolveSend = r; }),
+    );
+
+    const freshHistory = [
+      { role: "user", content: "Hello", timestamp: "2025-01-01T00:00:00Z" },
+      { role: "ai", content: "Hi from server", timestamp: "2025-01-01T00:00:01Z" },
+    ];
+
+    // First call: modal-open hydration (empty).
+    // Second call: post-send refresh (fresh data).
+    let callCount = 0;
+    mockTriggerHistory.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        return { unwrap: () => Promise.resolve({ data: [] }) };
+      }
+      return { unwrap: () => Promise.resolve({ data: freshHistory }) };
+    });
+
+    const { default: ChatModal } = await import("./ChatModal");
+    const store = createStore();
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <ChatModal />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    // Wait for initial hydration to complete
+    await waitFor(() => {
+      expect(mockTriggerHistory).toHaveBeenCalledTimes(1);
+    });
+
+    const textarea = screen.getByPlaceholderText("Type your message...");
+    await user.type(textarea, "Hello");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => {
+      expect(store.getState().chat.messages).toHaveLength(1);
+      expect(store.getState().chat.messages[0].content).toBe("Hello");
+    });
+
+    // sendPendingRef.current is true, so no stale data can overwrite
+    expect(store.getState().chat.messages[0].content).toBe("Hello");
+
+    await act(async () => { resolveSend("completed"); });
+
+    // Post-send lazy query should be called for authoritative refresh
+    await waitFor(() => {
+      expect(mockTriggerHistory).toHaveBeenCalledTimes(2);
+      expect(store.getState().chat.messages).toEqual(freshHistory);
+    });
+  });
+
+  it("late modal-open history does not overwrite post-send authoritative refresh", async () => {
+    const user = userEvent.setup();
+
+    let resolveSend;
+    mockSendStreamMessage.mockImplementation(
+      () => new Promise((r) => { resolveSend = r; }),
+    );
+
+    const staleModalHistory = [
+      { role: "user", content: "Old stale msg", timestamp: "2025-01-01T00:00:00Z" },
+    ];
+    const freshPostSendHistory = [
+      { role: "user", content: "Hello", timestamp: "2025-01-02T00:00:00Z" },
+      { role: "ai", content: "Fresh reply", timestamp: "2025-01-02T00:00:01Z" },
+    ];
+
+    // First call (modal-open hydration): resolves slowly
+    // Second call (post-send refresh): resolves with fresh data
+    let resolveModalOpen;
+    const slowModalPromise = new Promise((r) => { resolveModalOpen = r; });
+
+    let callCount = 0;
+    mockTriggerHistory.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) {
+        return { unwrap: () => slowModalPromise };
+      }
+      return {
+        unwrap: () => Promise.resolve({ data: freshPostSendHistory }),
+      };
+    });
+
+    const { default: ChatModal } = await import("./ChatModal");
+    const store = createStore();
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <ChatModal />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    // Modal-open hydration was triggered (call 1) but hasn't resolved yet
+    await waitFor(() => {
+      expect(mockTriggerHistory).toHaveBeenCalledTimes(1);
+    });
+
+    // User sends a message before modal-open fetch resolves
+    const textarea = screen.getByPlaceholderText("Type your message...");
+    await user.type(textarea, "Hello");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => {
+      expect(store.getState().chat.messages).toHaveLength(1);
+      expect(store.getState().chat.messages[0].content).toBe("Hello");
+    });
+
+    // Complete the send — triggers post-send refresh (call 2)
+    await act(async () => { resolveSend("completed"); });
+
+    await waitFor(() => {
+      expect(mockTriggerHistory).toHaveBeenCalledTimes(2);
+      expect(store.getState().chat.messages).toEqual(freshPostSendHistory);
+    });
+
+    // Now the slow modal-open fetch resolves with stale data
+    await act(async () => {
+      resolveModalOpen({ data: staleModalHistory });
+    });
+
+    // The stale modal-open result must NOT overwrite the authoritative refresh
+    expect(store.getState().chat.messages).toEqual(freshPostSendHistory);
+    expect(store.getState().chat.messages).not.toEqual(staleModalHistory);
   });
 });

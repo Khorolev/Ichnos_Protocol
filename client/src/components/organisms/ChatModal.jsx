@@ -9,17 +9,12 @@ import {
   addMessage,
   setMessages,
   toggleModal,
-  setLoading,
-  setError,
-  setDailyCount,
   clearError,
 } from "../../features/chat/chatSlice";
 import { openModal as openContactModal } from "../../features/contact/contactSlice";
-import {
-  useSendMessageMutation,
-  useGetHistoryQuery,
-} from "../../features/chat/chatApi";
+import { useLazyGetHistoryQuery } from "../../features/chat/chatApi";
 import { mapHistoryToMessages } from "../../helpers/chatMessageMapper";
+import { useChatStream } from "../../hooks/useChatStream";
 import { DAILY_MESSAGE_LIMIT } from "../../constants/chat";
 import {
   openAuthModal,
@@ -41,11 +36,16 @@ export default function ChatModal() {
   const [input, setInput] = useState("");
   const [pendingMessage, setPendingMessage] = useState("");
   const listRef = useRef(null);
+  const sendPendingRef = useRef(false);
+  const fetchGenRef = useRef(0);
 
-  const [sendMessage] = useSendMessageMutation();
-  const { data: historyData } = useGetHistoryQuery(undefined, {
-    skip: !isAuthenticated || !isOpen,
-  });
+  const { streamingText, isStreaming, sendStreamMessage, cancelStream } =
+    useChatStream();
+  const [triggerHistory] = useLazyGetHistoryQuery();
+
+  useEffect(() => {
+    if (!isOpen && isStreaming) cancelStream();
+  }, [isOpen, isStreaming, cancelStream]);
 
   useEffect(() => {
     if (enforcedLogout) {
@@ -55,19 +55,24 @@ export default function ChatModal() {
     if (isOpen && !isAuthenticated) {
       dispatch(openAuthModal('login'));
     }
-  }, [isOpen, isAuthenticated, enforcedLogout, dispatch]);
-
-  useEffect(() => {
-    if (historyData?.data && isOpen) {
-      dispatch(setMessages(mapHistoryToMessages(historyData.data)));
+    if (isOpen && isAuthenticated && !sendPendingRef.current) {
+      const gen = ++fetchGenRef.current;
+      triggerHistory()
+        .unwrap()
+        .then((result) => {
+          if (fetchGenRef.current === gen && !sendPendingRef.current) {
+            dispatch(setMessages(mapHistoryToMessages(result.data)));
+          }
+        })
+        .catch(() => {});
     }
-  }, [historyData, isOpen, dispatch]);
+  }, [isOpen, isAuthenticated, enforcedLogout, dispatch, triggerHistory]);
 
   useEffect(() => {
     if (listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight;
     }
-  }, [messages.length, loading]);
+  }, [messages.length, loading, streamingText]);
 
   useEffect(() => {
     if (enforcedLogout) return;
@@ -81,6 +86,7 @@ export default function ChatModal() {
   }, [authSuccess, enforcedLogout]);
 
   const doSend = async (content) => {
+    sendPendingRef.current = true;
     dispatch(
       addMessage({
         role: "user",
@@ -89,30 +95,22 @@ export default function ChatModal() {
       }),
     );
     setInput("");
-    dispatch(setLoading(true));
     dispatch(clearError());
+    const outcome = await sendStreamMessage(content);
 
-    try {
-      const result = await sendMessage({ question: content }).unwrap();
-      const answer = result?.data?.answer;
-      const count = result?.data?.dailyCount;
-      if (answer) {
-        dispatch(
-          addMessage({
-            role: "ai",
-            content: answer,
-            timestamp: new Date().toISOString(),
-          }),
-        );
+    if (outcome === "completed") {
+      const gen = ++fetchGenRef.current;
+      try {
+        const result = await triggerHistory().unwrap();
+        if (fetchGenRef.current === gen) {
+          dispatch(setMessages(mapHistoryToMessages(result.data)));
+        }
+      } catch {
+        /* history refresh failed — keep optimistic conversation */
       }
-      if (count != null) dispatch(setDailyCount(count));
-    } catch (err) {
-      const status = err?.status;
-      if (status === 429) dispatch(setError("rate_limit"));
-      else if (status === 503) dispatch(setError("ai_unavailable"));
-      else dispatch(setError("generic"));
-    } finally {
-      dispatch(setLoading(false));
+      sendPendingRef.current = false;
+    } else {
+      sendPendingRef.current = false;
     }
   };
 
@@ -160,9 +158,12 @@ export default function ChatModal() {
           {messages.map((msg, i) => (
             <ChatMessage key={i} {...msg} />
           ))}
+          {isStreaming && streamingText && (
+            <ChatMessage role="ai" content={streamingText} />
+          )}
           {messages.length > 0 &&
             renderInquiryButton(messages, handleContactRedirect)}
-          {loading && (
+          {loading && !isStreaming && (
             <div className="align-self-start mb-2">
               <Spinner animation="border" size="sm" />
             </div>
