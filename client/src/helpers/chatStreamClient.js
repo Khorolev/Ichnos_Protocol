@@ -27,7 +27,10 @@ export async function streamChatMessage(
 
   if (!response.ok) {
     const data = await response.json();
-    throw { status: response.status, data };
+    const err = new Error(`HTTP ${response.status}`);
+    err.status = response.status;
+    err.data = data;
+    throw err;
   }
 
   const reader = response.body.getReader();
