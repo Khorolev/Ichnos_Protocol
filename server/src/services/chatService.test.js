@@ -133,7 +133,7 @@ describe("chatService", () => {
     it("throws 503 when xAI API returns error", async () => {
       mockGetDailyChatCount.mockResolvedValue(0);
       mockQueryKnowledgeBase.mockResolvedValue([]);
-      mockFetch.mockResolvedValue({ ok: false, status: 500 });
+      mockFetch.mockResolvedValue({ ok: false, status: 500, text: () => Promise.resolve("Internal Server Error") });
 
       const error = await sendMessage("uid-1", "Tell me about batteries").catch(
         (e) => e,

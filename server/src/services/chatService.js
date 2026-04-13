@@ -42,6 +42,8 @@ export async function callXaiApi(messages, timeoutMs, { model = "grok-3-mini", t
     });
 
     if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      console.error(`[xAI] HTTP ${response.status}: ${body.slice(0, 300)}`);
       const status = response.status >= 500 ? 503 : 500;
       throw buildError("xAI API request failed", status);
     }
