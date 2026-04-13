@@ -103,7 +103,7 @@ test.describe('Profile Completion Flow', { tag: ['@auth'] }, () => {
 
     const completionHeading = page
       .getByTestId('auth-modal')
-      .getByText('Complete Your Profile');
+      .getByText('Complete Your Profile', { exact: true });
 
     // Assert the modal actually opens — never skip at runtime. A missing
     // modal here means the seed / incomplete account is broken and the gate
@@ -163,7 +163,7 @@ test.describe('Profile Completion Flow', { tag: ['@auth'] }, () => {
 
     const completionHeading = page
       .getByTestId('auth-modal')
-      .getByText('Complete Your Profile');
+      .getByText('Complete Your Profile', { exact: true });
 
     // Assert the modal actually opens — never skip at runtime.
     await expect(completionHeading).toBeVisible({
