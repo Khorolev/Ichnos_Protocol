@@ -262,6 +262,7 @@ describe("chatController.sendMessage", () => {
         messages: [],
         dailyCount: 0,
       });
+      // eslint-disable-next-line require-yield
       mockCreateXaiStream.mockImplementation(async function* () {
         throw new Error("xAI unavailable");
       });
