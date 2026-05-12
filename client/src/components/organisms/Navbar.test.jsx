@@ -2,7 +2,17 @@ import { axe } from 'vitest-axe';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders, screen, fireEvent } from '../../test-utils';
 import Navbar from './Navbar';
-import { NAV_LINKS, LANDING_SECTIONS } from '../../constants/navigation';
+import {
+  NAV_LINKS,
+  LANDING_SECTIONS,
+  PRODUCT_NAV_ITEMS,
+} from '../../constants/navigation';
+
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return { ...actual, useNavigate: () => mockNavigate };
+});
 
 vi.mock('../../hooks/useReducedMotion', () => ({
   useReducedMotion: vi.fn(() => true),
@@ -212,6 +222,48 @@ describe('Navbar', () => {
 
     fireEvent.click(homeButton);
     expect(homeButton).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('renders Products dropdown toggle', () => {
+    mockNavigate.mockClear();
+    renderWithProviders(<Navbar onMenuToggle={vi.fn()} />, {
+      preloadedState: loggedOutState,
+    });
+
+    const productsButton = screen.getByRole('button', { name: /products/i });
+    expect(productsButton).toBeInTheDocument();
+    expect(productsButton).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('opens Products dropdown and reveals Battery Passport item', () => {
+    mockNavigate.mockClear();
+    renderWithProviders(<Navbar onMenuToggle={vi.fn()} />, {
+      preloadedState: loggedOutState,
+    });
+
+    const productsButton = screen.getByRole('button', { name: /products/i });
+    fireEvent.click(productsButton);
+    expect(productsButton).toHaveAttribute('aria-expanded', 'true');
+
+    PRODUCT_NAV_ITEMS.forEach(({ label }) => {
+      expect(screen.getByRole('button', { name: label })).toBeInTheDocument();
+    });
+  });
+
+  it('navigates to /passport when Battery Passport item is clicked', () => {
+    mockNavigate.mockClear();
+    renderWithProviders(<Navbar onMenuToggle={vi.fn()} />, {
+      preloadedState: loggedOutState,
+    });
+
+    const productsButton = screen.getByRole('button', { name: /products/i });
+    fireEvent.click(productsButton);
+    fireEvent.click(
+      screen.getByRole('button', { name: PRODUCT_NAV_ITEMS[0].label }),
+    );
+
+    expect(mockNavigate).toHaveBeenCalledWith('/passport');
+    expect(productsButton).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('has no accessibility violations', async () => {

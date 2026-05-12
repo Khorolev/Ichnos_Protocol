@@ -2,18 +2,29 @@ import { axe } from 'vitest-axe';
 import { renderWithProviders, screen, waitFor, cleanup } from '../../test-utils';
 import TeamPage from './TeamPage';
 import { TEAM_META } from '../../constants/seoMeta';
-import { TEAM_PAGE_HEADER } from '../../constants/teamContent';
+import {
+  TEAM_MEMBERS,
+  TEAM_PAGE_HEADER,
+} from '../../constants/teamContent';
 
 vi.mock('../../hooks/useReducedMotion', () => ({
   useReducedMotion: vi.fn(() => true),
 }));
 
 vi.mock('../organisms/FounderProfile', () => ({
-  default: () => <div data-testid="founder-profile">FounderProfile</div>,
+  default: ({ member }) => (
+    <div data-testid="founder-profile" data-member-id={member?.id}>
+      FounderProfile
+    </div>
+  ),
 }));
 
 vi.mock('../organisms/CareerTimeline', () => ({
   default: () => <div data-testid="career-timeline">CareerTimeline</div>,
+}));
+
+vi.mock('../organisms/CoreCompetencies', () => ({
+  default: () => <div data-testid="core-competencies">CoreCompetencies</div>,
 }));
 
 vi.mock('../organisms/VisionStatement', () => ({
@@ -81,12 +92,15 @@ describe('TeamPage', () => {
     expect(screen.getByText(TEAM_PAGE_HEADER.subtitle)).toBeInTheDocument();
   });
 
-  it('renders FounderProfile component', () => {
-    expect(screen.getByTestId('founder-profile')).toBeInTheDocument();
+  it('renders one FounderProfile per team member with correct member ids', () => {
+    const profiles = screen.getAllByTestId('founder-profile');
+    expect(profiles).toHaveLength(2);
+    const ids = profiles.map((node) => node.getAttribute('data-member-id'));
+    expect(ids).toEqual(TEAM_MEMBERS.map((m) => m.id));
   });
 
-  it('renders CareerTimeline component', () => {
-    expect(screen.getByTestId('career-timeline')).toBeInTheDocument();
+  it('renders CoreCompetencies component', () => {
+    expect(screen.getByTestId('core-competencies')).toBeInTheDocument();
   });
 
   it('renders VisionStatement component', () => {

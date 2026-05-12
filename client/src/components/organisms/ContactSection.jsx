@@ -2,8 +2,11 @@ import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import Card from 'react-bootstrap/Card';
 
-import { COMPANY_INFO, CONTACT_INFO } from '../../constants/companyInfo';
-import { CONTACT_SECTION_CONTENT } from '../../constants/services';
+import {
+  COMPANY_INFO,
+  CONTACT_INFO,
+  CONTACT_SECTION_CONTENT,
+} from '../../constants/companyInfo';
 import Icon from '../atoms/Icon';
 
 const ContactLink = ({ href, icon, label, external = false }) => (

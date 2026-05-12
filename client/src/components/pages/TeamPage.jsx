@@ -1,12 +1,16 @@
 import { Helmet } from "react-helmet-async";
 
 import { TEAM_META } from "../../constants/seoMeta";
-import { TEAM_PAGE_HEADER } from "../../constants/teamContent";
+import {
+  TEAM_MEMBERS,
+  TEAM_PAGE_HEADER,
+} from "../../constants/teamContent";
 import PageTransition from "../templates/PageTransition";
 import NavbarSkeleton from "../molecules/NavbarSkeleton";
 import ContentCardSkeleton from "../molecules/ContentCardSkeleton";
+import AdvisoryPageHero from "../organisms/AdvisoryPageHero";
 import FounderProfile from "../organisms/FounderProfile";
-import CareerTimeline from "../organisms/CareerTimeline";
+import CoreCompetencies from "../organisms/CoreCompetencies";
 import VisionStatement from "../organisms/VisionStatement";
 
 const teamSkeleton = (
@@ -32,14 +36,16 @@ export default function TeamPage() {
       </Helmet>
 
       <PageTransition skeleton={teamSkeleton}>
-        <header className="text-center py-5">
-          <h1 className="mb-3 page-title">{TEAM_PAGE_HEADER.title}</h1>
-          <p className="lead section-subtext">{TEAM_PAGE_HEADER.subtitle}</p>
-        </header>
+        <AdvisoryPageHero
+          title={TEAM_PAGE_HEADER.title}
+          subtitle={TEAM_PAGE_HEADER.subtitle}
+        />
 
         <div className="container">
-          <FounderProfile />
-          <CareerTimeline />
+          {TEAM_MEMBERS.map((member) => (
+            <FounderProfile key={member.id} member={member} />
+          ))}
+          <CoreCompetencies />
           <VisionStatement />
         </div>
       </PageTransition>

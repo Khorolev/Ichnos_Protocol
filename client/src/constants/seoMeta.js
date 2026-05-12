@@ -16,15 +16,15 @@ export const LANDING_META = {
 };
 
 export const SERVICES_META = {
-  title: "Services — Ichnos Protocol",
+  title: "Services - Ichnos Protocol | Battery Regulation Consulting",
   description:
-    "Explore Ichnos Protocol services: battery passport creation, compliance auditing, data integration, lifecycle tracking, and regulation consulting.",
+    "Expert consulting and development services for battery development, regulation compliance, homologation, and circular economy strategy. Battery Passport solutions beyond DIN SPEC 99100.",
   keywords:
-    "battery development, battery passport services, compliance audit, data integration, lifecycle tracking, second-life assessment, regulation consulting",
+    "battery regulation, EU Battery Regulation, homologation, Battery Passport, circular economy, remanufacturing",
   og: {
-    title: "Services — Ichnos Protocol",
+    title: "Services - Ichnos Protocol | Battery Regulation Consulting",
     description:
-      "Battery passport creation, compliance auditing, data integration, and regulation consulting.",
+      "Consulting and development services for battery regulation compliance, homologation, and circular economy strategy.",
     type: "website",
     url: `${BASE_URL}/services`,
   },
@@ -42,5 +42,20 @@ export const TEAM_META = {
       "Meet Dr.-Ing. Francesco Maltoni, founder of Ichnos Protocol. Expert in battery systems, EU regulation, and circular economy solutions.",
     type: "website",
     url: `${BASE_URL}/team`,
+  },
+};
+
+export const PASSPORT_META = {
+  title: "Battery Passport — Ichnos Protocol",
+  description:
+    "Ichnos Protocol's Battery Passport delivers EU Battery Regulation compliance, supply-chain transparency, and circular-economy readiness for battery manufacturers and operators.",
+  keywords:
+    "battery passport, EU Battery Regulation, digital product passport, supply chain transparency, circular economy, battery compliance",
+  og: {
+    title: "Battery Passport — Ichnos Protocol",
+    description:
+      "EU Battery Regulation compliance and supply-chain transparency through a digital Battery Passport.",
+    type: "website",
+    url: `${BASE_URL}/passport`,
   },
 };

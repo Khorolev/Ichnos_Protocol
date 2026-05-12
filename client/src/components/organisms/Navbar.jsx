@@ -1,6 +1,6 @@
 import { useSelector, useDispatch } from 'react-redux';
 
-import { NAV_LINKS, LANDING_SECTIONS } from '../../constants/navigation';
+import { NAV_LINKS, LANDING_SECTIONS, PRODUCT_NAV_ITEMS } from '../../constants/navigation';
 import { openAuthModal } from '../../features/auth/authSlice';
 import Logo from '../atoms/Logo';
 import Icon from '../atoms/Icon';
@@ -32,6 +32,8 @@ export default function Navbar({ onMenuToggle }) {
             <NavItem key={path} label={label} path={path} />
           ),
         )}
+
+        <NavDropdown label="Products" items={PRODUCT_NAV_ITEMS} />
 
         {isAuthenticated ? (
           <UserMenu />

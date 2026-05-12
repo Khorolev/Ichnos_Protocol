@@ -11,3 +11,7 @@ export const LANDING_SECTIONS = [
   { label: 'Why Ichnos', sectionId: 'why-ichnos' },
   { label: 'Services', sectionId: 'services' },
 ];
+
+export const PRODUCT_NAV_ITEMS = [
+  { label: 'Battery Passport', path: '/passport' },
+];

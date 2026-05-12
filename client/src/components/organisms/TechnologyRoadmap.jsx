@@ -6,7 +6,7 @@ import Badge from 'react-bootstrap/Badge';
 import {
   ROADMAP_PHASES,
   TECHNOLOGY_ROADMAP_CONTENT,
-} from '../../constants/services';
+} from '../../constants/passportContent';
 
 const badgeClass = (badge) =>
   badge === 'CURRENT' ? 'badge-roadmap-current' : 'badge-roadmap-planned';

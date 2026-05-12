@@ -1,17 +1,5 @@
-/* ========== Colors ========== */
+/* ========== Typography / Spacing / Transitions / Z-index ========== */
 :root {
-  --color-primary-dark: #0A1628;
-  --color-primary: #1E90FF;
-  --color-accent-cyan: #00D1C1;
-  --color-accent-warm: #C8A24E;
-  --color-gradient-start: #14F195;
-  --color-gradient-end: #9945FF;
-  --color-surface: #1A2744;
-  --color-text-primary: #E8ECF1;
-  --color-text-secondary: #8B9DC3;
-  --color-bg-alt: #F5F7FA;
-  --color-text-dark: #1A1A2E;
-
   /* ========== Typography ========== */
   --font-sans: 'Inter', 'Plus Jakarta Sans', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
@@ -52,6 +40,35 @@
   --z-tooltip: 1050;
 }
 
+/* ========== Theme: Advisory (default) ========== */
+.theme-advisory,
+body {
+  --color-bg-base: #1C1F26;
+  --color-bg-alt: #0A1628;
+  --color-surface: #232732;
+  --color-accent-primary: #1E90FF;
+  --color-accent-cyan: #00D1C1;
+  --color-accent-warm: #C8A24E;
+  --color-gradient-start: #14F195;
+  --color-gradient-end: #9945FF;
+  --color-text-primary: #E8ECF1;
+  --color-text-secondary: #9AA5B8;
+}
+
+/* ========== Theme: Passport (override) ========== */
+.theme-passport {
+  --color-bg-base: #0A1628;
+  --color-bg-alt: #1A2744;
+  --color-surface: #1A2744;
+  --color-accent-primary: #1E90FF;
+  --color-accent-cyan: #00D1C1;
+  --color-accent-warm: #C8A24E;
+  --color-gradient-start: #14F195;
+  --color-gradient-end: #9945FF;
+  --color-text-primary: #E8ECF1;
+  --color-text-secondary: #8B9DC3;
+}
+
 /* ========== Base Styles ========== */
 html {
   scroll-behavior: smooth;
@@ -64,7 +81,7 @@ body {
   font-size: var(--font-size-base);
   line-height: var(--line-height-normal);
   color: var(--color-text-primary);
-  background-color: var(--color-primary-dark);
+  background-color: var(--color-bg-base);
 }
 
 /* ========== Logo ========== */
@@ -98,7 +115,7 @@ body {
 }
 
 .nav-link-active {
-  color: var(--color-primary);
+  color: var(--color-accent-primary);
   transition: var(--transition-base);
 }
 
@@ -166,20 +183,71 @@ body {
 
 /* ========== Footer ========== */
 .footer-main {
-  background-color: var(--color-primary-dark);
+  position: relative;
+  padding: var(--spacing-2xl) var(--spacing-md) var(--spacing-md);
+  background:
+    linear-gradient(rgba(28, 31, 38, 0.88), rgba(10, 22, 40, 0.95)),
+    url('/footer-bg.jpg') center/cover no-repeat;
+  color: var(--color-text-primary);
   border-top: 1px solid var(--color-surface);
+}
+
+.footer-logo {
+  height: 36px;
+  width: auto;
+  display: block;
+  margin-bottom: var(--spacing-sm);
+}
+
+.footer-brand-desc {
+  max-width: 32ch;
+  margin-bottom: var(--spacing-sm);
 }
 
 .footer-heading {
   color: var(--color-text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--spacing-sm);
 }
 
 .footer-text {
   color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.55;
 }
 
 .footer-link {
-  color: var(--color-primary);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: var(--transition-base);
+  font-size: var(--font-size-sm);
+}
+
+.footer-link:hover,
+.footer-link:focus-visible {
+  color: var(--color-accent-cyan);
+}
+
+.footer-address {
+  font-style: normal;
+  color: var(--color-text-secondary);
+  margin: var(--spacing-sm) 0;
+}
+
+.footer-socials {
+  margin-top: var(--spacing-sm);
+}
+
+.footer-attribution {
+  max-width: 1200px;
+  margin: var(--spacing-xl) auto 0;
+  padding-top: var(--spacing-md);
+  border-top: 1px solid rgba(232, 236, 241, 0.1);
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  text-align: center;
 }
 
 /* ========== Landing Sections ========== */
@@ -187,7 +255,7 @@ body {
   min-height: 85vh;
   background: linear-gradient(
     135deg,
-    var(--color-primary-dark) 0%,
+    var(--color-bg-base) 0%,
     var(--color-surface) 100%
   );
   padding: var(--spacing-3xl) 0;
@@ -195,7 +263,7 @@ body {
 
 .hero-cta-btn {
   background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
-  color: var(--color-primary-dark);
+  color: var(--color-bg-base);
   border: none;
   border-radius: 8px;
   transition: var(--transition-base);
@@ -251,7 +319,7 @@ body {
 }
 
 .service-card:hover {
-  border-color: var(--color-accent-cyan) !important;
+  border-color: var(--color-accent-warm) !important;
   transform: translateY(-4px);
 }
 
@@ -304,10 +372,10 @@ body {
 }
 
 .table-dark-custom thead th {
-  background-color: var(--color-primary-dark);
+  background-color: var(--color-bg-base);
   color: var(--color-text-primary);
   font-weight: var(--font-weight-semibold);
-  border-bottom: 2px solid var(--color-primary);
+  border-bottom: 2px solid var(--color-accent-primary);
 }
 
 .table-cell-text {
@@ -322,7 +390,7 @@ body {
 
 .badge-status-dev {
   background-color: rgba(30, 144, 255, 0.15);
-  color: var(--color-primary);
+  color: var(--color-accent-primary);
 }
 
 .badge-status-planned {
@@ -383,7 +451,7 @@ body {
 }
 
 .contact-link {
-  color: var(--color-primary);
+  color: var(--color-accent-primary);
   transition: var(--transition-base);
 }
 
@@ -430,7 +498,7 @@ body {
   min-height: 14px;
   border-radius: 50%;
   background-color: var(--color-accent-cyan);
-  border: 2px solid var(--color-primary-dark);
+  border: 2px solid var(--color-bg-base);
 }
 
 .timeline-connector {
@@ -440,7 +508,7 @@ body {
 
 .timeline-year {
   background-color: rgba(30, 144, 255, 0.15);
-  color: var(--color-primary);
+  color: var(--color-accent-primary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
 }
@@ -520,7 +588,7 @@ body {
 }
 
 .auth-modal-body {
-  background-color: var(--color-primary-dark);
+  background-color: var(--color-bg-base);
   color: var(--color-text-primary);
 }
 
@@ -534,8 +602,8 @@ body {
 
 .auth-modal-body .nav-link.active {
   background-color: transparent;
-  color: var(--color-primary);
-  border-color: rgba(139, 157, 195, 0.15) rgba(139, 157, 195, 0.15) var(--color-primary-dark);
+  color: var(--color-accent-primary);
+  border-color: rgba(139, 157, 195, 0.15) rgba(139, 157, 195, 0.15) var(--color-bg-base);
 }
 
 .auth-modal-body .form-label {
@@ -550,7 +618,7 @@ body {
 }
 
 .auth-modal-body .form-control:focus {
-  border-color: var(--color-primary);
+  border-color: var(--color-accent-primary);
   box-shadow: 0 0 0 0.2rem rgba(30, 144, 255, 0.25);
 }
 
@@ -575,7 +643,7 @@ body {
   height: 32px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
-  color: var(--color-primary-dark);
+  color: var(--color-bg-base);
   font-weight: var(--font-weight-bold);
   font-size: var(--font-size-sm);
 }
@@ -597,7 +665,7 @@ body {
 
 .user-menu-dropdown .dropdown-item:hover {
   background-color: rgba(30, 144, 255, 0.1);
-  color: var(--color-primary);
+  color: var(--color-accent-primary);
 }
 
 .user-menu-dropdown .dropdown-divider {
@@ -606,12 +674,53 @@ body {
 
 /* ========== Cookie Consent ========== */
 .cookie-consent-link {
-  color: var(--color-primary);
+  color: var(--color-accent-primary);
   text-decoration: underline;
 }
 
 .cookie-consent-link:hover {
   color: var(--color-accent-cyan);
+}
+
+/* ========== Scaffold: Full-Bleed Section ========== */
+.full-bleed-section {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+}
+
+/* ========== Scaffold: Advisory Hero Variant (T04) ========== */
+.hero-section--advisory {
+  background: none;
+  background-color: var(--color-bg-base);
+}
+
+/* ========== Scaffold: Advisory Page Hero (Phase 9) ========== */
+.advisory-page-hero {
+  background-color: var(--color-bg-alt);
+  padding: var(--spacing-3xl) var(--spacing-md);
+  text-align: center;
+}
+
+/* ========== Cookie Consent Banner (replaces inline styles) ========== */
+/* react-cookie-consent applies inline `background`, `color`, and `zIndex`
+   to the container and inline `background`, `color`, `border`, `borderRadius`,
+   `padding`, and `margin` to the button. Inline styles beat external stylesheet
+   rules, so the affected properties below use `!important` to win the cascade. */
+.cookie-consent-banner {
+  background-color: var(--color-surface) !important;
+  color: var(--color-text-primary) !important;
+  padding: var(--spacing-md) var(--spacing-lg);
+  z-index: var(--z-tooltip) !important;
+}
+
+.cookie-consent-button {
+  background-color: var(--color-accent-primary) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 6px !important;
+  padding: 8px 24px !important;
+  font-weight: var(--font-weight-medium);
 }
 
 /* ========== Reduced Motion ========== */

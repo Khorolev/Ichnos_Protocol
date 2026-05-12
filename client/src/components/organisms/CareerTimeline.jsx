@@ -2,7 +2,7 @@ import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import Badge from 'react-bootstrap/Badge';
 
-import { CAREER_TIMELINE, SECTION_HEADINGS } from '../../constants/teamContent';
+import { SECTION_HEADINGS } from '../../constants/teamContent';
 
 const TimelineItem = ({ year, title, organization, description, isLast }) => (
   <div className="timeline-item d-flex mb-0">
@@ -19,31 +19,39 @@ const TimelineItem = ({ year, title, organization, description, isLast }) => (
   </div>
 );
 
-export default function CareerTimeline() {
+const TimelineHeading = () => (
+  <>
+    <h2 className="text-center mb-2 section-heading">
+      {SECTION_HEADINGS.careerHighlights.title}
+    </h2>
+    <p className="text-center mb-5 section-subtext">
+      {SECTION_HEADINGS.careerHighlights.subtitle}
+    </p>
+  </>
+);
+
+const TimelineList = ({ timeline }) => (
+  <div className="timeline-container">
+    {timeline.map(({ id, year, title, organization, description }, index) => (
+      <TimelineItem
+        key={id}
+        year={year}
+        title={title}
+        organization={organization}
+        description={description}
+        isLast={index === timeline.length - 1}
+      />
+    ))}
+  </div>
+);
+
+export default function CareerTimeline({ timeline }) {
   return (
     <section className="py-5">
-      <h2 className="text-center mb-2 section-heading">
-        {SECTION_HEADINGS.careerHighlights.title}
-      </h2>
-      <p className="text-center mb-5 section-subtext">
-        {SECTION_HEADINGS.careerHighlights.subtitle}
-      </p>
+      <TimelineHeading />
       <Row className="justify-content-center">
         <Col xs={12} md={8} lg={6}>
-          <div className="timeline-container">
-            {CAREER_TIMELINE.map(
-              ({ id, year, title, organization, description }, index) => (
-                <TimelineItem
-                  key={id}
-                  year={year}
-                  title={title}
-                  organization={organization}
-                  description={description}
-                  isLast={index === CAREER_TIMELINE.length - 1}
-                />
-              ),
-            )}
-          </div>
+          <TimelineList timeline={timeline} />
         </Col>
       </Row>
     </section>

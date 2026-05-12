@@ -10,6 +10,7 @@ import { useGetMyRequestsQuery } from '../../features/contact/contactApi';
 import PageTransition from '../templates/PageTransition';
 import Button from '../atoms/Button';
 import MyInquiriesList from '../molecules/MyInquiriesList';
+import AdvisoryPageHero from '../organisms/AdvisoryPageHero';
 import ContactForm from '../organisms/ContactForm';
 import CalendlyModal from '../organisms/CalendlyModal';
 
@@ -33,12 +34,10 @@ export default function ContactPage() {
       </Helmet>
 
       <PageTransition>
-        <header className="text-center py-5">
-          <h1 className="mb-3 page-title">Get in Touch</h1>
-          <p className="lead section-subtext">
-            Ask our AI assistant, submit an inquiry, or schedule a call.
-          </p>
-        </header>
+        <AdvisoryPageHero
+          title="Get in Touch"
+          subtitle="Ask our AI assistant, submit an inquiry, or schedule a call."
+        />
 
         <Container>
           {isLoading && <Spinner animation="border" className="d-block mx-auto mb-4" />}

@@ -13,6 +13,9 @@ vi.mock('./components/pages/AdminPage', () => ({
 vi.mock('./components/pages/LandingPage', () => ({
   default: () => <div>Landing Page</div>,
 }));
+vi.mock('./components/pages/PassportPage', () => ({
+  default: () => <div>Passport Page</div>,
+}));
 vi.mock('./components/templates/PublicLayout', () => ({
   default: ({ children }) => <div>{children}</div>,
 }));
@@ -80,5 +83,37 @@ describe('App API sanity warning', () => {
       ).not.toBeInTheDocument();
       expect(screen.getByText('Landing Page')).toBeInTheDocument();
     });
+  });
+});
+
+describe('App route theme wrappers', () => {
+  beforeEach(async () => {
+    const mod = await import('./hooks/useApiSanityCheck');
+    mod.useApiSanityCheck.mockReturnValue({
+      warning: null,
+      isChecking: false,
+    });
+  });
+
+  it('renders advisory theme wrapper at /', async () => {
+    const { container } = renderWithProviders(<App />, { route: '/' });
+
+    await waitFor(() => {
+      expect(screen.getByText('Landing Page')).toBeInTheDocument();
+    });
+
+    expect(container.querySelector('.theme-advisory')).toBeInTheDocument();
+    expect(container.querySelector('.theme-passport')).toBeNull();
+  });
+
+  it('renders passport theme wrapper at /passport', async () => {
+    const { container } = renderWithProviders(<App />, { route: '/passport' });
+
+    await waitFor(() => {
+      expect(screen.getByText('Passport Page')).toBeInTheDocument();
+    });
+
+    expect(container.querySelector('.theme-passport')).toBeInTheDocument();
+    expect(container.querySelector('.theme-advisory')).toBeNull();
   });
 });

@@ -3,7 +3,7 @@ import Table from 'react-bootstrap/Table';
 import {
   BATTERY_PASSPORT_FEATURES,
   FEATURE_MATRIX_CONTENT,
-} from '../../constants/services';
+} from '../../constants/passportContent';
 import StatusBadge from '../atoms/StatusBadge';
 
 const MandatedIndicator = ({ mandated }) => (

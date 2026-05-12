@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 
-import { NAV_LINKS, LANDING_SECTIONS } from '../../constants/navigation';
+import { NAV_LINKS, LANDING_SECTIONS, PRODUCT_NAV_ITEMS } from '../../constants/navigation';
 import { openAuthModal } from '../../features/auth/authSlice';
 import Icon from '../atoms/Icon';
 import Button from '../atoms/Button';
@@ -39,6 +39,18 @@ export default function MobileNavOverlay({ isOpen, onClose }) {
 
       <div className="d-flex flex-column gap-2">
         {NAV_LINKS.map(({ label, path }) => (
+          <div key={path} className="mobile-nav-link-item">
+            <NavItem label={label} path={path} onClick={onClose} />
+          </div>
+        ))}
+      </div>
+
+      <hr className="mobile-nav-divider" />
+
+      <p className="small mb-2 mobile-nav-section-label">Products</p>
+
+      <div className="d-flex flex-column gap-2">
+        {PRODUCT_NAV_ITEMS.map(({ label, path }) => (
           <div key={path} className="mobile-nav-link-item">
             <NavItem label={label} path={path} onClick={onClose} />
           </div>

@@ -1,7 +1,7 @@
 import { axe } from 'vitest-axe';
 import { renderWithProviders, screen, waitFor, cleanup } from '../../test-utils';
 import ServicesPage from './ServicesPage';
-import { SEO_META } from '../../constants/seo';
+import { SERVICES_META } from '../../constants/seoMeta';
 import { SERVICES_PAGE_CONTENT } from '../../constants/services';
 
 vi.mock('../../hooks/useReducedMotion', () => ({
@@ -10,14 +10,6 @@ vi.mock('../../hooks/useReducedMotion', () => ({
 
 vi.mock('../organisms/ServicesList', () => ({
   default: () => <div data-testid="services-list">ServicesList</div>,
-}));
-
-vi.mock('../organisms/FeatureMaturityMatrix', () => ({
-  default: () => <div data-testid="feature-matrix">FeatureMaturityMatrix</div>,
-}));
-
-vi.mock('../organisms/TechnologyRoadmap', () => ({
-  default: () => <div data-testid="tech-roadmap">TechnologyRoadmap</div>,
 }));
 
 vi.mock('../organisms/ContactSection', () => ({
@@ -31,21 +23,21 @@ describe('ServicesPage', () => {
 
   it('sets document title', async () => {
     await waitFor(() => {
-      expect(document.title).toBe(SEO_META.services.title);
+      expect(document.title).toBe(SERVICES_META.title);
     });
   });
 
   it('sets meta description', async () => {
     await waitFor(() => {
       const meta = document.querySelector('meta[name="description"]');
-      expect(meta).toHaveAttribute('content', SEO_META.services.description);
+      expect(meta).toHaveAttribute('content', SERVICES_META.description);
     });
   });
 
   it('sets meta keywords', async () => {
     await waitFor(() => {
       const meta = document.querySelector('meta[name="keywords"]');
-      expect(meta).toHaveAttribute('content', SEO_META.services.keywords);
+      expect(meta).toHaveAttribute('content', SERVICES_META.keywords);
     });
   });
 
@@ -59,14 +51,6 @@ describe('ServicesPage', () => {
 
   it('renders ServicesList component', () => {
     expect(screen.getByTestId('services-list')).toBeInTheDocument();
-  });
-
-  it('renders FeatureMaturityMatrix component', () => {
-    expect(screen.getByTestId('feature-matrix')).toBeInTheDocument();
-  });
-
-  it('renders TechnologyRoadmap component', () => {
-    expect(screen.getByTestId('tech-roadmap')).toBeInTheDocument();
   });
 
   it('renders ContactSection component', () => {
