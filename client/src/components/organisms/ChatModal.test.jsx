@@ -182,7 +182,7 @@ describe("ChatModal", () => {
     );
 
     expect(
-      screen.getByText(/reached your daily message limit/i),
+      await screen.findByText(/reached your daily message limit/i),
     ).toBeInTheDocument();
   });
 
@@ -198,9 +198,11 @@ describe("ChatModal", () => {
       </Provider>,
     );
 
-    expect(screen.getByText(/temporarily unavailable/i)).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /leave your question/i }),
+      await screen.findByText(/temporarily unavailable/i),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: /leave your question/i }),
     ).toBeInTheDocument();
   });
 
@@ -216,7 +218,9 @@ describe("ChatModal", () => {
       </Provider>,
     );
 
-    expect(screen.getByText(/something went wrong/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/something went wrong/i),
+    ).toBeInTheDocument();
   });
 
   it("does not reopen auth modal after enforced logout", async () => {

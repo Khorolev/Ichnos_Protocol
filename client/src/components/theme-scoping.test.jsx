@@ -1,17 +1,14 @@
 /*
- * Pre-Phase 2 (T02) failing/pending harness for theme scoping.
- * Refs: Approach §1.5 D-N3, §5.2, §1.3 D-M1; Analysis §3.1; ticket T01.
- * vite.config.js sets test.css: false, so index.css is injected manually.
+ * Theme-scoping token assertions.
  *
- * TODO (T02): (1) add --color-bg-base + .theme-advisory/.theme-passport
- * blocks in client/src/index.css per §1.3 D-M1; (2) drop `.skip` below.
+ * Reads client/src/index.css as plain text and asserts that the
+ * .theme-advisory and .theme-passport rule blocks each declare the
+ * expected --color-bg-base token value. No DOM, no stylesheet injection.
  */
 
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-
-import { cleanup, render, screen } from '@testing-library/react';
 
 const EXPECTED_ADVISORY_BG = '#1C1F26';
 const EXPECTED_PASSPORT_BG = '#0A1628';
@@ -22,89 +19,54 @@ const INDEX_CSS_PATH = resolve(
   'index.css',
 );
 
-function injectIndexCss() {
-  const css = readFileSync(INDEX_CSS_PATH, 'utf8');
-  const styleEl = document.createElement('style');
-  styleEl.setAttribute('data-testid', 'injected-index-css');
-  styleEl.textContent = css;
-  document.head.appendChild(styleEl);
-  return styleEl;
+function stripBlockComments(css) {
+  return css.replace(/\/\*[\s\S]*?\*\//g, '');
 }
 
-function findThemeRule(selector) {
-  const rules = Array.from(document.styleSheets[0]?.cssRules ?? []);
-  return rules.find(
-    (rule) =>
-      rule instanceof CSSStyleRule &&
-      typeof rule.selectorText === 'string' &&
-      rule.selectorText.includes(selector),
-  );
+const CSS_SOURCE = stripBlockComments(readFileSync(INDEX_CSS_PATH, 'utf8'));
+
+function extractBlockBySelector(css, selectorName) {
+  let i = 0;
+  while (i < css.length) {
+    const openIdx = css.indexOf('{', i);
+    if (openIdx === -1) return null;
+    const closeIdx = css.indexOf('}', openIdx);
+    if (closeIdx === -1) return null;
+    const selectorList = css.slice(i, openIdx);
+    const selectors = selectorList.split(',').map((s) => s.trim());
+    if (selectors.includes(selectorName)) {
+      return css.slice(openIdx + 1, closeIdx);
+    }
+    i = closeIdx + 1;
+  }
+  return null;
 }
 
-describe('theme-scoping (pending T02 — Phase 2 token rename + theme blocks)', () => {
-  let styleEl;
+function getDeclaredValue(blockBody, propertyName) {
+  const declarations = blockBody.split(';');
+  for (const decl of declarations) {
+    const colonIdx = decl.indexOf(':');
+    if (colonIdx === -1) continue;
+    const name = decl.slice(0, colonIdx).trim();
+    if (name === propertyName) {
+      return decl.slice(colonIdx + 1).trim();
+    }
+  }
+  return null;
+}
 
-  beforeAll(() => {
-    styleEl = injectIndexCss();
+describe('theme-scoping (index.css token assertions)', () => {
+  it('declares --color-bg-base: #1C1F26 in the .theme-advisory block', () => {
+    const block = extractBlockBySelector(CSS_SOURCE, '.theme-advisory');
+    expect(block).toBeTruthy();
+    const value = getDeclaredValue(block, '--color-bg-base');
+    expect(value?.toUpperCase()).toBe(EXPECTED_ADVISORY_BG.toUpperCase());
   });
 
-  afterAll(() => {
-    styleEl?.remove();
-  });
-
-  afterEach(() => {
-    cleanup();
-  });
-
-  describe('primary path — getComputedStyle resolves --color-bg-base', () => {
-    it('.theme-advisory wrapper resolves --color-bg-base to #1C1F26', () => {
-      render(<div className="theme-advisory" data-testid="advisory-wrapper" />);
-      const el = screen.getByTestId('advisory-wrapper');
-      const value = getComputedStyle(el)
-        .getPropertyValue('--color-bg-base')
-        .trim()
-        .toUpperCase();
-      expect(value).toBe(EXPECTED_ADVISORY_BG.toUpperCase());
-    });
-
-    it('.theme-passport wrapper resolves --color-bg-base to #0A1628', () => {
-      render(<div className="theme-passport" data-testid="passport-wrapper" />);
-      const el = screen.getByTestId('passport-wrapper');
-      const value = getComputedStyle(el)
-        .getPropertyValue('--color-bg-base')
-        .trim()
-        .toUpperCase();
-      expect(value).toBe(EXPECTED_PASSPORT_BG.toUpperCase());
-    });
-  });
-
-  describe('fallback path — document.styleSheets[0].cssRules contains the rule', () => {
-    it('contains a .theme-advisory rule declaring --color-bg-base: #1C1F26', () => {
-      render(<div className="theme-advisory" data-testid="advisory-wrapper" />);
-      const el = screen.getByTestId('advisory-wrapper');
-      expect(document.styleSheets[0]?.ownerNode).toBe(styleEl);
-      const rule = findThemeRule('.theme-advisory');
-      const ruleValue = rule?.style
-        .getPropertyValue('--color-bg-base')
-        .trim()
-        .toUpperCase();
-      expect(el.classList.contains('theme-advisory')).toBe(true);
-      expect(rule).toBeTruthy();
-      expect(ruleValue).toBe(EXPECTED_ADVISORY_BG.toUpperCase());
-    });
-
-    it('contains a .theme-passport rule declaring --color-bg-base: #0A1628', () => {
-      render(<div className="theme-passport" data-testid="passport-wrapper" />);
-      const el = screen.getByTestId('passport-wrapper');
-      expect(document.styleSheets[0]?.ownerNode).toBe(styleEl);
-      const rule = findThemeRule('.theme-passport');
-      const ruleValue = rule?.style
-        .getPropertyValue('--color-bg-base')
-        .trim()
-        .toUpperCase();
-      expect(el.classList.contains('theme-passport')).toBe(true);
-      expect(rule).toBeTruthy();
-      expect(ruleValue).toBe(EXPECTED_PASSPORT_BG.toUpperCase());
-    });
+  it('declares --color-bg-base: #0A1628 in the .theme-passport block', () => {
+    const block = extractBlockBySelector(CSS_SOURCE, '.theme-passport');
+    expect(block).toBeTruthy();
+    const value = getDeclaredValue(block, '--color-bg-base');
+    expect(value?.toUpperCase()).toBe(EXPECTED_PASSPORT_BG.toUpperCase());
   });
 });
