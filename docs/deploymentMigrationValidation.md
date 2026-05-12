@@ -13,6 +13,78 @@
 - After any PR that touches infrastructure config
 - As the verification section for any new design or feature deploy
 
+## Tier 0 — Integrations audit (one-time, post-migration)
+
+**This tier runs once after migrating Vercel accounts/teams — not on every PR.** Skip it if you're just validating a regular deploy.
+
+Vercel integrations are **scoped per team/account**. They do not follow projects when you transfer them between teams. The new team starts with **zero integrations installed**. Until you reinstall the ones you need, downstream tiers will surface bizarre symptoms: stale `DATABASE_URL` causing 401 auth failures, missing deploy notifications, broken analytics.
+
+### Step 1 — Inventory the old account's integrations
+
+Before disconnecting anything on the old account, screenshot **old account → Settings → Integrations**. Cross-reference against the new team's **Settings → Integrations**. Anything in the old list but not in the new = must be reinstalled.
+
+### Step 2 — For each missing integration, do this in order
+
+1. **Delete the stale env vars the old integration left behind on the project.** Env vars transfer with the project during a team move, so the new team's project has the old integration's variables sitting there with dead credentials. The new integration **cannot overwrite existing variables** — it errors with "Failed to set env vars" or "Request failed". For Neon specifically, delete from every environment (Production / Preview / Development):
+   - `DATABASE_URL`, `PGHOST`, `PGUSER`, `PGDATABASE`, `PGPASSWORD`
+   - And also if present: `POSTGRES_URL`, `POSTGRES_PRISMA_URL`, `POSTGRES_URL_NON_POOLING`, `POSTGRES_USER`, `POSTGRES_HOST`, `POSTGRES_PASSWORD`, `POSTGRES_DATABASE`
+
+2. **Install the integration from the new team's marketplace**, not from the integration vendor's side. This matters because the OAuth flow needs to be initiated team-side, so the resulting grant is scoped to the team. Path: Vercel → team → **Settings → Integrations → Browse Marketplace** → search → **Add Integration**.
+
+3. **Sign in to the vendor (Neon/etc.) during OAuth as a user who is also a Team Owner on Vercel**, so permissions match end-to-end.
+
+4. **Connect to the existing vendor-side project**, do not create a new one. The wizard will ask which Neon project / Firebase project / etc. to attach. Pick the existing one.
+
+5. **Verify env vars repopulated**: open the Vercel project → Settings → Environment Variables → confirm the integration's variables are present with recent timestamps.
+
+6. **Redeploy the server preview** so it picks up fresh env vars. Existing preview deployments retain the env-var snapshot from when they were built. Use Vercel bot comment → three-dot menu → Redeploy.
+
+### Step 3 — Common integrations checklist
+
+| Integration | Reinstall after team move? | Notes |
+|---|---|---|
+| **Neon** (Postgres) | Yes, if used | Repopulates `DATABASE_URL` + `PG*` vars. Single most likely cause of post-migration 401s and `password authentication failed for user 'neondb_owner'` errors. |
+| **GitHub** | Usually auto-done during team creation; verify | Push a commit → confirm Vercel triggers a preview build. If it doesn't, reinstall the Vercel GitHub app and grant repo access. |
+| **Vercel Speed Insights / Web Analytics** | Per-project enable | Each project's Settings has its own toggle — these are not team-level. |
+| **Slack / Discord / Linear deploy notifications** | Yes, if used | Reconfigure channels/recipients after reinstall. |
+| **Sentry / Datadog / New Relic** | Yes, if used | API keys may also need rotating depending on vendor. |
+| **Cloudflare** (DNS proxy) | Yes, if used as a Vercel integration | DNS records themselves don't change. |
+
+### Step 4 — What does NOT need a Vercel integration reinstall
+
+These are env-var-only or browser-side and survive any Vercel-team move untouched:
+
+- Firebase Auth (uses env vars + JWKS endpoint)
+- Firebase Admin SDK / Firestore (service-account env vars on server)
+- X.ai / Grok / OpenAI / any LLM API (single API-key env var)
+- Calendly, LinkedIn, YouTube embeds (third-party browser widgets)
+- Resend / SendGrid / any transactional email (API-key env var)
+
+### Step 5 — When the integration install errors mid-flow
+
+If the install wizard fails with **"Failed to set env vars"** → cause is step 1 above: stale env vars still on the project. Delete them, retry.
+
+If the install wizard fails with **"Request failed: unknown error"** after step 1 was done → integration state is corrupted on one side. Full reset:
+
+1. **Vendor side (e.g., Neon dashboard)**: open Integrations → find the Vercel integration → **Uninstall** completely
+2. Wait 30 seconds for state to propagate
+3. **Vercel side**: team → Settings → Integrations → if the vendor still appears, click → **Remove**
+4. Refresh both browser tabs
+5. Reinstall from the Vercel team marketplace (step 2 of "For each missing integration")
+6. If the issue persists, sign out of both Vercel and the vendor, sign back in (resets OAuth session cookies that may be holding stale identity)
+
+### Step 6 — Post-audit verification
+
+After all integrations are reinstalled:
+
+- [ ] Hit the server preview's `/api/health` endpoint with the Vercel bypass header. Expect `seed.mode = seeded` (or `skipped` if seeding is configured off for the env).
+- [ ] Open Vercel → server project → Environment Variables → all expected integration variables present.
+- [ ] Vercel → team → Integrations — list matches the old account's list.
+
+Then proceed to Tier 1.
+
+---
+
 ## Tier 1 — CI on GitHub Actions (≈5 min after push)
 
 **Where**: PR → Checks tab → workflow runs
@@ -144,6 +216,8 @@ If you only have time to verify three things first, do these in order:
 | `promote-to-production.yml` fails after merge with "team not found" | post-merge | Stale `VERCEL_ORG_ID` GitHub secret | Update to new team ID |
 | Production deploy works but DB writes fail | post-merge | Stale `DATABASE_URL` | Re-pull from Neon (new branch slug perhaps) |
 | E2E client readiness step retries 36× with HTTP 401, then times out | 1 (E2E job) | `VERCEL_AUTOMATION_BYPASS_SECRET` stale, or the two Vercel projects hold *different* bypass values | The bypass secret is a single GitHub secret used to probe both `ichnos-client` and `ichnos-protocolserver`. Both Vercel projects must hold the **same** bypass value. Reveal both project bypass values in Vercel (Settings → Deployment Protection → Protection Bypass for Automation), ensure they match, then update the GitHub secret to that shared value. |
+| `/api/health` returns `seed.error: password authentication failed for user 'neondb_owner'` | 5 / 7 | Neon Vercel integration not (re)installed on the new team after migration; `DATABASE_URL` env var holds dead credentials | Tier 0, Step 2 — reinstall Neon integration on the team. First delete stale `DATABASE_URL`/`PG*` env vars (the integration cannot overwrite them), then install from the team's Integrations marketplace, then redeploy the server preview. |
+| Neon (or other) integration wizard fails with "Request failed: unknown error" | 0 | OAuth/integration state desync between vendor and Vercel sides | Tier 0, Step 5 — full reset: uninstall on vendor side, remove on Vercel side, refresh, reinstall from Vercel team marketplace. |
 
 ---
 
