@@ -31,9 +31,11 @@ cd e2e && npx playwright test --headed
 | `E2E_USER_PASSWORD` | GitHub Secret | Regular user test account password |
 | `E2E_SUPER_ADMIN_PASSWORD` | GitHub Secret | Super-admin test account password |
 | `E2E_MANAGE_ADMIN_TARGET_PASSWORD` | GitHub Secret | Manage-admin target password |
-| `VERCEL_AUTOMATION_BYPASS_SECRET` | GitHub Secret | Vercel Deployment Protection bypass |
+| `VERCEL_AUTOMATION_BYPASS_SECRET` | GitHub Secret | Vercel Deployment Protection bypass — **the same value must be set on both** the `ichnos-client` and `ichnos-protocolserver` Vercel projects (Settings → Deployment Protection → Protection Bypass for Automation) |
 
 > **Non-sensitive values** (test account emails, UIDs, Firebase API key) are not listed above — they live in the committed `e2e/.env.e2e` file and do not need to be set as environment variables or secrets.
+
+> **Bypass secret invariant:** The workflow uses a single GitHub Actions secret to probe both Vercel projects' readiness URLs. If client and server hold different bypass values on Vercel, exactly one of the readiness checks will fail with HTTP 401. When rotating, update **both** Vercel projects and the GitHub secret in the same change window.
 
 If `E2E_ADMIN_EMAIL` or `E2E_ADMIN_PASSWORD` are not set, all tests in `admin-kanban.spec.js` are automatically skipped — the pipeline will not fail.
 

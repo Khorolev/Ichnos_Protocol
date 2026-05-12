@@ -88,7 +88,9 @@ This secret is required by `e2e.yml` for Playwright tests to bypass Vercel Deplo
 
 | Secret                            | Description                                                                   | Where to Find                                                                        |
 | --------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `VERCEL_AUTOMATION_BYPASS_SECRET` | Vercel Deployment Protection bypass secret for E2E automation                 | Vercel → Project Settings → Deployment Protection → Protection Bypass for Automation |
+| `VERCEL_AUTOMATION_BYPASS_SECRET` | Single Vercel Deployment Protection bypass secret shared by **both** the `ichnos-client` and `ichnos-protocolserver` projects | Vercel → Project Settings → Deployment Protection → Protection Bypass for Automation |
+
+> **Critical:** The bypass secret value **must be identical** on both the client and server Vercel projects. The E2E workflow uses a single `VERCEL_AUTOMATION_BYPASS_SECRET` GitHub secret to probe both deployments; if the two Vercel projects hold different bypass values, one of the readiness checks will return 401. When rotating or regenerating the secret, update **both** Vercel projects (Settings → Deployment Protection → "Protection Bypass for Automation") and the GitHub Actions secret in one pass.
 
 > **Note:** `FIREBASE_API_KEY` is no longer a GitHub Secret — it is in the committed `e2e/.env.e2e` file.
 

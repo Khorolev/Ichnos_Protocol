@@ -140,9 +140,11 @@ Kept here for quick reference. [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md) is the
 | `E2E_USER_PASSWORD`                 | Regular user test account password                     |
 | `E2E_SUPER_ADMIN_PASSWORD`          | Super-admin test account password                      |
 | `E2E_MANAGE_ADMIN_TARGET_PASSWORD`  | Manage-admin target account password                   |
-| `VERCEL_AUTOMATION_BYPASS_SECRET`   | Vercel Deployment Protection bypass for E2E automation |
+| `VERCEL_AUTOMATION_BYPASS_SECRET`   | Vercel Deployment Protection bypass for E2E automation — **same value must be set on both** the `ichnos-client` and `ichnos-protocolserver` Vercel projects (Settings → Deployment Protection → Protection Bypass for Automation) |
 
 > Non-sensitive E2E config (test account emails, UIDs, Firebase API key, target URLs) is in the committed `e2e/.env.e2e` file. `E2E_BASE_URL` and `E2E_API_BASE_URL` are no longer GitHub Variables — they are also in the committed file.
+
+> **Bypass secret invariant:** The E2E workflow uses a single GitHub Actions secret to authorize requests against both Vercel projects. If the two projects hold different bypass values, the client readiness probe or the API readiness probe will fail with 401. When rotating, update both Vercel projects and the GitHub secret atomically.
 
 E2E test data is seeded automatically by the preview server on startup — no seeding secrets needed in GitHub Actions.
 

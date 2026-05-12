@@ -143,3 +143,27 @@ If you only have time to verify three things first, do these in order:
 | API calls blocked by CORS in browser | 6 | `CORS_ORIGIN` literal string mismatch | Use a regex pattern or add the specific preview hostname |
 | `promote-to-production.yml` fails after merge with "team not found" | post-merge | Stale `VERCEL_ORG_ID` GitHub secret | Update to new team ID |
 | Production deploy works but DB writes fail | post-merge | Stale `DATABASE_URL` | Re-pull from Neon (new branch slug perhaps) |
+| E2E client readiness step retries 36× with HTTP 401, then times out | 1 (E2E job) | `VERCEL_AUTOMATION_BYPASS_SECRET` stale, or the two Vercel projects hold *different* bypass values | The bypass secret is a single GitHub secret used to probe both `ichnos-client` and `ichnos-protocolserver`. Both Vercel projects must hold the **same** bypass value. Reveal both project bypass values in Vercel (Settings → Deployment Protection → Protection Bypass for Automation), ensure they match, then update the GitHub secret to that shared value. |
+
+---
+
+## Bypass secret — one secret, two projects
+
+The E2E workflow (`.github/workflows/e2e.yml`) uses a single GitHub Actions secret
+`VERCEL_AUTOMATION_BYPASS_SECRET` to authorize readiness probes against **both**
+the client and the server Vercel projects.
+
+For this to work, the two Vercel projects (`ichnos-client` and
+`ichnos-protocolserver`) must each have the same string configured under
+**Settings → Deployment Protection → "Protection Bypass for Automation"**.
+
+When rotating:
+
+1. Generate (or copy an existing) bypass value on the client project.
+2. Set the **identical** value on the server project.
+3. Update the `VERCEL_AUTOMATION_BYPASS_SECRET` GitHub Actions secret.
+
+After a Vercel team transfer, Vercel may regenerate the bypass secret on one or
+both projects without warning. The cheapest diagnostic when E2E suddenly starts
+returning 401 is: open both Vercel projects' bypass values, confirm they match
+each other and the GitHub secret, fix any drift.
