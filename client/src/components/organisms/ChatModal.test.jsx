@@ -158,9 +158,9 @@ describe("ChatModal", () => {
       </Provider>,
     );
 
-    const textarea = screen.getByPlaceholderText("Type your message...");
+    const textarea = screen.getByPlaceholderText("Type your message…");
     await user.type(textarea, "Test question");
-    await user.click(screen.getByRole("button", { name: "Send" }));
+    await user.click(screen.getByRole("button", { name: "Send message" }));
 
     await waitFor(() => {
       expect(mockSendStreamMessage).toHaveBeenCalledWith("Test question");
@@ -286,9 +286,9 @@ describe("ChatModal", () => {
     );
 
     // Simulate unauthenticated send to create pending work
-    const textarea = screen.getByPlaceholderText("Type your message...");
+    const textarea = screen.getByPlaceholderText("Type your message…");
     await user.type(textarea, "Pending question");
-    await user.click(screen.getByRole("button", { name: "Send" }));
+    await user.click(screen.getByRole("button", { name: "Send message" }));
 
     // Enforced logout should clear the pending message (mirrors AuthModal.handleLogout)
     act(() => {
@@ -324,7 +324,7 @@ describe("ChatModal", () => {
     );
 
     expect(
-      screen.queryByPlaceholderText("Type your message..."),
+      screen.queryByPlaceholderText("Type your message…"),
     ).not.toBeInTheDocument();
   });
 
@@ -369,9 +369,9 @@ describe("ChatModal", () => {
       expect(mockTriggerHistory).toHaveBeenCalledTimes(1);
     });
 
-    const textarea = screen.getByPlaceholderText("Type your message...");
+    const textarea = screen.getByPlaceholderText("Type your message…");
     await user.type(textarea, "My question");
-    await user.click(screen.getByRole("button", { name: "Send" }));
+    await user.click(screen.getByRole("button", { name: "Send message" }));
 
     await waitFor(() => {
       expect(store.getState().chat.messages).toHaveLength(1);
@@ -431,9 +431,9 @@ describe("ChatModal", () => {
       expect(mockTriggerHistory).toHaveBeenCalledTimes(1);
     });
 
-    const textarea = screen.getByPlaceholderText("Type your message...");
+    const textarea = screen.getByPlaceholderText("Type your message…");
     await user.type(textarea, "Hello");
-    await user.click(screen.getByRole("button", { name: "Send" }));
+    await user.click(screen.getByRole("button", { name: "Send message" }));
 
     await waitFor(() => {
       expect(store.getState().chat.messages).toHaveLength(1);
@@ -501,9 +501,9 @@ describe("ChatModal", () => {
     });
 
     // User sends a message before modal-open fetch resolves
-    const textarea = screen.getByPlaceholderText("Type your message...");
+    const textarea = screen.getByPlaceholderText("Type your message…");
     await user.type(textarea, "Hello");
-    await user.click(screen.getByRole("button", { name: "Send" }));
+    await user.click(screen.getByRole("button", { name: "Send message" }));
 
     await waitFor(() => {
       expect(store.getState().chat.messages).toHaveLength(1);
@@ -594,9 +594,9 @@ describe("ChatPanel inline non-persistent (persistState=false)", () => {
     expect(store.getState().auth.modalMode).toBeNull();
 
     // Unauthenticated send opens the auth modal
-    const textarea = screen.getByPlaceholderText("Type your message...");
+    const textarea = screen.getByPlaceholderText("Type your message…");
     await user.type(textarea, "Inline question");
-    await user.click(screen.getByRole("button", { name: "Send" }));
+    await user.click(screen.getByRole("button", { name: "Send message" }));
 
     expect(store.getState().auth.modalMode).toBe("login");
     expect(mockSendStreamMessage).not.toHaveBeenCalled();
@@ -630,9 +630,9 @@ describe("ChatPanel inline non-persistent (persistState=false)", () => {
       </Provider>,
     );
 
-    const textarea = screen.getByPlaceholderText("Type your message...");
+    const textarea = screen.getByPlaceholderText("Type your message…");
     await user.type(textarea, "Local-only question");
-    await user.click(screen.getByRole("button", { name: "Send" }));
+    await user.click(screen.getByRole("button", { name: "Send message" }));
 
     await waitFor(() => {
       expect(mockSendStreamMessage).toHaveBeenCalled();
@@ -662,7 +662,7 @@ describe("ChatPanel inline non-persistent (persistState=false)", () => {
       screen.queryByText(/reached your daily message limit/i),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByPlaceholderText("Type your message..."),
+      screen.getByPlaceholderText("Type your message…"),
     ).toBeInTheDocument();
   });
 
@@ -710,7 +710,7 @@ describe("ChatPanel inline non-persistent (persistState=false)", () => {
       </Provider>,
     );
 
-    const textarea = screen.getByPlaceholderText("Type your message...");
+    const textarea = screen.getByPlaceholderText("Type your message…");
     expect(textarea).not.toBeDisabled();
   });
 
@@ -755,9 +755,9 @@ describe("ChatPanel inline non-persistent (persistState=false)", () => {
       </Provider>,
     );
 
-    const textarea = screen.getByPlaceholderText("Type your message...");
+    const textarea = screen.getByPlaceholderText("Type your message…");
     await user.type(textarea, "Isolated send");
-    await user.click(screen.getByRole("button", { name: "Send" }));
+    await user.click(screen.getByRole("button", { name: "Send message" }));
 
     await waitFor(() => {
       expect(mockSendStreamMessage).toHaveBeenCalled();
