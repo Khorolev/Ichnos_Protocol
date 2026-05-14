@@ -411,6 +411,52 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const envPath = path.resolve(__dirname, '../../.env.e2e');
 ```
 
+### C8. Vercel CLI `promote` Ignores `VERCEL_ORG_ID` — Use `--scope` or the Token's Default
+
+**What went wrong**: After migrating Vercel projects from a personal account to
+a team, the first production promotion failed at the `vercel promote` step:
+
+```
+Error: Not authorized: Trying to access resource under scope "khorolevs-projects".
+You must re-authenticate to this scope or use a token with access to this scope. (403)
+```
+
+The `Discover` step right before it had succeeded — it found the deployment
+correctly in the new team. So the secrets (token, org ID, project ID) were not
+wrong. Yet the very next CLI step failed with a scope error.
+
+**Why it happened**: The two steps use different paths to talk to Vercel:
+
+| Step | Mechanism | Team scope source |
+|---|---|---|
+| `Discover` | `curl` with `teamId=$VERCEL_ORG_ID` query param | Explicit query param |
+| `Promote` | `npx vercel@latest promote <deployment-id>` | **Token's default scope** |
+
+The Vercel CLI reads `VERCEL_ORG_ID` env var only when there is a linked
+project (`.vercel/project.json`) or for project-context commands. For a bare
+`vercel promote <id>` call the deployment ID is the only operand, so the CLI
+falls back to the token's default scope to resolve which API team to hit. After
+a team migration, the token's default scope is often still the personal account.
+
+**The simple rule** — two complementary defences:
+
+1. **Always pass `--scope` explicitly to `vercel promote` in CI**:
+   ```bash
+   npx vercel@latest promote "$DEPLOYMENT_ID" --yes \
+     --token="$VERCEL_TOKEN" \
+     --scope="$VERCEL_ORG_ID"
+   ```
+   Modern CLI accepts a team ID or slug here, so reusing the existing
+   `VERCEL_ORG_ID` secret keeps the team identifier out of the workflow file.
+
+2. **Create the token with the team selected as default scope.** Vercel's
+   "Create Token" form defaults the scope dropdown to "Full Account" — pick
+   the actual team. A token whose default scope is the team Just Works for
+   every CLI command without `--scope`.
+
+Either fix alone resolves the 403; both together also protect any future
+workflow run if the token's default scope ever drifts.
+
 ---
 
 ## Part D — Database & Seeding
@@ -545,6 +591,67 @@ middleware, or build-time URL injection).
 first. Preview parity is a hardening task — document it, defer it. Previews
 can temporarily use direct API calls with bypass headers (like E2E tests
 already do). Don't block shipping on preview parity.
+
+### E5. Vercel Env Var Scopes Are Independent — Staging Passing Doesn't Validate Production
+
+**What went wrong**: After a Vercel team migration we promoted main → release.
+Both client and server deployments built successfully. Staging passed manual QA
+(staging runs against the production DB). But the moment the production site
+loaded, the `<ApiSanityWarning>` banner appeared, and:
+
+```
+$ curl -s -o /dev/null -w "%{http_code}\n" https://ichnos-protocol.com/api/health
+502
+```
+
+Body: `DNS_HOSTNAME_NOT_FOUND`.
+
+**Why it happened**: Vercel env vars have **three independent scopes**:
+Production, Preview, Development. Each scope can also be subdivided by branch
+overrides (e.g. a `staging`-branch override under Preview). What we had on the
+client project after the team migration:
+
+| Scope | `VITE_API_HOST` |
+|---|---|
+| Preview (default) | the latest server preview URL |
+| Preview / branch `staging` | `staging-api.ichnos-protocol.com` |
+| **Production** | **not set** |
+
+The `client/vercel.json` rewrite is `"dest": "https://$VITE_API_HOST/api/$1"`.
+At request time on the production deployment, `$VITE_API_HOST` interpolates to
+the empty string. The destination becomes `https:///api/health`, which DNS-fails
+and Vercel returns a 502.
+
+Staging passed every check because the staging-branch override on Preview scope
+filled the variable correctly. There is no automatic propagation of values
+between scopes.
+
+**The simple rule** — never trust staging to validate production for anything
+scope-sensitive:
+
+1. After any env-var change on a Vercel project, list **all three scopes**
+   explicitly:
+   ```bash
+   vercel env ls production
+   vercel env ls preview
+   vercel env ls development
+   ```
+2. For every variable in `<project>/.env.example`, assert it appears in
+   Production scope, not just Preview. The `.env.example` files are the
+   canonical truth for "what must be set in every scope".
+3. After production promotion, run the smoke test against the **production
+   origin**, not just the Vercel-assigned domain:
+   ```bash
+   curl -s https://ichnos-protocol.com/api/health     # client + rewrite
+   curl -s https://api.ichnos-protocol.com/api/health # server direct
+   ```
+   The first call validates the rewrite *and* the client's Production-scope
+   `VITE_API_HOST`. Without the first call, you only know the server is up —
+   not that the client can find it.
+
+This whole class of failure (Tier 8a in `docs/deploymentMigrationValidation.md`)
+is silent until the moment you promote. The validation runbook now lists it
+explicitly under "Triage priorities".
 
 ---
 
