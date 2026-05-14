@@ -3,6 +3,7 @@
   /* ========== Typography ========== */
   --font-sans: 'Inter', 'Plus Jakarta Sans', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
+  --font-display: 'Fraunces', 'Georgia', 'Times New Roman', serif;
   --font-size-base: 16px;
   --font-size-sm: 14px;
   --font-size-lg: 18px;
@@ -43,16 +44,16 @@
 /* ========== Theme: Advisory (default) ========== */
 .theme-advisory,
 body {
-  --color-bg-base: #1C1F26;
-  --color-bg-alt: #0A1628;
-  --color-surface: #232732;
-  --color-accent-primary: #1E90FF;
-  --color-accent-cyan: #00D1C1;
-  --color-accent-warm: #C8A24E;
-  --color-gradient-start: #14F195;
-  --color-gradient-end: #9945FF;
-  --color-text-primary: #E8ECF1;
-  --color-text-secondary: #9AA5B8;
+  --color-bg-base: #FAFBFC;
+  --color-bg-alt: #F0F3F7;
+  --color-surface: #FFFFFF;
+  --color-text-primary: #0F1419;
+  --color-text-secondary: #5B6B85;
+  --color-accent-primary: #00A89A;
+  --color-accent-cyan: #00A89A;
+  --color-accent-warm: #A87E1F;
+  --color-border: rgba(15, 20, 25, 0.08);
+  --color-shadow: rgba(15, 20, 25, 0.06);
 }
 
 /* ========== Theme: Passport (override) ========== */
@@ -67,6 +68,23 @@ body {
   --color-gradient-end: #9945FF;
   --color-text-primary: #E8ECF1;
   --color-text-secondary: #8B9DC3;
+  background-color: var(--color-bg-base);
+  color: var(--color-text-primary);
+}
+
+/* ========== Surface: Footer Dark ========== */
+.footer-dark {
+  --color-bg-base: #0F1419;
+  --color-bg-alt: #1A2030;
+  --color-surface: #1A2030;
+  --color-text-primary: #E8ECF1;
+  --color-text-secondary: #9AA5B8;
+  --color-border: rgba(232, 236, 241, 0.08);
+  position: relative;
+  padding: var(--spacing-2xl) var(--spacing-md) var(--spacing-md);
+  border-top: 1px solid var(--color-surface);
+  color: var(--color-text-primary);
+  background: linear-gradient(rgba(15, 20, 25, 0.85), rgba(15, 20, 25, 0.92)), url('/bg-footer.jpg') center/cover no-repeat;
 }
 
 /* ========== Base Styles ========== */
@@ -137,12 +155,15 @@ body {
 
 /* ========== Mobile Nav Overlay ========== */
 .mobile-nav-overlay {
+  --color-text-primary: #E8ECF1;
+  --color-text-secondary: #8B9DC3;
   position: fixed;
   inset: 0;
   z-index: var(--z-overlay);
   background-color: rgba(10, 22, 40, 0.95);
   transition: var(--transition-base);
   overflow-y: auto;
+  color: var(--color-text-primary);
 }
 
 .mobile-nav-overlay--open {
@@ -182,18 +203,8 @@ body {
 }
 
 /* ========== Footer ========== */
-.footer-main {
-  position: relative;
-  padding: var(--spacing-2xl) var(--spacing-md) var(--spacing-md);
-  background:
-    linear-gradient(rgba(28, 31, 38, 0.88), rgba(10, 22, 40, 0.95)),
-    url('/footer-bg.jpg') center/cover no-repeat;
-  color: var(--color-text-primary);
-  border-top: 1px solid var(--color-surface);
-}
-
 .footer-logo {
-  height: 36px;
+  height: 88px;
   width: auto;
   display: block;
   margin-bottom: var(--spacing-sm);
@@ -336,6 +347,20 @@ body {
 }
 
 /* ========== Page & Section Headings ========== */
+h1.page-title,
+.hero-headline,
+.section-display-heading {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.theme-passport h1.page-title,
+.theme-passport .hero-headline,
+.theme-passport .section-display-heading {
+  font-family: var(--font-sans);
+}
+
 .page-title {
   color: var(--color-text-primary);
   font-weight: var(--font-weight-bold);
@@ -348,6 +373,28 @@ body {
 
 .section-subtext {
   color: var(--color-text-secondary);
+}
+
+/* ========== Section Rhythm & Elevation Utilities ========== */
+.section-rhythm-primary {
+  background-color: var(--color-bg-base);
+}
+
+.section-rhythm-alt {
+  background-color: var(--color-bg-alt);
+}
+
+.card-elevated {
+  background-color: var(--color-surface);
+  box-shadow: 0 2px 12px var(--color-shadow);
+  border: none;
+  border-radius: 12px;
+  transition: var(--transition-base);
+}
+
+.card-elevated:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px var(--color-shadow);
 }
 
 /* ========== Accent Text ========== */
@@ -642,10 +689,15 @@ body {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
-  color: var(--color-bg-base);
+  background: var(--color-accent-primary);
+  color: #FFFFFF;
   font-weight: var(--font-weight-bold);
   font-size: var(--font-size-sm);
+}
+
+.theme-passport .user-avatar {
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+  color: var(--color-bg-base);
 }
 
 .user-menu-name {
@@ -672,6 +724,20 @@ body {
   border-color: rgba(139, 157, 195, 0.15);
 }
 
+/* ========== Chat Panel ========== */
+.chat-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-panel--modal {
+  height: 60vh;
+}
+
+.chat-panel--inline {
+  height: 480px;
+}
+
 /* ========== Cookie Consent ========== */
 .cookie-consent-link {
   color: var(--color-accent-primary);
@@ -691,15 +757,30 @@ body {
 
 /* ========== Scaffold: Advisory Hero Variant (T04) ========== */
 .hero-section--advisory {
-  background: none;
-  background-color: var(--color-bg-base);
+  background:
+    linear-gradient(rgba(245, 247, 250, 0.80), rgba(232, 236, 241, 0.92)),
+    url('/bg-advisory.jpg') center / cover no-repeat;
+  color: var(--color-text-primary);
+}
+
+.hero-section--advisory .hero-cta-btn {
+  background: var(--color-accent-primary);
+  color: #FFFFFF;
+}
+
+.hero-section--advisory .hero-cta-btn:hover {
+  background: var(--color-accent-primary);
+  opacity: 0.9;
 }
 
 /* ========== Scaffold: Advisory Page Hero (Phase 9) ========== */
 .advisory-page-hero {
-  background-color: var(--color-bg-alt);
+  background:
+    linear-gradient(rgba(245, 247, 250, 0.85), rgba(232, 236, 241, 0.95)),
+    url('/bg-advisory.jpg') center / cover no-repeat;
   padding: var(--spacing-3xl) var(--spacing-md);
   text-align: center;
+  color: var(--color-text-primary);
 }
 
 /* ========== Cookie Consent Banner (replaces inline styles) ========== */

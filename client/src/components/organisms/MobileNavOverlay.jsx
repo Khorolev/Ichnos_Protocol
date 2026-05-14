@@ -1,26 +1,33 @@
-import { useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
+import { useLocation, useNavigate } from 'react-router-dom';
 
-import { NAV_LINKS, LANDING_SECTIONS, PRODUCT_NAV_ITEMS } from '../../constants/navigation';
+import { NAV_ITEMS } from '../../constants/navigation';
 import { openAuthModal } from '../../features/auth/authSlice';
 import Icon from '../atoms/Icon';
 import Button from '../atoms/Button';
-import NavItem from '../molecules/NavItem';
 import UserMenu from './UserMenu';
 
 export default function MobileNavOverlay({ isOpen, onClose }) {
-  const navigate = useNavigate();
   const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { isAuthenticated } = useSelector((state) => state.auth);
 
-  const handleSectionClick = (sectionId) => {
-    navigate('/', { state: { scrollTo: sectionId } });
-    onClose();
-  };
+  const isHome = pathname === '/';
 
   const handleLoginClick = () => {
     onClose();
     dispatch(openAuthModal('login'));
+  };
+
+  const handleSelect = (event, item) => {
+    event.preventDefault();
+    onClose();
+    if (isHome && item.sectionId) {
+      navigate('/', { state: { scrollTo: item.sectionId } });
+      return;
+    }
+    navigate(item.path);
   };
 
   const overlayState = isOpen
@@ -38,41 +45,23 @@ export default function MobileNavOverlay({ isOpen, onClose }) {
       </button>
 
       <div className="d-flex flex-column gap-2">
-        {NAV_LINKS.map(({ label, path }) => (
-          <div key={path} className="mobile-nav-link-item">
-            <NavItem label={label} path={path} onClick={onClose} />
-          </div>
-        ))}
-      </div>
-
-      <hr className="mobile-nav-divider" />
-
-      <p className="small mb-2 mobile-nav-section-label">Products</p>
-
-      <div className="d-flex flex-column gap-2">
-        {PRODUCT_NAV_ITEMS.map(({ label, path }) => (
-          <div key={path} className="mobile-nav-link-item">
-            <NavItem label={label} path={path} onClick={onClose} />
-          </div>
-        ))}
-      </div>
-
-      <hr className="mobile-nav-divider" />
-
-      <p className="small mb-2 mobile-nav-section-label">
-        Landing Sections
-      </p>
-
-      <div className="d-flex flex-column gap-2">
-        {LANDING_SECTIONS.map(({ label, sectionId }) => (
-          <button
-            key={sectionId}
-            className="btn btn-link text-start text-decoration-none px-3 mobile-nav-section-btn"
-            onClick={() => handleSectionClick(sectionId)}
-          >
-            {label}
-          </button>
-        ))}
+        {NAV_ITEMS.map((item) => {
+          const isActive =
+            pathname === item.path || pathname.startsWith(`${item.path}/`);
+          const stateClass = isActive
+            ? 'active nav-link-active'
+            : 'nav-link-default';
+          return (
+            <a
+              key={item.path}
+              href={item.path}
+              onClick={(event) => handleSelect(event, item)}
+              className={`nav-link mobile-nav-link-item px-3 py-2 ${stateClass}`}
+            >
+              {item.label}
+            </a>
+          );
+        })}
       </div>
 
       <hr className="mobile-nav-divider" />

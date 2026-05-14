@@ -10,7 +10,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const EXPECTED_ADVISORY_BG = '#1C1F26';
+const EXPECTED_ADVISORY_BG = '#FAFBFC';
 const EXPECTED_PASSPORT_BG = '#0A1628';
 
 const INDEX_CSS_PATH = resolve(
@@ -56,7 +56,7 @@ function getDeclaredValue(blockBody, propertyName) {
 }
 
 describe('theme-scoping (index.css token assertions)', () => {
-  it('declares --color-bg-base: #1C1F26 in the .theme-advisory block', () => {
+  it('declares --color-bg-base: #FAFBFC in the .theme-advisory block', () => {
     const block = extractBlockBySelector(CSS_SOURCE, '.theme-advisory');
     expect(block).toBeTruthy();
     const value = getDeclaredValue(block, '--color-bg-base');

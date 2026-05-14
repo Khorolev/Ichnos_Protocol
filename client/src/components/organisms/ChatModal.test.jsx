@@ -528,3 +528,255 @@ describe("ChatModal", () => {
     expect(store.getState().chat.messages).not.toEqual(staleModalHistory);
   });
 });
+
+describe("ChatPanel inline non-persistent (persistState=false)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("does not render preloaded Redux chat messages", async () => {
+    const { default: ChatPanel } = await import("../molecules/ChatPanel");
+    const store = createStore({
+      chat: {
+        messages: [
+          { role: "user", content: "Modal-only msg", timestamp: "2025-01-01T00:00:00Z" },
+          { role: "ai", content: "Modal-only reply", timestamp: "2025-01-01T00:00:01Z" },
+        ],
+      },
+    });
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <ChatPanel mode="inline" persistState={false} />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    expect(screen.queryByText("Modal-only msg")).not.toBeInTheDocument();
+    expect(screen.queryByText("Modal-only reply")).not.toBeInTheDocument();
+  });
+
+  it("does not fetch history on mount when persistState=false", async () => {
+    const { default: ChatPanel } = await import("../molecules/ChatPanel");
+    const store = createStore();
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <ChatPanel mode="inline" persistState={false} />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    await waitFor(() => {
+      expect(mockTriggerHistory).not.toHaveBeenCalled();
+    });
+  });
+
+  it("opens auth modal on unauthenticated send and does not replay after login", async () => {
+    const user = userEvent.setup();
+
+    const { default: ChatPanel } = await import("../molecules/ChatPanel");
+    const store = createStore({
+      auth: { isAuthenticated: false, user: null },
+    });
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <ChatPanel mode="inline" persistState={false} />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    // Auth modal should NOT auto-open on mount for inline non-persistent
+    expect(store.getState().auth.modalMode).toBeNull();
+
+    // Unauthenticated send opens the auth modal
+    const textarea = screen.getByPlaceholderText("Type your message...");
+    await user.type(textarea, "Inline question");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(store.getState().auth.modalMode).toBe("login");
+    expect(mockSendStreamMessage).not.toHaveBeenCalled();
+
+    // Simulate later auth success — pending replay must NOT happen
+    act(() => {
+      store.dispatch({ type: "auth/setUser", payload: { uid: "u1" } });
+      store.dispatch({ type: "auth/setAuthSuccess", payload: true });
+    });
+
+    await waitFor(() => {
+      expect(store.getState().auth.authSuccess).toBe(true);
+    });
+    expect(mockSendStreamMessage).not.toHaveBeenCalled();
+    expect(mockTriggerHistory).not.toHaveBeenCalled();
+  });
+
+  it("does not dispatch chat-slice addMessage when sending in non-persistent mode", async () => {
+    const user = userEvent.setup();
+
+    mockSendStreamMessage.mockResolvedValue("completed");
+
+    const { default: ChatPanel } = await import("../molecules/ChatPanel");
+    const store = createStore();
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <ChatPanel mode="inline" persistState={false} />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    const textarea = screen.getByPlaceholderText("Type your message...");
+    await user.type(textarea, "Local-only question");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => {
+      expect(mockSendStreamMessage).toHaveBeenCalled();
+    });
+
+    // Redux chat slice must remain untouched
+    expect(store.getState().chat.messages).toHaveLength(0);
+    // Local message is rendered, not persisted to Redux
+    expect(screen.getByText("Local-only question")).toBeInTheDocument();
+    // No history fetch on send
+    expect(mockTriggerHistory).not.toHaveBeenCalled();
+  });
+
+  it("ignores preloaded Redux rate_limit error and keeps inline input visible", async () => {
+    const { default: ChatPanel } = await import("../molecules/ChatPanel");
+    const store = createStore({ chat: { error: "rate_limit" } });
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <ChatPanel mode="inline" persistState={false} />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    expect(
+      screen.queryByText(/reached your daily message limit/i),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText("Type your message..."),
+    ).toBeInTheDocument();
+  });
+
+  it("ignores preloaded Redux ai_unavailable and generic errors", async () => {
+    const { default: ChatPanel } = await import("../molecules/ChatPanel");
+    const store = createStore({ chat: { error: "ai_unavailable" } });
+
+    const { unmount } = render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <ChatPanel mode="inline" persistState={false} />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    expect(
+      screen.queryByText(/temporarily unavailable/i),
+    ).not.toBeInTheDocument();
+
+    unmount();
+
+    const genericStore = createStore({ chat: { error: "generic" } });
+    render(
+      <Provider store={genericStore}>
+        <MemoryRouter>
+          <ChatPanel mode="inline" persistState={false} />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    expect(
+      screen.queryByText(/something went wrong/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not disable the inline input when Redux chat loading is true", async () => {
+    const { default: ChatPanel } = await import("../molecules/ChatPanel");
+    const store = createStore({ chat: { loading: true } });
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <ChatPanel mode="inline" persistState={false} />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    const textarea = screen.getByPlaceholderText("Type your message...");
+    expect(textarea).not.toBeDisabled();
+  });
+
+  it("does not display preloaded Redux dailyCount in inline non-persistent panel", async () => {
+    const { default: ChatPanel } = await import("../molecules/ChatPanel");
+    const store = createStore({ chat: { dailyCount: 7 } });
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <ChatPanel mode="inline" persistState={false} />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    // Inline non-persistent should show local count (0), not Redux count (7)
+    expect(screen.queryByText(/Messages today: 7/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Messages today: 0/)).toBeInTheDocument();
+  });
+
+  it("passes non-persistent options/callbacks to sendStreamMessage and does not mutate Redux chat status", async () => {
+    const user = userEvent.setup();
+
+    mockSendStreamMessage.mockResolvedValue("completed");
+
+    const { default: ChatPanel } = await import("../molecules/ChatPanel");
+    const store = createStore({
+      chat: {
+        messages: [],
+        loading: false,
+        error: null,
+        dailyCount: 0,
+        isOpen: true,
+      },
+    });
+
+    render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <ChatPanel mode="inline" persistState={false} />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    const textarea = screen.getByPlaceholderText("Type your message...");
+    await user.type(textarea, "Isolated send");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    await waitFor(() => {
+      expect(mockSendStreamMessage).toHaveBeenCalled();
+    });
+
+    const [arg0, opts] = mockSendStreamMessage.mock.calls[0];
+    expect(arg0).toBe("Isolated send");
+    expect(opts).toBeDefined();
+    expect(opts.persistMessages).toBe(false);
+    expect(typeof opts.onAiMessage).toBe("function");
+    expect(typeof opts.onLoadingChange).toBe("function");
+    expect(typeof opts.onError).toBe("function");
+    expect(typeof opts.onDailyCount).toBe("function");
+
+    // Redux chat slice status must remain untouched
+    const chatState = store.getState().chat;
+    expect(chatState.messages).toHaveLength(0);
+    expect(chatState.loading).toBe(false);
+    expect(chatState.error).toBeNull();
+    expect(chatState.dailyCount).toBe(0);
+  });
+});

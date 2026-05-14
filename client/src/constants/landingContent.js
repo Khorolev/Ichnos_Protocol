@@ -1,8 +1,10 @@
 export const HERO_CONTENT = {
-  tagline: "From regulatory compliance to real, user-friendly circularity",
-  subtitle:
-    "Ichnos Protocol delivers consultancy services and is developing its own digital battery passport solution, to benefit all stakeholders in the battery circular value chain.",
+  eyebrow: "FROM REGULATORY COMPLIANCE TO REAL-WORLD CIRCULARITY",
+  tagline: "Engineering. Compliance. Circularity.",
+  subhead:
+    "Battery systems engineering, safety, mechanical development, and remanufacturing — practitioner-led advisory for OEMs, Tier-1 suppliers, and recyclers across Europe and APAC.",
   ctaText: "Explore Our Services",
+  ctaHref: "/services",
 };
 
 export const PROBLEM_CARDS = [
@@ -67,12 +69,6 @@ export const WHY_ICHNOS_CARDS = [
 ];
 
 export const SERVICES_PREVIEW = [
-  {
-    id: "battery-passport",
-    title: "Battery Passport Creation",
-    description:
-      "In-house digital passport aligned with EU Battery Regulation requirements.",
-  },
   {
     // I prefer to keep the consulting service as a separate offering from the battery passport, as it is more flexible and can be applied to a wider range of clients, including those who may not be ready for a full battery passport solution yet.
     id: "compliance-audit",

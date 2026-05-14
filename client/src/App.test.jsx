@@ -17,7 +17,13 @@ vi.mock('./components/pages/PassportPage', () => ({
   default: () => <div>Passport Page</div>,
 }));
 vi.mock('./components/templates/PublicLayout', () => ({
-  default: ({ children }) => <div>{children}</div>,
+  default: ({ children }) => (
+    <div data-testid="public-layout">
+      <div data-testid="navbar" />
+      {children}
+      <footer data-testid="footer" />
+    </div>
+  ),
 }));
 
 describe('App API sanity warning', () => {
@@ -95,25 +101,47 @@ describe('App route theme wrappers', () => {
     });
   });
 
-  it('renders advisory theme wrapper at /', async () => {
+  it('renders advisory theme wrapper containing chrome at /', async () => {
     const { container } = renderWithProviders(<App />, { route: '/' });
 
     await waitFor(() => {
       expect(screen.getByText('Landing Page')).toBeInTheDocument();
     });
 
-    expect(container.querySelector('.theme-advisory')).toBeInTheDocument();
+    const advisoryWrapper = container.querySelector('.theme-advisory');
+    expect(advisoryWrapper).toBeInTheDocument();
+    expect(
+      advisoryWrapper.querySelector('[data-testid="public-layout"]'),
+    ).toBeInTheDocument();
+    expect(
+      advisoryWrapper.querySelector('[data-testid="navbar"]'),
+    ).toBeInTheDocument();
+    expect(
+      advisoryWrapper.querySelector('[data-testid="footer"]'),
+    ).toBeInTheDocument();
+    expect(advisoryWrapper).toHaveTextContent('Landing Page');
     expect(container.querySelector('.theme-passport')).toBeNull();
   });
 
-  it('renders passport theme wrapper at /passport', async () => {
+  it('renders passport theme wrapper containing chrome at /passport', async () => {
     const { container } = renderWithProviders(<App />, { route: '/passport' });
 
     await waitFor(() => {
       expect(screen.getByText('Passport Page')).toBeInTheDocument();
     });
 
-    expect(container.querySelector('.theme-passport')).toBeInTheDocument();
+    const passportWrapper = container.querySelector('.theme-passport');
+    expect(passportWrapper).toBeInTheDocument();
+    expect(
+      passportWrapper.querySelector('[data-testid="public-layout"]'),
+    ).toBeInTheDocument();
+    expect(
+      passportWrapper.querySelector('[data-testid="navbar"]'),
+    ).toBeInTheDocument();
+    expect(
+      passportWrapper.querySelector('[data-testid="footer"]'),
+    ).toBeInTheDocument();
+    expect(passportWrapper).toHaveTextContent('Passport Page');
     expect(container.querySelector('.theme-advisory')).toBeNull();
   });
 });

@@ -7,6 +7,8 @@ import { HelmetProvider } from 'react-helmet-async';
 import { configureStore } from '@reduxjs/toolkit';
 
 import authReducer from '../../features/auth/authSlice';
+import { PRIVACY_META } from '../../constants/seoMeta';
+import { PAGE_STRUCTURED_DATA } from '../../constants/structuredData';
 
 const mockTriggerDownload = vi.fn();
 const mockDeleteAccount = vi.fn();
@@ -99,6 +101,102 @@ describe('PrivacyPage', () => {
   it('renders page heading', () => {
     renderPage();
     expect(screen.getByText('Privacy & Data Management')).toBeInTheDocument();
+  });
+
+  it('sets document title from PRIVACY_META', async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(document.title).toBe(PRIVACY_META.title);
+    });
+  });
+
+  it('sets core meta tags via Helmet', async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(
+        document.querySelector('meta[name="description"][data-rh="true"]'),
+      ).toHaveAttribute('content', PRIVACY_META.description);
+      expect(
+        document.querySelector('meta[name="keywords"][data-rh="true"]'),
+      ).toHaveAttribute('content', PRIVACY_META.keywords);
+      expect(
+        document.querySelector('link[rel="canonical"][data-rh="true"]'),
+      ).toHaveAttribute('href', PRIVACY_META.canonical);
+    });
+  });
+
+  it('sets all og meta tags via Helmet', async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(
+        document.querySelector('meta[property="og:title"][data-rh="true"]'),
+      ).toHaveAttribute('content', PRIVACY_META.og.title);
+      expect(
+        document.querySelector(
+          'meta[property="og:description"][data-rh="true"]',
+        ),
+      ).toHaveAttribute('content', PRIVACY_META.og.description);
+      expect(
+        document.querySelector('meta[property="og:type"][data-rh="true"]'),
+      ).toHaveAttribute('content', PRIVACY_META.og.type);
+      expect(
+        document.querySelector('meta[property="og:url"][data-rh="true"]'),
+      ).toHaveAttribute('content', PRIVACY_META.og.url);
+      expect(
+        document.querySelector(
+          'meta[property="og:site_name"][data-rh="true"]',
+        ),
+      ).toHaveAttribute('content', PRIVACY_META.og.siteName);
+      expect(
+        document.querySelector('meta[property="og:locale"][data-rh="true"]'),
+      ).toHaveAttribute('content', PRIVACY_META.og.locale);
+      expect(
+        document.querySelector('meta[property="og:image"][data-rh="true"]'),
+      ).toHaveAttribute('content', PRIVACY_META.og.image);
+      expect(
+        document.querySelector(
+          'meta[property="og:image:alt"][data-rh="true"]',
+        ),
+      ).toHaveAttribute('content', PRIVACY_META.og.imageAlt);
+    });
+  });
+
+  it('sets all twitter meta tags via Helmet', async () => {
+    renderPage();
+    await waitFor(() => {
+      expect(
+        document.querySelector('meta[name="twitter:card"][data-rh="true"]'),
+      ).toHaveAttribute('content', PRIVACY_META.twitter.card);
+      expect(
+        document.querySelector('meta[name="twitter:title"][data-rh="true"]'),
+      ).toHaveAttribute('content', PRIVACY_META.twitter.title);
+      expect(
+        document.querySelector(
+          'meta[name="twitter:description"][data-rh="true"]',
+        ),
+      ).toHaveAttribute('content', PRIVACY_META.twitter.description);
+      expect(
+        document.querySelector('meta[name="twitter:image"][data-rh="true"]'),
+      ).toHaveAttribute('content', PRIVACY_META.twitter.image);
+      expect(
+        document.querySelector(
+          'meta[name="twitter:image:alt"][data-rh="true"]',
+        ),
+      ).toHaveAttribute('content', PRIVACY_META.twitter.imageAlt);
+    });
+  });
+
+  it('emits JSON-LD schemas from PAGE_STRUCTURED_DATA.privacy', async () => {
+    renderPage();
+    await waitFor(() => {
+      const scripts = document.querySelectorAll(
+        'script[type="application/ld+json"][data-rh="true"]',
+      );
+      expect(scripts.length).toBe(PAGE_STRUCTURED_DATA.privacy.length);
+      expect(JSON.parse(scripts[0].textContent)).toEqual(
+        PAGE_STRUCTURED_DATA.privacy[0],
+      );
+    });
   });
 
   it('renders Privacy Policy section', () => {

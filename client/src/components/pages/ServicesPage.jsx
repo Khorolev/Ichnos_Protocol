@@ -1,11 +1,12 @@
-import { Helmet } from "react-helmet-async";
 import Container from "react-bootstrap/Container";
 
 import { SERVICES_META } from "../../constants/seoMeta";
+import { PAGE_STRUCTURED_DATA } from "../../constants/structuredData";
 import { SERVICES_PAGE_CONTENT } from "../../constants/services";
 import PageTransition from "../templates/PageTransition";
 import NavbarSkeleton from "../molecules/NavbarSkeleton";
 import ContentCardSkeleton from "../molecules/ContentCardSkeleton";
+import SeoHead from "../molecules/SeoHead";
 import AdvisoryPageHero from "../organisms/AdvisoryPageHero";
 import ServicesList from "../organisms/ServicesList";
 import ContactSection from "../organisms/ContactSection";
@@ -22,11 +23,7 @@ const servicesSkeleton = (
 export default function ServicesPage() {
   return (
     <div>
-      <Helmet>
-        <title>{SERVICES_META.title}</title>
-        <meta name="description" content={SERVICES_META.description} />
-        <meta name="keywords" content={SERVICES_META.keywords} />
-      </Helmet>
+      <SeoHead meta={SERVICES_META} schemas={PAGE_STRUCTURED_DATA.services} />
 
       <PageTransition skeleton={servicesSkeleton}>
         <AdvisoryPageHero

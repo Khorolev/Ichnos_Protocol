@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Outlet } from "react-router-dom";
 
 import LandingPage from "./components/pages/LandingPage";
 import ServicesPage from "./components/pages/ServicesPage";
@@ -30,32 +30,40 @@ export default function App() {
             </AdminRoute>
           }
         />
-        <Route
-          path="*"
-          element={
-            <PublicLayout>
-              <Routes>
-                <Route element={<AdvisoryThemeLayout />}>
-                  <Route path="/" element={<LandingPage />} />
-                  <Route path="/services" element={<ServicesPage />} />
-                  <Route path="/team" element={<TeamPage />} />
-                  <Route path="/contact" element={<ContactPage />} />
-                  <Route
-                    path="/privacy"
-                    element={
-                      <ProtectedRoute>
-                        <PrivacyPage />
-                      </ProtectedRoute>
-                    }
-                  />
-                </Route>
-                <Route element={<PassportThemeLayout />}>
-                  <Route path="/passport" element={<PassportPage />} />
-                </Route>
-              </Routes>
-            </PublicLayout>
-          }
-        />
+        <Route element={<AdvisoryThemeLayout />}>
+          <Route
+            element={
+              <PublicLayout>
+                <Outlet />
+              </PublicLayout>
+            }
+          >
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/services" element={<ServicesPage />} />
+            <Route path="/team" element={<TeamPage />} />
+            <Route path="/contact" element={<ContactPage />} />
+            <Route
+              path="/privacy"
+              element={
+                <ProtectedRoute>
+                  <PrivacyPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="*" element={null} />
+          </Route>
+        </Route>
+        <Route element={<PassportThemeLayout />}>
+          <Route
+            element={
+              <PublicLayout>
+                <Outlet />
+              </PublicLayout>
+            }
+          >
+            <Route path="/passport" element={<PassportPage />} />
+          </Route>
+        </Route>
       </Routes>
     </>
   );

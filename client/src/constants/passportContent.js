@@ -75,5 +75,46 @@ export const PASSPORT_PAGE_CONTENT = {
   title: "The Ichnos Battery Passport",
   subtitle:
     "EU Battery Regulation compliance, supply-chain transparency, and circular-economy readiness — in one digital passport.",
+  dualStandardParagraph:
+    "Designed for two regulatory homes: built natively for EU Regulation 2023/1542 and Malaysian Standard MS 2818 (published by MARI — the Malaysian Automotive, Robotics & IoT Institute). Manufacturers exporting between Europe and ASEAN can satisfy both regimes from a single data foundation.",
   statusBadge: "PROTOTYPE PHASE",
+};
+
+export const PASSPORT_NARRATIVE_CONTENT = {
+  heading: "Why Battery Passport",
+  body: "Today, battery data lives in scattered spreadsheets, supplier portals, and proprietary databases. EU Regulation 2023/1542 demands it be available, structured, and verifiable across the entire battery lifecycle. Battery Passport platforms bridge the gap between that regulatory expectation and operational reality. We're building one.",
+};
+
+export const PASSPORT_CONTACT_CTA = {
+  heading: "Get in touch",
+  body: "Considering Battery Passport implementation for your battery program? We'd like to hear about it.",
+  ctaLabel: "Contact Us →",
+  ctaPath: "/contact",
+};
+
+export const PASSPORT_VALUE_PROPS = {
+  heading: "Who is this for?",
+  subtext: "One platform serving the two ends of the battery lifecycle.",
+  audiences: [
+    {
+      id: "oems",
+      audience: "FOR OEMs",
+      headline: "Compliance without rework",
+      points: [
+        "EU 2023/1542 and MS 2818 in one data model",
+        "Structured supplier data from day one",
+        "Export-ready documentation across regimes",
+      ],
+    },
+    {
+      id: "recyclers",
+      audience: "FOR RECYCLERS",
+      headline: "Visibility into incoming chemistry",
+      points: [
+        "Composition lookup before disassembly",
+        "Remanufacturing readiness signal",
+        "Verifiable provenance for second-life routing",
+      ],
+    },
+  ],
 };

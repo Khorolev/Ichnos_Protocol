@@ -1,17 +1,8 @@
-export const NAV_LINKS = [
-  { label: 'Home', path: '/' },
-  { label: 'Services', path: '/services' },
-  { label: 'Team', path: '/team' },
-  { label: 'Contact', path: '/contact' },
-];
-
-export const LANDING_SECTIONS = [
-  { label: 'Problem', sectionId: 'problem' },
-  { label: 'Solution', sectionId: 'solution' },
-  { label: 'Why Ichnos', sectionId: 'why-ichnos' },
-  { label: 'Services', sectionId: 'services' },
-];
-
-export const PRODUCT_NAV_ITEMS = [
+export const NAV_ITEMS = [
+  { label: 'Company', path: '/team', sectionId: 'company', activeSectionId: 'company' },
+  { label: 'Services', path: '/services', sectionId: 'services', activeSectionId: 'services' },
   { label: 'Battery Passport', path: '/passport' },
+  { label: 'Contact', path: '/contact', sectionId: 'contact', activeSectionId: 'contact' },
 ];
+
+export const LANDING_SECTION_IDS = ['company', 'services', 'passport', 'contact'];

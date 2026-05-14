@@ -1,9 +1,8 @@
-/**
- * useChatStream Hook
- *
- * Wraps the streaming chat client with lifecycle management
- * and Redux integration for incremental rendering.
- */
+// useChatStream: wraps the streaming chat client with lifecycle/Redux glue.
+// sendStreamMessage(question, opts?) — opts.persistMessages=false suppresses
+// all chat-slice side effects (addMessage, setLoading, clearError, setError,
+// setDailyCount, cache invalidation). Non-persistent surfaces wire local
+// state via callbacks: onAiMessage, onLoadingChange, onError, onDailyCount.
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
@@ -42,15 +41,39 @@ export function useChatStream() {
   }, []);
 
   const sendStreamMessage = useCallback(
-    async (question) => {
+    async (question, opts = {}) => {
+      const {
+        persistMessages = true,
+        onAiMessage,
+        onLoadingChange,
+        onError: onErrorCallback,
+        onDailyCount,
+      } = opts;
+      const emitLoading = (v) => {
+        if (persistMessages) dispatch(setLoading(v));
+        onLoadingChange?.(v);
+      };
+      const emitClearError = () => {
+        if (persistMessages) dispatch(clearError());
+        onErrorCallback?.(null);
+      };
+      const emitError = (t) => {
+        if (persistMessages) dispatch(setError(t));
+        onErrorCallback?.(t);
+      };
+      const emitDailyCount = (c) => {
+        if (persistMessages) dispatch(setDailyCount(c));
+        onDailyCount?.(c);
+      };
+
       const { auth } = await import("../config/firebase");
       const token = await auth.currentUser.getIdToken();
 
       setStreamingText("");
       streamingTextRef.current = "";
       setIsStreaming(true);
-      dispatch(setLoading(true));
-      dispatch(clearError());
+      emitLoading(true);
+      emitClearError();
 
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
@@ -65,26 +88,24 @@ export function useChatStream() {
           },
           onDone: ({ dailyCount }) => {
             outcome = "completed";
-            dispatch(
-              addMessage({
-                role: "ai",
-                content: streamingTextRef.current,
-                timestamp: new Date().toISOString(),
-              }),
-            );
-            dispatch(setDailyCount(dailyCount));
-            dispatch(setLoading(false));
+            const aiMsg = { role: "ai", content: streamingTextRef.current, timestamp: new Date().toISOString() };
+            if (persistMessages) {
+              dispatch(addMessage(aiMsg));
+              dispatch(chatApi.util.invalidateTags(["ChatHistory"]));
+            }
+            onAiMessage?.(aiMsg);
+            emitDailyCount(dailyCount);
+            emitLoading(false);
             setIsStreaming(false);
             setStreamingText("");
-            dispatch(chatApi.util.invalidateTags(["ChatHistory"]));
           },
           onError: ({ code }) => {
             let errorType;
             if (code === "RATE_LIMIT") errorType = "rate_limit";
             else if (code === "STREAM_ERROR") errorType = "ai_unavailable";
             else errorType = "generic";
-            dispatch(setError(errorType));
-            dispatch(setLoading(false));
+            emitError(errorType);
+            emitLoading(false);
             setIsStreaming(false);
             setStreamingText("");
           },
@@ -93,16 +114,16 @@ export function useChatStream() {
       } catch (err) {
         if (err?.name === "AbortError") {
           outcome = "aborted";
-          dispatch(setLoading(false));
+          emitLoading(false);
           setIsStreaming(false);
           setStreamingText("");
           return outcome;
         }
         const status = err?.status;
-        if (status === 429) dispatch(setError("rate_limit"));
-        else if (status === 503) dispatch(setError("ai_unavailable"));
-        else dispatch(setError("generic"));
-        dispatch(setLoading(false));
+        if (status === 429) emitError("rate_limit");
+        else if (status === 503) emitError("ai_unavailable");
+        else emitError("generic");
+        emitLoading(false);
         setIsStreaming(false);
         setStreamingText("");
       }

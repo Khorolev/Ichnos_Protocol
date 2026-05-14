@@ -16,12 +16,12 @@ export const CAREER_TIMELINE_FRANCESCO = [
       "Led battery system development, requirement management, and regulatory compliance for automotive clients.",
   },
   {
-    id: "sigma",
+    id: "sigma-school-upskill",
     year: "2025",
-    title: "Full Stack Web Developer",
-    organization: "Sigma School, Puchong",
+    title: "Self-directed upskilling in software engineering and AI integration",
+    organization: "Sigma School — 12-Week Software Development Bootcamp",
     description:
-      "Intensive full stack web development training, building hands-on software engineering skills.",
+      "Intensive bootcamp in web development and AI integration, undertaken in preparation for founding Ichnos Protocol and leading its digital workstreams.",
   },
   {
     id: "ichnos",

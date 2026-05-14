@@ -8,16 +8,31 @@ import SocialLinks from '../molecules/SocialLinks';
 import Logo from '../atoms/Logo';
 
 const BRAND_DESCRIPTION =
-  'End-to-end battery compliance consulting and Battery Passport solutions for the EU regulatory landscape.';
+  'Battery consulting and battery passport solutions.';
 
-const COMPANY_LINKS = [
-  { label: 'Services', to: '/services' },
-  { label: 'Team', to: '/team' },
-];
-
-const SOLUTIONS_LINKS = [
-  { label: 'Battery Advisory', to: '/services' },
-  { label: 'Battery Passport', to: '/passport' },
+const MENUS = [
+  {
+    heading: 'Company',
+    testId: 'footer-col-company',
+    links: [
+      {
+        label: 'Why Ichnos',
+        to: '/',
+        state: { scrollTo: 'company' },
+      },
+      { label: 'Team', to: '/team' },
+    ],
+  },
+  {
+    heading: 'Services',
+    testId: 'footer-col-services',
+    links: [{ label: 'Battery Advisory', to: '/services' }],
+  },
+  {
+    heading: 'Products',
+    testId: 'footer-col-products',
+    links: [{ label: 'Battery Passport', to: '/passport' }],
+  },
 ];
 
 const SOCIAL_LINKS = [
@@ -39,38 +54,35 @@ const SOCIAL_LINKS = [
 ];
 
 const ATTRIBUTION_TEXT =
-  '© 2026 Ichnos Protocol Pte. Ltd. — All rights reserved. · Photo: Unsplash';
+  '© 2026 Ichnos Protocol Pte. Ltd. — All rights reserved.';
 
 export default function Footer() {
   return (
-    <footer className="footer-main mt-auto">
+    <footer className="footer-dark mt-auto">
       <Container className="footer-container">
         <Row className="gy-4">
           <Col xs={12} lg={4} data-testid="footer-col-brand">
-            <Logo className="footer-logo" />
+            <Logo theme="dark" className="footer-logo" />
             <p className="footer-text footer-brand-desc">{BRAND_DESCRIPTION}</p>
-            <p className="footer-text small mb-0">UEN: {COMPANY_INFO.uen}</p>
           </Col>
 
-          <Col xs={12} lg={2} data-testid="footer-col-company">
-            <h6 className="footer-heading">Company</h6>
-            {COMPANY_LINKS.map(({ label, to }) => (
-              <Link key={label} to={to} className="footer-link d-block">
-                {label}
-              </Link>
-            ))}
-          </Col>
+          {MENUS.map(({ heading, testId, links }) => (
+            <Col xs={12} sm={6} lg={2} key={heading} data-testid={testId}>
+              <h6 className="footer-heading">{heading}</h6>
+              {links.map(({ label, to, state }) => (
+                <Link
+                  key={label}
+                  to={to}
+                  state={state}
+                  className="footer-link d-block"
+                >
+                  {label}
+                </Link>
+              ))}
+            </Col>
+          ))}
 
-          <Col xs={12} lg={2} data-testid="footer-col-solutions">
-            <h6 className="footer-heading">Solutions</h6>
-            {SOLUTIONS_LINKS.map(({ label, to }) => (
-              <Link key={label} to={to} className="footer-link d-block">
-                {label}
-              </Link>
-            ))}
-          </Col>
-
-          <Col xs={12} lg={4} data-testid="footer-col-contact">
+          <Col xs={12} sm={6} lg={2} data-testid="footer-col-contact">
             <h6 className="footer-heading">Contact</h6>
             <a
               href={`mailto:${CONTACT_INFO.email}`}
@@ -78,14 +90,10 @@ export default function Footer() {
             >
               {CONTACT_INFO.email}
             </a>
-            <a
-              href={CONTACT_INFO.linkedInCompany}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="footer-link d-block"
-            >
-              LinkedIn Company
-            </a>
+            <p className="footer-text small mb-0">UEN: {COMPANY_INFO.uen}</p>
+            <Link to="/contact" className="footer-link d-block">
+              Submit an Inquiry
+            </Link>
             <address className="footer-text footer-address">
               {COMPANY_INFO.registeredAddress}
             </address>

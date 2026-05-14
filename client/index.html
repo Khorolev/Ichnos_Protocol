@@ -2,9 +2,43 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ichnos Protocol - Battery Passport Solutions</title>
+
+    <!-- Favicons / app icons -->
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Theme color (mobile browser chrome) -->
+    <meta name="theme-color" content="#0F1419" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#FAFBFC" media="(prefers-color-scheme: light)" />
+
+    <!-- Default document head; per-page <Helmet> overrides title / description / og:* / canonical -->
+    <title>Ichnos Protocol — Battery Advisory & Battery Passport</title>
+    <meta
+      name="description"
+      content="Battery advisory for OEMs, Tier-1 suppliers, and recyclers — systems engineering, safety, mechanical development, EU 2023/1542 and APAC compliance."
+    />
+    <meta property="og:site_name" content="Ichnos Protocol" />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://ichnos-protocol.com/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://ichnos-protocol.com/og-image.jpg" />
+
+    <!-- Performance: preconnect to font + Firebase auth origins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://identitytoolkit.googleapis.com" />
+    <link rel="preconnect" href="https://securetoken.googleapis.com" />
+
+    <!-- Fonts: Inter (body) + Fraunces (display headlines) -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&display=swap"
+      rel="stylesheet"
+    />
   </head>
   <body>
     <div id="root"></div>

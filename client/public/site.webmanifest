@@ -1,0 +1,13 @@
+{
+  "name": "Ichnos Protocol",
+  "short_name": "Ichnos",
+  "description": "Battery advisory and Battery Passport implementation.",
+  "start_url": "/",
+  "display": "minimal-ui",
+  "background_color": "#FAFBFC",
+  "theme_color": "#0F1419",
+  "icons": [
+    { "src": "/favicon.png", "sizes": "64x64", "type": "image/png" },
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

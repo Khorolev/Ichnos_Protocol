@@ -3,11 +3,11 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 import Badge from "react-bootstrap/Badge";
 
-import Logo from "../atoms/Logo";
 import { PASSPORT_PAGE_CONTENT } from "../../constants/passportContent";
 
 export default function PassportHero() {
-  const { productMark, title, subtitle, statusBadge } = PASSPORT_PAGE_CONTENT;
+  const { productMark, title, subtitle, dualStandardParagraph, statusBadge } =
+    PASSPORT_PAGE_CONTENT;
 
   return (
     <section
@@ -17,7 +17,12 @@ export default function PassportHero() {
       <Container>
         <Row className="justify-content-center text-center">
           <Col lg={8} md={10}>
-            <Logo theme="passport" className="mb-4 mw-100" />
+            <img
+              src="/logo-legacy.png"
+              alt="Ichnos Protocol Battery Passport"
+              className="passport-hero-mark mb-4 mw-100"
+              data-testid="passport-legacy-mark"
+            />
             <p
               className="small text-uppercase text-muted-custom mb-3"
               data-testid="passport-product-mark"
@@ -28,6 +33,12 @@ export default function PassportHero() {
               <span className="gradient-text">{title}</span>
             </h1>
             <p className="lead section-subtext mb-4">{subtitle}</p>
+            <p
+              className="section-subtext mb-4"
+              data-testid="passport-dual-standard"
+            >
+              {dualStandardParagraph}
+            </p>
             <Badge
               bg=""
               className="badge-status-live"

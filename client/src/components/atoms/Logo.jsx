@@ -1,13 +1,15 @@
 import { useState } from 'react';
 
 const LOGO_SOURCES = {
-  advisory: '/logo.png',
-  passport: '/logo-legacy.png',
+  light: '/logo-dark.png',
+  dark: '/logo.png',
+  advisory: '/logo-dark.png',
+  passport: '/logo.png',
 };
 
-export default function Logo({ className = '', theme = 'advisory' }) {
+export default function Logo({ className = '', theme = 'light' }) {
   const [failed, setFailed] = useState(false);
-  const src = LOGO_SOURCES[theme] ?? LOGO_SOURCES.advisory;
+  const src = LOGO_SOURCES[theme] ?? LOGO_SOURCES.light;
 
   if (failed) {
     return (

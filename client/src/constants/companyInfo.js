@@ -1,8 +1,8 @@
 export const COMPANY_INFO = {
   legalName: "Ichnos Protocol Pte. Ltd.",
-  uen: "202606521W",
+  uen: "202606052196",
   registeredAddress:
-    "160 Robinson Road, #14-04 Singapore Business Federation Center, Singapore 068914",
+    "160 Robinson Road, #14-04 Singapore Business Federation Centre, Singapore 068914",
   tagline: "Traceability. Trust. Transparency.",
 };
 
@@ -14,19 +14,14 @@ export const CONTACT_INFO = {
 };
 
 export const CONTACT_SECTION_CONTENT = {
-  heading: "Get in Touch",
-  subtext:
-    "Ready to discuss your battery compliance needs? Reach out directly.",
-  contactCardTitle: "Contact",
-  companyCardTitle: "Company Details",
+  heading: "Get in touch",
+  subhead:
+    "Tell us about your project — chat with us directly, book a call, or send a message.",
   links: {
-    linkedInCompany: "LinkedIn Company Page",
-    linkedInFounder: "LinkedIn Founder",
-    bookMeeting: "Book a Meeting",
+    linkedInCompany: "LinkedIn (Company)",
+    linkedInFounder: "LinkedIn (Founder)",
+    bookCall: "Book a Call",
   },
-  labels: {
-    legalName: "Legal Name:",
-    uen: "UEN:",
-    address: "Address:",
-  },
+  addressLine:
+    "Ichnos Protocol Pte. Ltd. — 160 Robinson Road, #14-04 Singapore Business Federation Centre, Singapore 068914 · UEN 202606052196",
 };
