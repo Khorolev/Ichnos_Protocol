@@ -7,10 +7,25 @@ import Card from 'react-bootstrap/Card';
 
 import { SERVICES_LIST } from '../../constants/services';
 
-const SnapshotCard = ({ icon, title, tagline }) => (
+function getBadge({ pillar, deliveryMethod }) {
+  if (deliveryMethod === true) {
+    return { label: 'DELIVERY METHOD', variant: 'delivery-method' };
+  }
+  if (pillar === 'engineering') return { label: 'ENGINEERING', variant: 'pillar' };
+  if (pillar === 'compliance') return { label: 'COMPLIANCE', variant: 'pillar' };
+  if (pillar === 'circularity') return { label: 'CIRCULARITY', variant: 'pillar' };
+  return null;
+}
+
+const SnapshotCard = ({ icon, title, tagline, badge }) => (
   <Card className="h-100 service-card">
     <Card.Body>
       <i className={`bi ${icon} fs-2 mb-3 text-accent d-block`} aria-hidden="true" />
+      {badge ? (
+        <span className={`pillar-badge pillar-badge--${badge.variant}`}>
+          {badge.label}
+        </span>
+      ) : null}
       <h3 className="h5 mb-2 service-card-title">{title}</h3>
       <p className="mb-0 service-card-text">{tagline}</p>
     </Card.Body>
@@ -24,9 +39,14 @@ export default function ServicesSnapshot() {
         <Container>
           <h2 className="text-center fw-bold mb-5">Our Services</h2>
           <Row className="g-4">
-            {SERVICES_LIST.map(({ id, icon, title, tagline }) => (
-              <Col key={id} md={6} lg={4}>
-                <SnapshotCard icon={icon} title={title} tagline={tagline} />
+            {SERVICES_LIST.map((service) => (
+              <Col key={service.id} md={6} lg={4}>
+                <SnapshotCard
+                  icon={service.icon}
+                  title={service.title}
+                  tagline={service.tagline}
+                  badge={getBadge(service)}
+                />
               </Col>
             ))}
           </Row>

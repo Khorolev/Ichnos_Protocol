@@ -122,6 +122,10 @@ export const SERVICE_SCHEMAS = [
     "Battery Passport Implementation",
     "EU 2023/1542 and Malaysian MS 2818 readiness audits, gap analyses, and end-to-end implementation including data model, supplier data collection workflows, and carbon-footprint pipelines.",
   ),
+  service(
+    "Agile Project Management — Battery Programs",
+    "Sprint cadence, requirement traceability, and cross-functional coordination for battery development efforts. Backed by PSM I certification and thirteen years of cross-functional project engineering.",
+  ),
 ];
 
 function breadcrumb(items) {

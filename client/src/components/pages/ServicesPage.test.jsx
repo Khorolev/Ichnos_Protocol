@@ -1,21 +1,29 @@
 import { axe } from 'vitest-axe';
-import { renderWithProviders, screen, waitFor, cleanup } from '../../test-utils';
+import { renderWithProviders, screen, waitFor, cleanup, within } from '../../test-utils';
 import ServicesPage from './ServicesPage';
 import { SERVICES_META } from '../../constants/seoMeta';
 import { PAGE_STRUCTURED_DATA } from '../../constants/structuredData';
-import { SERVICES_PAGE_CONTENT } from '../../constants/services';
+import {
+  SERVICES_PAGE_CONTENT,
+  SERVICE_PILLARS,
+  DELIVERY_METHODS_HEADER,
+  getServicesByPillar,
+  getDeliveryMethodServices,
+} from '../../constants/services';
 
 vi.mock('../../hooks/useReducedMotion', () => ({
   useReducedMotion: vi.fn(() => true),
 }));
 
-vi.mock('../organisms/ServicesList', () => ({
-  default: () => <div data-testid="services-list">ServicesList</div>,
+vi.mock('../../hooks/useScrollToSection', () => ({
+  useScrollToSection: vi.fn(),
 }));
 
 vi.mock('../organisms/ContactSection', () => ({
   default: () => <div data-testid="contact-section">ContactSection</div>,
 }));
+
+import { useScrollToSection } from '../../hooks/useScrollToSection';
 
 describe('ServicesPage', () => {
   beforeEach(() => {
@@ -133,10 +141,6 @@ describe('ServicesPage', () => {
     expect(screen.getByText(SERVICES_PAGE_CONTENT.subtitle)).toBeInTheDocument();
   });
 
-  it('renders ServicesList component', () => {
-    expect(screen.getByTestId('services-list')).toBeInTheDocument();
-  });
-
   it('renders ContactSection component', () => {
     expect(screen.getByTestId('contact-section')).toBeInTheDocument();
   });
@@ -144,6 +148,125 @@ describe('ServicesPage', () => {
   it('has proper heading hierarchy with h1', () => {
     const heading = screen.getByRole('heading', { level: 1 });
     expect(heading).toHaveTextContent(SERVICES_PAGE_CONTENT.title);
+  });
+
+  it('calls useScrollToSection hook', () => {
+    expect(useScrollToSection).toHaveBeenCalled();
+  });
+
+  it('renders all four section ids: engineering, compliance, circularity, delivery-models', () => {
+    ['engineering', 'compliance', 'circularity', 'delivery-models'].forEach(
+      (sectionId) => {
+        expect(document.getElementById(sectionId)).not.toBeNull();
+      },
+    );
+  });
+
+  it('renders exactly four services-group sections', () => {
+    const sections = document.querySelectorAll('section.services-group');
+    expect(sections.length).toBe(4);
+  });
+
+  it('does not render service cards under the wrong pillar section', () => {
+    const pillarIds = ['engineering', 'compliance', 'circularity'];
+    pillarIds.forEach((pillarId) => {
+      const section = document.getElementById(pillarId);
+      const ownTitles = new Set(
+        getServicesByPillar(pillarId).map((s) => s.title),
+      );
+      const foreignServices = SERVICE_PILLARS.flatMap((p) =>
+        p.id === pillarId ? [] : getServicesByPillar(p.id),
+      );
+      foreignServices.forEach((service) => {
+        if (ownTitles.has(service.title)) return;
+        expect(
+          within(section).queryByText(service.title, {
+            selector: '.service-card-title',
+          }),
+        ).toBeNull();
+      });
+      getDeliveryMethodServices().forEach((service) => {
+        expect(
+          within(section).queryByText(service.title, {
+            selector: '.service-card-title',
+          }),
+        ).toBeNull();
+      });
+    });
+  });
+
+  it('does not render pillar service cards under the delivery-models section', () => {
+    const section = document.getElementById(DELIVERY_METHODS_HEADER.anchor);
+    const deliveryTitles = new Set(
+      getDeliveryMethodServices().map((s) => s.title),
+    );
+    SERVICE_PILLARS.flatMap((p) => getServicesByPillar(p.id)).forEach(
+      (service) => {
+        if (deliveryTitles.has(service.title)) return;
+        expect(
+          within(section).queryByText(service.title, {
+            selector: '.service-card-title',
+          }),
+        ).toBeNull();
+      },
+    );
+  });
+
+  it('renders the four sections in locked order', () => {
+    const engineering = document.getElementById('engineering');
+    const compliance = document.getElementById('compliance');
+    const circularity = document.getElementById('circularity');
+    const delivery = document.getElementById('delivery-models');
+
+    expect(
+      engineering.compareDocumentPosition(compliance) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      compliance.compareDocumentPosition(circularity) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      circularity.compareDocumentPosition(delivery) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it('renders ContactSection after the four section groups', () => {
+    const delivery = document.getElementById('delivery-models');
+    const contact = screen.getByTestId('contact-section');
+    expect(
+      delivery.compareDocumentPosition(contact) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it.each(SERVICE_PILLARS)(
+    'renders the correct service titles under the $anchor section',
+    (pillar) => {
+      const section = document.getElementById(pillar.anchor);
+      expect(section).not.toBeNull();
+      const services = getServicesByPillar(pillar.id);
+      services.forEach((service) => {
+        expect(
+          within(section).getByText(service.title, {
+            selector: '.service-card-title',
+          }),
+        ).toBeInTheDocument();
+      });
+    },
+  );
+
+  it('renders delivery model services under the delivery-models section', () => {
+    const section = document.getElementById(DELIVERY_METHODS_HEADER.anchor);
+    expect(section).not.toBeNull();
+    getDeliveryMethodServices().forEach((service) => {
+      expect(
+        within(section).getByText(service.title, {
+          selector: '.service-card-title',
+        }),
+      ).toBeInTheDocument();
+    });
   });
 
   it('has no accessibility violations', async () => {

@@ -49,37 +49,6 @@ export const TEAM_MEMBERS = [
   },
 ];
 
-export const CORE_COMPETENCIES = [
-  {
-    id: "battery-engineering",
-    title: "Battery Systems Engineering",
-    icon: "battery-charging",
-    description:
-      "Battery system development, requirement management, and performance optimization across automotive and motorcycle industries.",
-  },
-  {
-    id: "eu-regulation",
-    title: "EU Regulation & Compliance",
-    icon: "shield-check",
-    description:
-      "Deep expertise in the EU Battery Regulation, homologation requirements, and legal compliance frameworks.",
-  },
-  {
-    id: "circular-economy",
-    title: "Circular Economy Strategy",
-    icon: "arrow-repeat",
-    description:
-      "Remanufacturing, repurposing, and second-life strategies to maximize battery asset value and sustainability.",
-  },
-  {
-    id: "software-development",
-    title: "Software Development",
-    icon: "code-slash",
-    description:
-      "Full stack web development — building digital solutions that bridge the gap between engineering and technology.",
-  },
-];
-
 export const VISION_STATEMENT = {
   quote:
     "Batteries should live as long as possible. Remanufacturing and repurposing are not just environmentally responsible — they are economically smart.",
@@ -89,20 +58,4 @@ export const VISION_STATEMENT = {
 export const TEAM_PAGE_HEADER = {
   title: "Meet the Team",
   subtitle: "The expertise and vision behind Ichnos Protocol.",
-};
-
-export const SECTION_HEADINGS = {
-  coreCompetencies: {
-    title: "Core Competencies",
-    subtitle: "A blend of engineering depth and software capability.",
-  },
-  careerHighlights: {
-    title: "Career Highlights",
-    subtitle:
-      "A journey from academic research to industry leadership and entrepreneurship.",
-  },
-  vision: {
-    title: "Our Vision",
-    subtitle: "The conviction driving everything we build.",
-  },
 };

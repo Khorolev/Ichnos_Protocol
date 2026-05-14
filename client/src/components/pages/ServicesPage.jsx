@@ -2,13 +2,20 @@ import Container from "react-bootstrap/Container";
 
 import { SERVICES_META } from "../../constants/seoMeta";
 import { PAGE_STRUCTURED_DATA } from "../../constants/structuredData";
-import { SERVICES_PAGE_CONTENT } from "../../constants/services";
+import {
+  SERVICES_PAGE_CONTENT,
+  SERVICE_PILLARS,
+  DELIVERY_METHODS_HEADER,
+  getServicesByPillar,
+  getDeliveryMethodServices,
+} from "../../constants/services";
+import { useScrollToSection } from "../../hooks/useScrollToSection";
 import PageTransition from "../templates/PageTransition";
 import NavbarSkeleton from "../molecules/NavbarSkeleton";
 import ContentCardSkeleton from "../molecules/ContentCardSkeleton";
 import SeoHead from "../molecules/SeoHead";
 import AdvisoryPageHero from "../organisms/AdvisoryPageHero";
-import ServicesList from "../organisms/ServicesList";
+import ServicesGroup from "../organisms/ServicesGroup";
 import ContactSection from "../organisms/ContactSection";
 
 const servicesSkeleton = (
@@ -20,7 +27,18 @@ const servicesSkeleton = (
   </>
 );
 
+const LOCKED_PILLAR_ORDER = ["engineering", "compliance", "circularity"];
+
+function getPillarById(pillarId) {
+  return SERVICE_PILLARS.find((pillar) => pillar.id === pillarId);
+}
+
 export default function ServicesPage() {
+  useScrollToSection();
+
+  const deliveryServices = getDeliveryMethodServices();
+  const orderedPillars = LOCKED_PILLAR_ORDER.map(getPillarById).filter(Boolean);
+
   return (
     <div>
       <SeoHead meta={SERVICES_META} schemas={PAGE_STRUCTURED_DATA.services} />
@@ -32,7 +50,20 @@ export default function ServicesPage() {
         />
 
         <Container>
-          <ServicesList />
+          {orderedPillars.map((pillar) => (
+            <ServicesGroup
+              key={pillar.id}
+              id={pillar.anchor}
+              label={pillar.label}
+              services={getServicesByPillar(pillar.id)}
+            />
+          ))}
+          <ServicesGroup
+            id={DELIVERY_METHODS_HEADER.anchor}
+            label={DELIVERY_METHODS_HEADER.label}
+            intro={DELIVERY_METHODS_HEADER.intro}
+            services={deliveryServices}
+          />
           <ContactSection />
         </Container>
       </PageTransition>

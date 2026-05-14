@@ -4,7 +4,7 @@
 > Traycer AI reads `AGENTS.md` for planning; Claude reads only this file for execution.
 > Keep both files aligned — if conventions change here, update `AGENTS.md` too.
 
-Always create yolo artifacts at the end of each task to ensure correct orchestration with planning agent
+Always create the Traycer YOLO completion artifact at the end of each Traycer-run task by writing the watched JSON file under `~/.traycer/yolo_artifacts/` using the current Traycer handoff identifier. Repo-local notes under `.claude/yolo-artifacts/` are optional logs only and do not trigger Traycer verification.
 
 ## 1. Project Overview
 
@@ -32,24 +32,24 @@ The site includes public-facing pages (landing, team, services/products), an AI-
 
 ## 2. Tech Stack
 
-| Layer        | Technology                          | Notes                                        |
-| ------------ | ----------------------------------- | -------------------------------------------- |
-| Frontend     | React 18+                           | Functional components, hooks only            |
-| Build Tool   | Vite                                | Dev server, HMR, production bundling         |
-| UI Framework | Bootstrap 5 (react-bootstrap)       | No custom CSS frameworks on top              |
-| State        | Redux Toolkit (RTK)                 | RTK Query for API calls                      |
-| Routing      | React Router v6+                    |                                              |
-| Backend      | Express.js 5                        | REST API, ES modules (`"type": "module"`)    |
-| SQL DB       | PostgreSQL (Neon Tech)              | Accessed via `pg`                            |
-| NoSQL DB     | Firestore                           | File storage + document metadata             |
-| Auth         | Firebase Authentication             | JWT-based, verified server-side              |
-| Chatbot      | X.ai Grok API                       | RAG integration                              |
-| LinkedIn     | Third-party embed widget            | SociableKIT, Elfsight, or Juicer             |
-| Testing      | Vitest + React Testing Library      | Unit + component tests; Supertest for API    |
-| E2E Testing  | Playwright                          | End-to-end tests against Vercel previews     |
-| Linting      | ESLint + Prettier                   | Enforced via pre-commit hook                 |
-| Deployment   | Vercel (Monorepo)                   | `client/` and `server/` as separate projects |
-| MCP Servers  | GitHub, Neon, Vercel, DBHub, Playwright, Context7 | Repo, DB, deployment, E2E, docs access |
+| Layer        | Technology                                        | Notes                                        |
+| ------------ | ------------------------------------------------- | -------------------------------------------- |
+| Frontend     | React 18+                                         | Functional components, hooks only            |
+| Build Tool   | Vite                                              | Dev server, HMR, production bundling         |
+| UI Framework | Bootstrap 5 (react-bootstrap)                     | No custom CSS frameworks on top              |
+| State        | Redux Toolkit (RTK)                               | RTK Query for API calls                      |
+| Routing      | React Router v6+                                  |                                              |
+| Backend      | Express.js 5                                      | REST API, ES modules (`"type": "module"`)    |
+| SQL DB       | PostgreSQL (Neon Tech)                            | Accessed via `pg`                            |
+| NoSQL DB     | Firestore                                         | File storage + document metadata             |
+| Auth         | Firebase Authentication                           | JWT-based, verified server-side              |
+| Chatbot      | X.ai Grok API                                     | RAG integration                              |
+| LinkedIn     | Third-party embed widget                          | SociableKIT, Elfsight, or Juicer             |
+| Testing      | Vitest + React Testing Library                    | Unit + component tests; Supertest for API    |
+| E2E Testing  | Playwright                                        | End-to-end tests against Vercel previews     |
+| Linting      | ESLint + Prettier                                 | Enforced via pre-commit hook                 |
+| Deployment   | Vercel (Monorepo)                                 | `client/` and `server/` as separate projects |
+| MCP Servers  | GitHub, Neon, Vercel, DBHub, Playwright, Context7 | Repo, DB, deployment, E2E, docs access       |
 
 ---
 
@@ -58,6 +58,7 @@ The site includes public-facing pages (landing, team, services/products), an AI-
 Monorepo: `client/` (React frontend) + `server/` (Express backend) + `e2e/` (Playwright).
 
 **Key directories** (use the filesystem to explore — don't memorize):
+
 - `client/src/components/` — Atomic Design: `atoms/`, `molecules/`, `organisms/`, `templates/`, `pages/`
 - `client/src/features/` — Redux slices + RTK Query APIs (auth, chat, contact, admin, gdpr, linkedin)
 - `client/src/hooks/`, `helpers/`, `constants/` — reusable logic
@@ -505,29 +506,29 @@ services. Use them instead of manual CLI commands or copy-pasting data.
 
 ### 18.1 Available Servers
 
-| MCP Server | Scope | Transport | Auth | What it does |
-|------------|-------|-----------|------|-------------|
-| **GitHub** | Project | Remote | PAT | PRs, issues, commits, code search, file contents |
-| **Neon** | User | Remote (`https://mcp.neon.tech/mcp`) | OAuth | PostgreSQL queries, schema, branches, migrations |
-| **Vercel** | User | Remote (`https://mcp.vercel.com`) | OAuth | Deployment logs, env vars, project settings |
-| **DBHub** | Project | Local stdio (`.mcp.json`) | Connection string | Direct SQL to Neon DB (legacy — prefer Neon MCP) |
-| **Playwright** | Project | Local stdio (`.mcp.json`) | — | E2E test execution, browser automation, visual inspection |
-| **Context7** | User | Remote | — | Library/framework documentation lookup |
+| MCP Server     | Scope   | Transport                            | Auth              | What it does                                              |
+| -------------- | ------- | ------------------------------------ | ----------------- | --------------------------------------------------------- |
+| **GitHub**     | Project | Remote                               | PAT               | PRs, issues, commits, code search, file contents          |
+| **Neon**       | User    | Remote (`https://mcp.neon.tech/mcp`) | OAuth             | PostgreSQL queries, schema, branches, migrations          |
+| **Vercel**     | User    | Remote (`https://mcp.vercel.com`)    | OAuth             | Deployment logs, env vars, project settings               |
+| **DBHub**      | Project | Local stdio (`.mcp.json`)            | Connection string | Direct SQL to Neon DB (legacy — prefer Neon MCP)          |
+| **Playwright** | Project | Local stdio (`.mcp.json`)            | —                 | E2E test execution, browser automation, visual inspection |
+| **Context7**   | User    | Remote                               | —                 | Library/framework documentation lookup                    |
 
 **Scope**: "User" = configured in `~/.claude.json` (persists across projects). "Project" = configured in `.mcp.json` or `.claude/settings.json` (per-repo).
 
 ### 18.2 When to Use Which
 
-| Task | Use this MCP |
-|------|-------------|
-| Debug a deployment failure | **Vercel** — check function logs, deployment status |
-| Check environment variables on staging/production | **Vercel** — list/inspect env vars per project |
-| Query production data to investigate a bug | **Neon** or **DBHub** — run SELECT queries |
-| Verify DB tables/migrations exist | **Neon** — `execute_sql` or schema tools |
-| Create/manage Neon database branches | **Neon** — branch management tools |
-| Review a PR, check CI status, search code | **GitHub** — PR, issue, commit, code search tools |
-| Look up library/framework API docs | **Context7** — documentation query |
-| Run or debug E2E tests | **Playwright** — browser automation |
+| Task                                              | Use this MCP                                        |
+| ------------------------------------------------- | --------------------------------------------------- |
+| Debug a deployment failure                        | **Vercel** — check function logs, deployment status |
+| Check environment variables on staging/production | **Vercel** — list/inspect env vars per project      |
+| Query production data to investigate a bug        | **Neon** or **DBHub** — run SELECT queries          |
+| Verify DB tables/migrations exist                 | **Neon** — `execute_sql` or schema tools            |
+| Create/manage Neon database branches              | **Neon** — branch management tools                  |
+| Review a PR, check CI status, search code         | **GitHub** — PR, issue, commit, code search tools   |
+| Look up library/framework API docs                | **Context7** — documentation query                  |
+| Run or debug E2E tests                            | **Playwright** — browser automation                 |
 
 ### 18.3 Neon MCP (Database)
 
@@ -538,6 +539,7 @@ services. Use them instead of manual CLI commands or copy-pasting data.
 Provides ~20 tools covering the full database lifecycle: query execution, schema inspection, branch management, migrations, connection strings, and documentation.
 
 **Important rules**:
+
 - **Read-first by default.** Prefer SELECT queries for investigation. Only run mutating queries when explicitly asked.
 - **This connects to the production database.** Confirm with the user before destructive queries (DELETE, DROP, TRUNCATE).
 
@@ -563,6 +565,7 @@ Provides browser automation tools for E2E testing and visual inspection: navigat
 **Key tools**: `browser_navigate`, `browser_click`, `browser_fill_form`, `browser_snapshot`, `browser_take_screenshot`, `browser_console_messages`, `browser_network_requests`, `browser_evaluate`.
 
 **Important rules**:
+
 - **Use `browser_snapshot` over screenshots** for element inspection — it returns an accessibility tree that is more reliable for identifying interactive elements.
 - **Close the browser** (`browser_close`) when done to free resources.
 - **E2E tests in `e2e/`** are the primary testing mechanism. Use the Playwright MCP for ad-hoc debugging, visual verification, and interactive investigation — not as a replacement for the test suite.

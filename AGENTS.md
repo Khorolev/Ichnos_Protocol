@@ -7,18 +7,18 @@ Monorepo: `client/` (React frontend) + `server/` (Express backend).
 
 ## Tech stack
 
-| Layer        | Technology                     |
-|--------------|--------------------------------|
-| Frontend     | React 18+, Vite, Bootstrap 5, Redux Toolkit (RTK Query), React Router v6+ |
-| Backend      | Express.js 5, REST API, ES modules |
-| SQL DB       | PostgreSQL (Neon Tech)         |
-| NoSQL/Files  | Firebase Firestore + Storage   |
-| Auth         | Firebase Authentication        |
-| Chatbot      | X.ai Grok API (RAG)           |
-| LinkedIn     | Third-party embed widget       |
-| Testing      | Vitest, React Testing Library, Supertest, Playwright (E2E) |
-| Deployment   | Vercel (Monorepo)              |
-| Linting      | ESLint + Prettier              |
+| Layer       | Technology                                                                |
+| ----------- | ------------------------------------------------------------------------- |
+| Frontend    | React 18+, Vite, Bootstrap 5, Redux Toolkit (RTK Query), React Router v6+ |
+| Backend     | Express.js 5, REST API, ES modules                                        |
+| SQL DB      | PostgreSQL (Neon Tech)                                                    |
+| NoSQL/Files | Firebase Firestore + Storage                                              |
+| Auth        | Firebase Authentication                                                   |
+| Chatbot     | X.ai Grok API (RAG)                                                       |
+| LinkedIn    | Third-party embed widget                                                  |
+| Testing     | Vitest, React Testing Library, Supertest, Playwright (E2E)                |
+| Deployment  | Vercel (Monorepo)                                                         |
+| Linting     | ESLint + Prettier                                                         |
 
 ## Repository structure
 
@@ -169,12 +169,14 @@ cd server && vercel --prod   # deploy backend
 ## Security best practices
 
 ### Authorization: middleware, not controllers
+
 - Authorization guards (e.g., super-admin checks) must live in **middleware**, not inside controller handler bodies.
 - Each middleware in the chain should be a single-responsibility check: `auth` → `admin` → `superAdmin` → handler.
 - Example: `router.post("/manage-admins", auth, admin, superAdmin, validate(...), controller.manageAdmins)`.
 - Never write `if (req.user?.superAdmin !== true) return res.status(403)...` inside a controller.
 
 ### AI prompt injection prevention
+
 - Never inject raw user-supplied text directly into AI `system` role content or as part of system instructions.
 - Always place user input in the `user` role only.
 - Before passing user text to topic classification or any AI system prompt, sanitize (strip control characters) and truncate to a maximum length.
@@ -182,18 +184,21 @@ cd server && vercel --prod   # deploy backend
 - Correct pattern: `[{ role: "system", content: systemPrompt }, { role: "user", content: sanitize(message) }]`.
 
 ### HTML injection in server-rendered pages
+
 - Always escape values interpolated into HTML templates using an `escapeHtml()` helper.
 - Validate URL scheme before using a value as `href` or `src` — reject `javascript:`, `data:`, and any non-http/https protocol.
 - This applies even to environment variables: env vars can be misconfigured.
 - Reference implementation: `server/src/helpers/buildStatusPage.js` (`escapeHtml`, `sanitizeOrigin`).
 
 ### Firebase Admin SDK initialization guard
+
 - Firebase Admin SDK must be initialized exactly once (singleton pattern).
 - Guard initialization with `!admin.apps.length` before calling `admin.initializeApp()`.
 - Never call `admin.auth()`, `admin.storage()`, or `admin.firestore()` before the app is fully initialized.
 - Reference implementation: `server/src/config/firebase.js`.
 
 ### Auth API contract (post-T3/T4/T5 refactor)
+
 - **`POST /api/auth/sync-profile`** is auth-protected — the `auth` middleware must be present on this route. Identity is derived exclusively from `req.user.uid` (the verified Firebase token). The request body must **not** include `firebaseUid`; any body-supplied UID is ignored.
 - **`GET /api/auth/me`** returns `data.user` in camelCase shape: `{ firebaseUid, email, name, surname, phone, company, linkedin }`. The DB snake_case row is normalized via `mapUserRow` at the service boundary before reaching the client.
 - **`400` validation failures** from profile-completion flows render a stable generic message (`"An unexpected error occurred."`) — not field-level detail — to avoid leaking schema information.
@@ -217,6 +222,7 @@ cd server && vercel --prod   # deploy backend
 ## CI/CD best practices
 
 ### Integration test gating
+
 - Integration tests that require external services (PostgreSQL, Firebase, xAI) must gate on an env var using the pattern:
   ```js
   const skip = !process.env.TEST_DATABASE_URL;
@@ -226,16 +232,19 @@ cd server && vercel --prod   # deploy backend
 - Document which secret enables each integration test suite in a comment at the top of the file.
 
 ### Schema edge-case testing
+
 - Write unit tests for schema validators that explicitly cover edge cases: empty string, whitespace-only, too long, wrong type.
 - Test at the validator level (direct Zod schema test) in addition to route-level tests.
 - Edge-case tests must run in CI without any external dependencies.
 
 ### Build verification in CI
+
 - The CI pipeline must run `npm run build` for the client as a separate step before any deployment.
 - A broken Vite build should fail in CI, not only be caught at Vercel deploy time.
 - Add a `build` step to `lint-and-test-client` or as a separate `build-client` job in `ci.yml`.
 
 ### Preview-first deployment model
+
 - **Vercel's native Git integration** creates preview deployments automatically on every branch push and PR — no GitHub Actions workflow is involved.
 - Production promotion is **approval-gated**: the `Promote to Production` workflow triggers automatically on push to `release` and requires human approval via the GitHub `production` environment.
 - This allows reviewing every deployment on preview before it reaches users.
@@ -245,6 +254,7 @@ cd server && vercel --prod   # deploy backend
 - The `staging` branch is an auto-synced parallel manual-QA lane that sits outside the automated pipeline. It uses production credentials for real-user QA. See `DEPLOYMENT_GITHUB_ACTIONS.md` for full details.
 
 ### Neon preview branches for E2E
+
 - Vercel's native Neon integration automatically creates a Neon preview branch for each Vercel preview deployment — no GitHub Actions step provisions or deletes branches.
 - E2E test data is seeded automatically by the server on preview startup. When `VERCEL_ENV === 'preview'` and E2E account env vars are present (`E2E_ADMIN_EMAIL`, `E2E_ADMIN_UID`), the server runs idempotent seed queries using its own `DATABASE_URL` (injected by the Neon-Vercel integration).
 - GitHub Actions does not interact with the database at all — no Neon API calls, no direct DB connections, no seed tokens.
@@ -255,6 +265,7 @@ cd server && vercel --prod   # deploy backend
 - The `staging` branch does **not** use an ephemeral Neon branch — it connects directly to the production Neon database via a branch-scoped `DATABASE_URL` override. Any Neon ephemeral branch auto-created for the `staging` preview is unused and expires automatically.
 
 ### E2E URL targeting in GitHub Actions
+
 - E2E tests are triggered by `repository_dispatch (vercel.deployment.success)` from the **server** Vercel project (`ichnos-protocol_server`) via `e2e.yml`, not as a dependent job inside another workflow.
 - The workflow uses **project-name filtering** (`contains(project.name, 'server')`) as the event guard — not hostname pattern matching.
 - Tests target stable E2E URLs from the committed `e2e/.env.e2e` file (`E2E_BASE_URL`, `E2E_API_BASE_URL`), not per-deployment hash URLs and not secrets.
@@ -267,6 +278,7 @@ cd server && vercel --prod   # deploy backend
 - `E2E_BASE_URL` and `E2E_API_BASE_URL` (in `e2e/.env.e2e`) point to **ephemeral preview** targets — never to the `staging` branch URL. The `staging` environment is a separate manual-QA lane with its own distinct URL and production credentials.
 
 ### Secret-conditional steps
+
 - Any CI step that requires a secret must check for presence before running, not fail silently:
   ```bash
   if [ -n "$MY_SECRET" ]; then
@@ -283,14 +295,14 @@ services — no manual copy-paste of URLs, credentials, or API responses.
 
 ### Available servers by agent
 
-| MCP Server | Claude Code | Traycer | What it does |
-|------------|:-----------:|:-------:|-------------|
-| **GitHub** | ✅ | ✅ | Repo operations: PRs, issues, commits, code search, file contents |
-| **Neon** | ✅ | ✅ | PostgreSQL: SQL queries, schema inspection, branch management, migrations |
-| **Vercel** | ✅ | ❌ (OAuth not supported) | Deployments: logs, env vars, project settings, promotion |
-| **DBHub** | ✅ | — | Direct SQL access to Neon DB (legacy, see Neon MCP) |
-| **Playwright** | ✅ | — | E2E test execution and browser automation |
-| **Context7** | ✅ | — | Library/framework documentation lookup |
+| MCP Server     | Claude Code |         Traycer          | What it does                                                              |
+| -------------- | :---------: | :----------------------: | ------------------------------------------------------------------------- |
+| **GitHub**     |     ✅      |            ✅            | Repo operations: PRs, issues, commits, code search, file contents         |
+| **Neon**       |     ✅      |            ✅            | PostgreSQL: SQL queries, schema inspection, branch management, migrations |
+| **Vercel**     |     ✅      | ❌ (OAuth not supported) | Deployments: logs, env vars, project settings, promotion                  |
+| **DBHub**      |     ✅      |            —             | Direct SQL access to Neon DB (legacy, see Neon MCP)                       |
+| **Playwright** |     ✅      |            —             | E2E test execution and browser automation                                 |
+| **Context7**   |     ✅      |            —             | Library/framework documentation lookup                                    |
 
 ### When to use which
 
@@ -316,3 +328,7 @@ services — no manual copy-paste of URLs, credentials, or API responses.
 - Run `npm run build` locally before opening a PR to catch Vite build errors early.
 - All authorization guards go in middleware, never inline in controllers.
 - All magic strings in API/service code go in named constants.
+
+### Traycer YOLO verification trigger
+
+When Claude is running from a Traycer YOLO handoff, phase completion must be signaled by creating the watched JSON artifact under `~/.traycer/yolo_artifacts/`, using the handoff identifier exposed by Traycer (`$TRAYCER_TASK_ID` when present, otherwise `$TRAYCER_PHASE_ID` or the explicit handoff-provided artifact name). The repo-local Markdown notes under `.claude/yolo-artifacts/` are optional human-readable logs only; they do **not** trigger Traycer verification. If no `TRAYCER_*` environment variables are present, assume the session was not started through Traycer YOLO mode and automatic verification cannot be triggered.

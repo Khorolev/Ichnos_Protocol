@@ -1,8 +1,37 @@
 import { axe } from 'vitest-axe';
 import { within } from '@testing-library/react';
-import { renderWithProviders, screen, cleanup } from '../../test-utils';
+import { Routes, Route, useLocation } from 'react-router-dom';
+import {
+  renderWithProviders,
+  screen,
+  cleanup,
+  fireEvent,
+} from '../../test-utils';
 import Footer from './Footer';
 import { COMPANY_INFO, CONTACT_INFO } from '../../constants/companyInfo';
+
+function LocationProbe() {
+  const location = useLocation();
+  return (
+    <div data-testid="location-probe">
+      <span data-testid="probe-pathname">{location.pathname}</span>
+      <span data-testid="probe-scroll-to">
+        {location.state?.scrollTo ?? ''}
+      </span>
+    </div>
+  );
+}
+
+function FooterWithRouteProbe() {
+  return (
+    <>
+      <Footer />
+      <Routes>
+        <Route path="*" element={<LocationProbe />} />
+      </Routes>
+    </>
+  );
+}
 
 const ATTRIBUTION_TEXT =
   '© 2026 Ichnos Protocol Pte. Ltd. — All rights reserved.';
@@ -29,9 +58,7 @@ describe('Footer', () => {
   it('brand column shows the exact tagline copy', () => {
     const brandCol = screen.getByTestId('footer-col-brand');
     expect(
-      within(brandCol).getByText(
-        'Battery consulting and battery passport solutions.',
-      ),
+      within(brandCol).getByText('Engineering, compliance, circularity.'),
     ).toBeInTheDocument();
   });
 
@@ -97,11 +124,37 @@ describe('Footer', () => {
     ).toBeNull();
   });
 
-  it('Services column has Battery Advisory → /services', () => {
+  it('Services column has exactly four locked links to /services', () => {
     const servicesCol = screen.getByTestId('footer-col-services');
-    expect(
-      within(servicesCol).getByRole('link', { name: 'Battery Advisory' }),
-    ).toHaveAttribute('href', '/services');
+    const labels = ['Engineering', 'Compliance', 'Circularity', 'Delivery Models'];
+    labels.forEach((label) => {
+      expect(
+        within(servicesCol).getByRole('link', { name: label }),
+      ).toHaveAttribute('href', '/services');
+    });
+    expect(within(servicesCol).getAllByRole('link')).toHaveLength(4);
+  });
+
+  it('Services column links navigate to /services with the locked scrollTo state', () => {
+    const cases = [
+      { label: 'Engineering', scrollTo: 'engineering' },
+      { label: 'Compliance', scrollTo: 'compliance' },
+      { label: 'Circularity', scrollTo: 'circularity' },
+      { label: 'Delivery Models', scrollTo: 'delivery-models' },
+    ];
+    cases.forEach(({ label, scrollTo }) => {
+      cleanup();
+      renderWithProviders(<FooterWithRouteProbe />);
+      const servicesCol = screen.getByTestId('footer-col-services');
+      const link = within(servicesCol).getByRole('link', { name: label });
+      fireEvent.click(link);
+      expect(screen.getByTestId('probe-pathname')).toHaveTextContent(
+        '/services',
+      );
+      expect(screen.getByTestId('probe-scroll-to')).toHaveTextContent(
+        scrollTo,
+      );
+    });
   });
 
   it('Products column has Battery Passport → /passport', () => {

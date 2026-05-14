@@ -7,6 +7,8 @@ export const SERVICES_LIST = [
       "System architecture, requirement and test management, and full FMEA discipline.",
     description:
       "System architecture, requirement and test management, and full FMEA discipline — S-FMEA, D-FMEA, P-FMEA — across cell, module, and pack levels. Test planning, traceability, and design-review support for battery development programs that need rigorous engineering process from concept to SOP.",
+    pillar: "engineering",
+    deliveryMethod: false,
   },
   {
     id: "battery-mechanical-development",
@@ -16,15 +18,8 @@ export const SERVICES_LIST = [
       "Pack architecture, cell housing, thermal hardware, and design-for-manufacture.",
     description:
       "Pack and module mechanical design, cell housing, thermal hardware integration, and design-for-manufacture. Drawing on a doctorate in Production Engineering of E-Mobility Components and patents on battery modules and aluminium cell housings.",
-  },
-  {
-    id: "technical-lead-battery-systems",
-    icon: "bi-person-workspace",
-    title: "Technical Lead — Battery Systems",
-    tagline:
-      "Embedded technical leadership for battery systems development programs.",
-    description:
-      "Embedded technical leadership for battery systems development programs. Senior battery expertise on demand for early-stage teams or in-house programs that need experienced direction without a full-time hire.",
+    pillar: "engineering",
+    deliveryMethod: false,
   },
   {
     id: "eu-apac-compliance-bridge",
@@ -34,15 +29,8 @@ export const SERVICES_LIST = [
       "Translating European battery regulation into APAC supply-chain reality — and vice versa.",
     description:
       "Translating European battery regulation into APAC (including ASEAN) supply-chain reality — and vice versa. Coverage includes EU 2023/1542, Malaysian MS 2818, regional certification frameworks, and supplier alignment for OEMs operating across both regions. Practitioner-grade understanding of where regulatory text meets the factory floor.",
-  },
-  {
-    id: "remanufacturing-recycling-circular-economy",
-    icon: "bi-arrow-repeat",
-    title: "Battery Remanufacturing, Recycling & Circular Economy",
-    tagline:
-      "Second-life pathways, design for remanufacturing, design for recycling, design for cost.",
-    description:
-      "Second-life pathways, design for remanufacturing, design for recycling, and design for cost. PhD-level expertise in circular-economy battery systems — backed by the 3rd-place RWTH Innovation Award and four peer-reviewed publications on remanufacturing, recycling, and cell housing design. Founder lectured on battery recycling at the RWTH Aachen PEM Chair.",
+    pillar: "compliance",
+    deliveryMethod: false,
   },
   {
     id: "battery-passport-implementation",
@@ -53,6 +41,41 @@ export const SERVICES_LIST = [
     description:
       "EU 2023/1542 and Malaysian MS 2818 readiness audits, gap analyses, and end-to-end implementation: data model design, supplier data collection workflows, and carbon-footprint pipelines. Tied directly to the digital Battery Passport platform Ichnos Protocol is building — see /passport.",
     passportLink: "/passport",
+    pillar: "compliance",
+    deliveryMethod: false,
+  },
+  {
+    id: "remanufacturing-recycling-circular-economy",
+    icon: "bi-arrow-repeat",
+    title: "Battery Remanufacturing, Recycling & Circular Economy",
+    tagline:
+      "Second-life pathways, design for remanufacturing, design for recycling, design for cost.",
+    description:
+      "Second-life pathways, design for remanufacturing, design for recycling, and design for cost. PhD-level expertise in circular-economy battery systems — backed by the 3rd-place RWTH Innovation Award and four peer-reviewed publications on remanufacturing, recycling, and cell housing design. Founder lectured on battery recycling at the RWTH Aachen PEM Chair.",
+    pillar: "circularity",
+    deliveryMethod: false,
+  },
+  {
+    id: "technical-lead-battery-systems",
+    icon: "bi-person-workspace",
+    title: "Technical Lead — Battery Systems",
+    tagline:
+      "Embedded technical leadership for battery systems development programs.",
+    description:
+      "Embedded technical leadership for battery systems development programs. Senior battery expertise on demand for early-stage teams or in-house programs that need experienced direction without a full-time hire.",
+    pillar: null,
+    deliveryMethod: true,
+  },
+  {
+    id: "agile-project-management",
+    icon: "bi-kanban",
+    title: "Agile Project Management — Battery Programs",
+    tagline:
+      "Sprint cadence, requirement traceability, and cross-functional coordination for battery development efforts.",
+    description:
+      "Methodology, milestone management, and stakeholder coordination for battery system development programmes. Backed by PSM I certification (Professional Scrum Master™ I) and thirteen years of cross-functional project engineering across Ducati, Technogym, and FEV — from gasoline engines and motorcycle design through electrification and vehicle battery systems.",
+    pillar: null,
+    deliveryMethod: true,
   },
 ];
 
@@ -60,3 +83,24 @@ export const SERVICES_PAGE_CONTENT = {
   title: "Services & Solutions",
   subtitle: "Expert consulting for the battery regulation landscape.",
 };
+
+export const SERVICE_PILLARS = [
+  { id: "engineering", label: "Engineering", anchor: "engineering" },
+  { id: "compliance", label: "Compliance", anchor: "compliance" },
+  { id: "circularity", label: "Circularity", anchor: "circularity" },
+];
+
+export const DELIVERY_METHODS_HEADER = {
+  label: "Delivery Models",
+  anchor: "delivery-models",
+  intro:
+    "Two engagement formats available across every pillar — pick the one that matches how your team needs to consume our expertise.",
+};
+
+export function getServicesByPillar(pillarId) {
+  return SERVICES_LIST.filter((s) => s.pillar === pillarId);
+}
+
+export function getDeliveryMethodServices() {
+  return SERVICES_LIST.filter((s) => s.deliveryMethod === true);
+}

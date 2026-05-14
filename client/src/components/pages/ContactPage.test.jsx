@@ -157,9 +157,7 @@ describe("ContactPage", () => {
         document.querySelector('meta[property="og:url"][data-rh="true"]'),
       ).toHaveAttribute("content", CONTACT_META.og.url);
       expect(
-        document.querySelector(
-          'meta[property="og:site_name"][data-rh="true"]',
-        ),
+        document.querySelector('meta[property="og:site_name"][data-rh="true"]'),
       ).toHaveAttribute("content", CONTACT_META.og.siteName);
       expect(
         document.querySelector('meta[property="og:locale"][data-rh="true"]'),
@@ -168,9 +166,7 @@ describe("ContactPage", () => {
         document.querySelector('meta[property="og:image"][data-rh="true"]'),
       ).toHaveAttribute("content", CONTACT_META.og.image);
       expect(
-        document.querySelector(
-          'meta[property="og:image:alt"][data-rh="true"]',
-        ),
+        document.querySelector('meta[property="og:image:alt"][data-rh="true"]'),
       ).toHaveAttribute("content", CONTACT_META.og.imageAlt);
     });
   });
@@ -231,7 +227,6 @@ describe("ContactPage", () => {
     const contactSection = screen.getByTestId("contact-section");
     expect(intro).toBeInTheDocument();
     expect(contactSection).toBeInTheDocument();
-    // eslint-disable-next-line no-bitwise
     const order = intro.compareDocumentPosition(contactSection);
     expect(order & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
@@ -249,9 +244,7 @@ describe("ContactPage", () => {
   it("opens CalendlyModal when the scheduler action is clicked", async () => {
     await renderPage();
     expect(screen.queryByTestId("calendly-modal")).not.toBeInTheDocument();
-    fireEvent.click(
-      screen.getByRole("button", { name: /schedule a call/i }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /schedule a call/i }));
     expect(screen.getByTestId("calendly-modal")).toBeInTheDocument();
   });
 
@@ -269,9 +262,8 @@ describe("ContactPage", () => {
   });
 
   it("renders MyInquiriesList when authenticated user has requests", async () => {
-    const { useGetMyRequestsQuery } = await import(
-      "../../features/contact/contactApi"
-    );
+    const { useGetMyRequestsQuery } =
+      await import("../../features/contact/contactApi");
     useGetMyRequestsQuery.mockReturnValue({
       data: {
         data: [
@@ -291,9 +283,8 @@ describe("ContactPage", () => {
   });
 
   it("does not render MyInquiriesList when authenticated user has no requests", async () => {
-    const { useGetMyRequestsQuery } = await import(
-      "../../features/contact/contactApi"
-    );
+    const { useGetMyRequestsQuery } =
+      await import("../../features/contact/contactApi");
     useGetMyRequestsQuery.mockReturnValue({
       data: { data: [] },
       isLoading: false,

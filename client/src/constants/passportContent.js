@@ -66,7 +66,7 @@ export const TECHNOLOGY_ROADMAP_CONTENT = {
   subtext:
     "A staged architecture from rapid prototyping to blockchain-backed production.",
   footer:
-    "The Solana choice aligns with the project's values: high throughput, low cost, and a growing ecosystem of sustainability-focused decentralized applications.",
+    "The Solana choice aligns with the project's values: high throughput, low cost, and a growing ecosystem of battery-lifecycle-focused decentralized applications.",
 };
 
 export const PASSPORT_PAGE_CONTENT = {

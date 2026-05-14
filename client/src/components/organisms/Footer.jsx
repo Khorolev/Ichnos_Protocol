@@ -7,8 +7,7 @@ import { COMPANY_INFO, CONTACT_INFO } from '../../constants/companyInfo';
 import SocialLinks from '../molecules/SocialLinks';
 import Logo from '../atoms/Logo';
 
-const BRAND_DESCRIPTION =
-  'Battery consulting and battery passport solutions.';
+const BRAND_DESCRIPTION = 'Engineering, compliance, circularity.';
 
 const MENUS = [
   {
@@ -26,7 +25,28 @@ const MENUS = [
   {
     heading: 'Services',
     testId: 'footer-col-services',
-    links: [{ label: 'Battery Advisory', to: '/services' }],
+    links: [
+      {
+        label: 'Engineering',
+        to: '/services',
+        state: { scrollTo: 'engineering' },
+      },
+      {
+        label: 'Compliance',
+        to: '/services',
+        state: { scrollTo: 'compliance' },
+      },
+      {
+        label: 'Circularity',
+        to: '/services',
+        state: { scrollTo: 'circularity' },
+      },
+      {
+        label: 'Delivery Models',
+        to: '/services',
+        state: { scrollTo: 'delivery-models' },
+      },
+    ],
   },
   {
     heading: 'Products',

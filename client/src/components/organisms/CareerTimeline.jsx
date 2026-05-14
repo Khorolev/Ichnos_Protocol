@@ -2,7 +2,9 @@ import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import Badge from 'react-bootstrap/Badge';
 
-import { SECTION_HEADINGS } from '../../constants/teamContent';
+const SECTION_TITLE = 'Career Highlights';
+const SECTION_SUBTITLE =
+  'A journey from academic research to industry leadership and entrepreneurship.';
 
 const TimelineItem = ({ year, title, organization, description, isLast }) => (
   <div className="timeline-item d-flex mb-0">
@@ -22,10 +24,10 @@ const TimelineItem = ({ year, title, organization, description, isLast }) => (
 const TimelineHeading = () => (
   <>
     <h2 className="text-center mb-2 section-heading">
-      {SECTION_HEADINGS.careerHighlights.title}
+      {SECTION_TITLE}
     </h2>
     <p className="text-center mb-5 section-subtext">
-      {SECTION_HEADINGS.careerHighlights.subtitle}
+      {SECTION_SUBTITLE}
     </p>
   </>
 );

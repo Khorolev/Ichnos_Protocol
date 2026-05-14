@@ -1,14 +1,14 @@
-import js from '@eslint/js'
-import globals from 'globals'
-import reactHooks from 'eslint-plugin-react-hooks'
-import reactRefresh from 'eslint-plugin-react-refresh'
-import vitest from '@vitest/eslint-plugin'
-import { defineConfig, globalIgnores } from 'eslint/config'
+import js from "@eslint/js";
+import globals from "globals";
+import reactHooks from "eslint-plugin-react-hooks";
+import reactRefresh from "eslint-plugin-react-refresh";
+import vitest from "@vitest/eslint-plugin";
+import { defineConfig, globalIgnores } from "eslint/config";
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(["dist", ".vercel/output/**"]),
   {
-    files: ['**/*.{js,jsx}'],
+    files: ["**/*.{js,jsx}"],
     extends: [
       js.configs.recommended,
       reactHooks.configs.flat.recommended,
@@ -18,26 +18,30 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
       parserOptions: {
-        ecmaVersion: 'latest',
+        ecmaVersion: "latest",
         ecmaFeatures: { jsx: true },
-        sourceType: 'module',
+        sourceType: "module",
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      "no-unused-vars": ["error", { varsIgnorePattern: "^[A-Z_]" }],
     },
   },
   {
-    files: ['**/*.{test,mock}.{js,jsx}', '**/*.spec.{js,jsx}', '**/setupTests.js'],
+    files: [
+      "**/*.{test,mock}.{js,jsx}",
+      "**/*.spec.{js,jsx}",
+      "**/setupTests.js",
+    ],
     plugins: { vitest },
     languageOptions: {
       globals: vitest.environments.env.globals,
     },
     rules: {
       ...vitest.configs.recommended.rules,
-      'vitest/expect-expect': 'warn',
-      'vitest/no-disabled-tests': 'warn',
-      'vitest/no-focused-tests': 'error',
+      "vitest/expect-expect": "warn",
+      "vitest/no-disabled-tests": "warn",
+      "vitest/no-focused-tests": "error",
     },
   },
-])
+]);
