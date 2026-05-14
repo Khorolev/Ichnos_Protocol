@@ -219,13 +219,49 @@ Only when Tiers 1-6 are green:
 
 ---
 
+## Tier 8 — Post-production-promotion (live site)
+
+**Where**: After `Promote to Production` workflow succeeds, open https://ichnos-protocol.com in a browser.
+
+Staging passing does **not** validate production. Vercel env vars have **independent scopes** (Production / Preview / Development) — staging runs on Preview scope (with a `staging` branch override), so a Preview-only env var configuration sails through Tier 1-7 and explodes on Tier 8. The two specific failure modes we've hit:
+
+### 8a. Production client → `502 DNS_HOSTNAME_NOT_FOUND` on `/api/*`
+
+**Symptom**: Site loads, but `<ApiSanityWarning>` banner fires with "API health check returned an error". `curl https://ichnos-protocol.com/api/health` returns HTTP 502 with body `DNS_HOSTNAME_NOT_FOUND`.
+
+**Cause**: `client/vercel.json` rewrites `/api/(.*)` to `https://$VITE_API_HOST/api/$1`. If `VITE_API_HOST` is set only on Preview scope (with branch overrides for `staging`/`e2e`) and **NOT** on Production scope, the variable resolves to the empty string. The rewrite then tries `https:///api/health`, which DNS-fails.
+
+**Fix**: Vercel → ichnos-client → Settings → Environment Variables → add `VITE_API_HOST` with value `api.ichnos-protocol.com` scoped to **Production**. Redeploy the current production client with "Use existing Build Cache" **off**.
+
+### 8b. `promote-to-production.yml` `Promote client` step → 403 "Trying to access resource under scope X"
+
+**Symptom**: The `Discover latest preview` step succeeds (green), but the next `Promote ... to production` step fails with:
+
+```
+Error: Not authorized: Trying to access resource under scope "<old-team-or-personal>".
+You must re-authenticate to this scope or use a token with access to this scope. (403)
+```
+
+**Cause**: The `Discover` step uses curl with `teamId=$VERCEL_ORG_ID` as an explicit query param — team scope is explicit. The `Promote` step uses `vercel promote <deployment-id>`, and the CLI does **not** read `VERCEL_ORG_ID` env var for bare-deployment-id commands. It falls back to the token's default scope, which after a team migration is often still the personal account (`khorolevs-projects` in our history).
+
+**Fix** — two complementary measures, do both:
+
+1. **Pass `--scope=$VERCEL_ORG_ID` explicitly** to every `vercel promote` invocation in the workflow. The CLI accepts a team ID or slug here. (Already applied — see commit history of `.github/workflows/promote-to-production.yml`.)
+2. **Regenerate `VERCEL_TOKEN`** with the **new team selected as the default scope** at creation time. The dropdown defaults to "Full Account" — pick the actual team. Update the GitHub Actions secret.
+
+Either fix alone is sufficient; both together protect any future workflow that might miss the `--scope` flag.
+
+---
+
 ## Triage priorities by likelihood (post-Vercel-migration specifically)
 
-If you only have time to verify three things first, do these in order:
+If you only have time to verify these things first, do them in order:
 
 1. **Firebase Auth authorized domains** — add the new Vercel team's preview-URL pattern. This is the #1 thing that breaks after a Vercel team migration. **5-minute fix in Firebase Console.**
 2. **Server env vars on the new Vercel team** — `FIREBASE_*`, `DATABASE_URL`, `XAI_API_KEY`, `CORS_ORIGIN`. If they were copied during project transfer, you're already good — but verify with `vercel env ls preview --cwd server`.
-3. **GitHub Actions secrets** — `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID_CLIENT`, `VERCEL_PROJECT_ID_SERVER`, `VERCEL_TOKEN`. These only matter for **post-merge** workflows (`promote-to-production.yml`, `sync-staging.yml`). PRs don't use them. Defer until you're about to merge.
+3. **GitHub Actions secrets** — `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID_CLIENT`, `VERCEL_PROJECT_ID_SERVER`, `VERCEL_TOKEN`. These only matter for **post-merge** workflows (`promote-to-production.yml`, `sync-staging.yml`). PRs don't use them. Defer until you're about to merge. **`VERCEL_TOKEN` must be scoped to the new team at creation time** — see Tier 8b.
+4. **Client `VITE_API_HOST` Production scope** — staging-passing does NOT validate this. Tier 8a is silently broken until the moment you promote. Check Vercel → ichnos-client → Settings → Environment Variables shows three entries for `VITE_API_HOST`: Production, Preview, and the `staging` branch override.
+5. **Dead env vars from the old team** — e.g. `VITE_BASE_URL` from a prior deployment pattern. Audit `client/.env.example` and `server/.env.example` against the live Vercel env vars; delete anything in Vercel that isn't in the example files.
 
 ---
 
@@ -254,6 +290,8 @@ If you only have time to verify three things first, do these in order:
 | `/api/health` returns `seed.error: password authentication failed for user 'neondb_owner'` | 5 / 7 | Neon Vercel integration not (re)installed on the new team after migration; `DATABASE_URL` env var holds dead credentials | Tier 0, Step 2 — reinstall Neon integration on the team. First delete stale `DATABASE_URL`/`PG*` env vars (the integration cannot overwrite them), then install from the team's Integrations marketplace, then redeploy the server preview. |
 | Neon (or other) integration wizard fails with "Request failed: unknown error" after the env-var cleanup succeeded | 0 | OAuth session cookies hold stale identity from the failed first attempt; refresh alone doesn't clear them | Tier 0, Step 5 — full reset, **including signing out of both Vercel and the vendor**. The sign-out is the unblocker; without it the retry keeps producing the same error. |
 | `DATABASE_URL` appears stale even after the Neon integration reinstall succeeded | 0 / 5 | Preview deployment was not redeployed after env vars were updated; the running preview still holds the build-time snapshot | Tier 0, Step 7 — redeploy the server preview on the PR. Existing builds do not pick up env-var changes. |
+| `Promote to Production` workflow fails with `403 Not authorized: Trying to access resource under scope "<old-account>"` | post-merge | Vercel CLI's `vercel promote <deployment-id>` does NOT read `VERCEL_ORG_ID` env var; falls back to the token's default scope, which after a team move is often still the personal account | Tier 8b — pass `--scope="$VERCEL_ORG_ID"` to `vercel promote` in the workflow AND regenerate `VERCEL_TOKEN` with the team selected as default scope at creation. |
+| Production loads but `<ApiSanityWarning>` banner shows; `curl https://<prod-domain>/api/health` returns `502 DNS_HOSTNAME_NOT_FOUND` | 8 | `VITE_API_HOST` was set on Preview scope (with `staging` branch override) but never explicitly on Production scope; resolves to empty string at request time | Tier 8a — add `VITE_API_HOST=api.ichnos-protocol.com` to Vercel client project, Production scope. Redeploy production with build cache disabled. |
 
 ---
 
