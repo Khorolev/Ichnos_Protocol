@@ -606,52 +606,66 @@ $ curl -s -o /dev/null -w "%{http_code}\n" https://ichnos-protocol.com/api/healt
 
 Body: `DNS_HOSTNAME_NOT_FOUND`.
 
-**Why it happened**: Vercel env vars have **three independent scopes**:
-Production, Preview, Development. Each scope can also be subdivided by branch
-overrides (e.g. a `staging`-branch override under Preview). What we had on the
-client project after the team migration:
+**Why it happened**: Vercel env vars have independent scopes (Production,
+Preview, Development), each subdivisible by branch overrides. After the team
+migration the client project had:
 
 | Scope | `VITE_API_HOST` |
 |---|---|
-| Preview (default) | the latest server preview URL |
+| Preview (default) | empty |
 | Preview / branch `staging` | `staging-api.ichnos-protocol.com` |
-| **Production** | **not set** |
+| Production | empty |
 
-The `client/vercel.json` rewrite is `"dest": "https://$VITE_API_HOST/api/$1"`.
-At request time on the production deployment, `$VITE_API_HOST` interpolates to
-the empty string. The destination becomes `https:///api/health`, which DNS-fails
-and Vercel returns a 502.
+Staging passed every check because the staging-branch override filled the
+variable correctly. There is no automatic propagation between scopes — and
+the `staging` override does not apply to other Preview branches.
 
-Staging passed every check because the staging-branch override on Preview scope
-filled the variable correctly. There is no automatic propagation of values
-between scopes.
+**The deeper trap — `vercel promote` does NOT rebuild**: a first-pass fix of
+adding `VITE_API_HOST=api.ichnos-protocol.com` to **Production scope** and
+clicking "Redeploy" worked — for one workflow cycle. The next merge to release
+regressed straight back to 502. Reason: `vercel promote <deployment-id>`
+**re-aliases an existing preview build** to be the production deployment, it
+does not rebuild. Vercel snapshots env-var values into the deployment at
+build time. The preview was built on the `main` branch, with **Preview**-scope
+env vars (no `staging` override applies on `main`). If Preview-default is
+empty, the snapshot is `""`, the rewrite resolves to `https:///api/health`,
+DNS-fails, 502 — regardless of what's set on Production scope.
 
-**The simple rule** — never trust staging to validate production for anything
-scope-sensitive:
+| Vercel action | Env-var scope read at build time |
+|---|---|
+| PR / push to non-prod branch → auto preview | **Preview** scope |
+| Push to production branch (auto-deploy) | **Production** scope |
+| Manual "Redeploy" on a Production deployment | **Production** scope |
+| `vercel promote <id>` (our workflow) | **Whatever the original build used** — i.e. Preview |
 
-1. After any env-var change on a Vercel project, list **all three scopes**
-   explicitly:
+Our workflow uses path 4. The Production scope is therefore **never read** in
+the normal promotion cycle.
+
+**The simple rule** — two layers:
+
+1. **For the `vercel promote` workflow model, Preview-default is what serves
+   production traffic.** Set every client env var that production needs on a
+   combined **Production and Preview** entry (single variable, both scopes
+   selected, no custom branch override). The `staging` branch override stays
+   because branch-scoped values outrank the default.
+
+2. **Smoke-test both origins after every promotion**:
    ```bash
-   vercel env ls production
-   vercel env ls preview
-   vercel env ls development
-   ```
-2. For every variable in `<project>/.env.example`, assert it appears in
-   Production scope, not just Preview. The `.env.example` files are the
-   canonical truth for "what must be set in every scope".
-3. After production promotion, run the smoke test against the **production
-   origin**, not just the Vercel-assigned domain:
-   ```bash
-   curl -s https://ichnos-protocol.com/api/health     # client + rewrite
+   curl -s https://ichnos-protocol.com/api/health     # client + rewrite (validates Preview-default scope)
    curl -s https://api.ichnos-protocol.com/api/health # server direct
    ```
-   The first call validates the rewrite *and* the client's Production-scope
-   `VITE_API_HOST`. Without the first call, you only know the server is up —
-   not that the client can find it.
+   The first call is the one that catches scope misconfiguration. Without it,
+   you only know the server is up — not that the client can find it.
 
-This whole class of failure (Tier 8a in `docs/deploymentMigrationValidation.md`)
-is silent until the moment you promote. The validation runbook now lists it
-explicitly under "Triage priorities".
+3. **Triage shortcut, not a fix**: if production is down and you need it up
+   in 2 minutes, manually Redeploy the active Production deployment with
+   "Use existing Build Cache" **off**. That uses Production-scope env vars at
+   build time and works as a one-off. But the next workflow promotion will
+   regress unless rule 1 is also done. So always follow up.
+
+This whole class (Tier 8a in `docs/deploymentMigrationValidation.md`) is
+silent until the moment you promote, and the obvious fix (Production scope)
+masks the deeper problem for one cycle.
 
 ---
 
