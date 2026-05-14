@@ -6,6 +6,7 @@ import MobileNavOverlay from "../organisms/MobileNavOverlay";
 import Footer from "../organisms/Footer";
 import CookieConsentBanner from "../organisms/CookieConsentBanner";
 import ChatModal from "../organisms/ChatModal";
+import AuthModal from "../organisms/AuthModal";
 
 export default function PublicLayout({ children }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -23,6 +24,7 @@ export default function PublicLayout({ children }) {
       <Footer />
       <CookieConsentBanner />
       <ChatModal />
+      <AuthModal />
     </div>
   );
 }

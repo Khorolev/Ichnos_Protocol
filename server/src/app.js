@@ -15,10 +15,15 @@ import chatRoutes from "./routes/chatRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import gdprRoutes from "./routes/gdprRoutes.js";
 import buildStatusPage from "./helpers/buildStatusPage.js";
+import { ensureSeeded, seedStatus } from "../scripts/seedE2EOnPreview.js";
 
 const app = express();
 
-// Security headers
+// Required on Vercel serverless so express-rate-limit accepts the
+// X-Forwarded-For header set by the edge proxy. Without this, every
+// rate-limited request throws ValidationError and returns 500.
+app.set("trust proxy", 1);
+
 app.use(helmet());
 
 // CORS configuration
@@ -32,10 +37,13 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Rate limiting for public endpoints
+// Rate limiting for public endpoints.
+// Preview deployments use a higher limit to avoid E2E test failures —
+// preview URLs are protected by Vercel Deployment Protection anyway.
+const isPreview = process.env.VERCEL_ENV === "preview";
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: isPreview ? 1000 : 100,
   message: "Too many requests from this IP, please try again later.",
 });
 app.use("/api/", limiter);
@@ -52,14 +60,29 @@ app.get("/", (_req, res) => {
   res.status(200).send(html);
 });
 
-// Health check endpoint (JSON, for monitoring tools)
-app.get("/api/health", (_req, res) => {
+// Health check endpoint (JSON, for monitoring tools).
+// On preview deployments, this endpoint drives the E2E seed: it awaits the
+// seed promise so the Vercel function stays alive until seeding completes.
+// Without this, Vercel kills the function after sending the response, and
+// any fire-and-forget seed work is lost.
+app.get("/api/health", async (_req, res) => {
+  // Trigger (or join) the seed — only runs once, subsequent calls are no-ops.
+  // The await keeps the Vercel function alive for the full seed duration.
+  await ensureSeeded();
+
   res.status(200).json({
     status: "ok",
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || "development",
+    vercelEnv: process.env.VERCEL_ENV || "local",
     node: process.version,
+    seed: {
+      seeded: seedStatus.seeded,
+      error: seedStatus.error,
+      attempts: seedStatus.attempts,
+      mode: seedStatus.mode,
+    },
   });
 });
 

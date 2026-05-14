@@ -1,31 +1,266 @@
+# E2E Tests — triggered by Vercel after a successful SERVER preview deployment.
+#
+# Trigger strategy (Pattern B: Filter + Poll):
+#   A single git push triggers both client and server Vercel deployments. The
+#   server is always the slower deployment because it includes the Neon ephemeral
+#   DB branch creation and E2E seed. By triggering E2E on the SERVER's
+#   repository_dispatch, we guarantee the API and DB are ready when tests start.
+#
+#   The client (faster to deploy) is verified via a readiness poll against its
+#   stable staging URL before tests run. Since the client deploys faster than the
+#   server, it's almost always ready by the time the server dispatch fires.
+#
+#   This approach ensures:
+#   - E2E tests run exactly ONCE per push (only the server fires dispatch).
+#   - No debounce/sleep needed — the server event fires only after deployment + seed.
+#   - No "Connection terminated" or "Authentication timed out" Neon errors.
+#
+# Vercel project configuration:
+#   - Server project: Enable "Repository Dispatch Events" in Git settings.
+#   - Client project: Disable "Repository Dispatch Events" (or leave enabled —
+#     the `if` filter below skips client events anyway).
+#
+# Primary trigger: repository_dispatch (vercel.deployment.success)
+#   Tests run against stable staging domains (not per-deployment hash URLs).
+#
+# Secondary trigger: workflow_dispatch (manual/ad-hoc runs)
+#   Uses the same E2E config from the committed e2e/.env.e2e file.
+#
+# Safety: A production-host denylist gate validates all resolved URLs before
+#   any tests run. The gate is fail-closed — missing constants or unparseable
+#   URLs abort the workflow.
+#
+# Edge case — push that only changes client/ files:
+#   If only the client changes, the server does not redeploy → no dispatch → no
+#   E2E run. This is acceptable: the server didn't change, so existing E2E results
+#   still apply. Use workflow_dispatch for manual validation if needed.
 name: E2E Tests (Playwright)
 
 on:
+  repository_dispatch:
+    types: [vercel.deployment.success]
   workflow_dispatch:
     inputs:
-      base_url:
-        description: "Base URL to run Playwright tests against"
-        required: true
-        type: string
-      ref:
-        description: "Git ref to checkout (branch, tag, or SHA). Defaults to current ref if empty."
+      browser_profile:
+        description: "Browser profile: 'chromium' (default) or 'full'"
         required: false
-        default: ""
-        type: string
+        default: chromium
+        type: choice
+        options:
+          - chromium
+          - full
+      test_suite:
+        description: "Test suite filter: 'default' excludes @destructive, 'destructive' runs only @destructive, 'all' runs everything"
+        required: false
+        default: default
+        type: choice
+        options:
+          - default
+          - destructive
+          - all
+
+# Production-host denylist constants. Changes to these values require
+# maintainer-reviewed PRs — they are the canonical safety gate preventing
+# E2E tests from running against production.
+env:
+  PRODUCTION_HOSTS_CLIENT: "ichnos-protocol.com www.ichnos-protocol.com staging-client.ichnos-protocol.com"
+  PRODUCTION_HOSTS_API: "ichnos-protocolserver.vercel.app staging-api.ichnos-protocol.com"
 
 permissions:
   contents: read
+  statuses: write
+
+# One E2E run per project. If a new deployment arrives for the same
+# Vercel project, cancel the in-progress run (the old deployment is stale).
+# Manual runs all target the same staging URLs so they cancel each other.
+concurrency:
+  group: e2e-${{ github.event.client_payload.project.name || 'manual' }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   e2e:
+    name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
+
+    # For repository_dispatch: only run for SERVER deployments from main.
+    # Skip staging branch deployments — staging is a mirror of main
+    # (force-pushed by sync-staging.yml) and must not trigger duplicate
+    # E2E runs or overwrite the commit status set by the original main run.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'repository_dispatch' &&
+        contains(github.event.client_payload.project.name || '', 'server') &&
+        (github.event.client_payload.deployment.meta.githubCommitRef || github.event.client_payload.branch || '') != 'staging'
+      )
 
     steps:
+      - name: Dump Vercel payload (debug)
+        if: github.event_name == 'repository_dispatch'
+        run: echo '${{ toJSON(github.event.client_payload) }}' | jq '.' || true
+
+      - name: Resolve commit SHA
+        id: deploy
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            SHA="${{ github.event.client_payload.deployment.meta.githubCommitSha || github.event.client_payload.commitSha || '' }}"
+            REF="${{ github.event.client_payload.deployment.meta.githubCommitRef || github.event.client_payload.branch || '' }}"
+            echo "commit_sha=$SHA" >> "$GITHUB_OUTPUT"
+            echo "git_branch=$REF" >> "$GITHUB_OUTPUT"
+            echo "Vercel payload URL: ${{ github.event.client_payload.url }}"
+            echo "Commit SHA: $SHA"
+            echo "Branch: $REF"
+          else
+            echo "commit_sha=" >> "$GITHUB_OUTPUT"
+            echo "git_branch=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+            echo "Manual run — commit SHA defaults to github.sha, branch=${{ github.ref_name }}"
+          fi
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref != '' && inputs.ref || github.ref }}
+          ref: ${{ steps.deploy.outputs.commit_sha || github.sha }}
+
+      - name: Load E2E config from committed file
+        run: |
+          if [ ! -f "e2e/.env.e2e" ]; then
+            echo "::error::e2e/.env.e2e not found. The committed config file is missing."
+            exit 1
+          fi
+
+          set -a
+          source e2e/.env.e2e
+          set +a
+
+          grep -v '^\s*#' e2e/.env.e2e | grep -v '^\s*$' | while IFS= read -r line; do
+            echo "$line" >> "$GITHUB_ENV"
+          done
+
+          if [ -z "$E2E_BASE_URL" ]; then
+            echo "::error::E2E_BASE_URL is empty after loading e2e/.env.e2e. Check the file."
+            exit 1
+          fi
+
+          echo "E2E_ADMIN_PASSWORD=${{ secrets.E2E_ADMIN_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "E2E_USER_PASSWORD=${{ secrets.E2E_USER_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "E2E_SUPER_ADMIN_PASSWORD=${{ secrets.E2E_SUPER_ADMIN_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "E2E_MANAGE_ADMIN_TARGET_PASSWORD=${{ secrets.E2E_MANAGE_ADMIN_TARGET_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "E2E_INCOMPLETE_USER_PASSWORD=${{ secrets.E2E_INCOMPLETE_USER_PASSWORD }}" >> "$GITHUB_ENV"
+          echo "VERCEL_AUTOMATION_BYPASS_SECRET=${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}" >> "$GITHUB_ENV"
+
+          echo "Loaded E2E config from e2e/.env.e2e"
+          echo "  E2E_BASE_URL=$E2E_BASE_URL"
+          echo "  E2E_API_BASE_URL=$E2E_API_BASE_URL"
+          echo "  FIREBASE_API_KEY=$FIREBASE_API_KEY"
+
+      - name: Validate E2E target URLs against production denylist
+        run: |
+          # Fail-closed: denylist constants must be non-empty
+          if [ -z "$PRODUCTION_HOSTS_CLIENT" ]; then
+            echo "::error::PRODUCTION_HOSTS_CLIENT env constant is empty — cannot validate URLs safely."
+            exit 1
+          fi
+          if [ -z "$PRODUCTION_HOSTS_API" ]; then
+            echo "::error::PRODUCTION_HOSTS_API env constant is empty — cannot validate URLs safely."
+            exit 1
+          fi
+
+          # Extract bare hostname from a URL or hostname string using python3.
+          # Handles full URLs (https://host:port/path), bare hostnames, and
+          # host:port pairs. Returns lowercase hostname or empty string.
+          normalize_hostname() {
+            local input="$1"
+            python3 -c "
+          from urllib.parse import urlparse
+          import sys
+          raw = sys.argv[1].strip()
+          if not raw:
+              sys.exit(0)
+          # If input has no scheme, urlparse puts everything in 'path' — add a scheme
+          if '://' not in raw:
+              raw = 'https://' + raw
+          parsed = urlparse(raw)
+          host = (parsed.hostname or '').lower()
+          print(host)
+          " "$input" 2>/dev/null || true
+          }
+
+          # Tokenize and validate a denylist constant. Splits on whitespace,
+          # normalizes each token to a bare hostname, and fails if any token
+          # cannot be normalized or if zero valid hostnames result.
+          validate_denylist() {
+            local name="$1"
+            local raw="$2"
+            local -n _out=$3
+            _out=()
+            local token normalized
+            for token in $raw; do
+              # Skip pure whitespace tokens (shouldn't happen with unquoted expansion, but defensive)
+              token=$(echo "$token" | xargs 2>/dev/null || true)
+              [ -z "$token" ] && continue
+              normalized=$(normalize_hostname "$token")
+              if [ -z "$normalized" ]; then
+                echo "::error::${name} contains entry '${token}' that cannot be normalized to a bare hostname."
+                exit 1
+              fi
+              _out+=("$normalized")
+            done
+            if [ ${#_out[@]} -eq 0 ]; then
+              echo "::error::${name} produced zero valid hostnames after tokenization — cannot validate URLs safely."
+              exit 1
+            fi
+            echo "${name} denylist (${#_out[@]} entries): ${_out[*]}"
+          }
+
+          # Build validated denylist arrays and combine into a single union
+          declare -a CLIENT_DENYLIST API_DENYLIST COMBINED_DENYLIST
+          validate_denylist "PRODUCTION_HOSTS_CLIENT" "$PRODUCTION_HOSTS_CLIENT" CLIENT_DENYLIST
+          validate_denylist "PRODUCTION_HOSTS_API" "$PRODUCTION_HOSTS_API" API_DENYLIST
+          COMBINED_DENYLIST=("${CLIENT_DENYLIST[@]}" "${API_DENYLIST[@]}")
+          echo "Combined denylist (${#COMBINED_DENYLIST[@]} entries): ${COMBINED_DENYLIST[*]}"
+
+          # Normalize target URLs
+          CLIENT_HOST=$(normalize_hostname "$E2E_BASE_URL")
+          if [ -z "$CLIENT_HOST" ]; then
+            echo "::error::Failed to parse hostname from E2E_BASE_URL: $E2E_BASE_URL"
+            exit 1
+          fi
+
+          API_HOST=$(normalize_hostname "$E2E_API_BASE_URL")
+          if [ -z "$API_HOST" ]; then
+            echo "::error::Failed to parse hostname from E2E_API_BASE_URL: $E2E_API_BASE_URL"
+            exit 1
+          fi
+
+          # Check both target hosts against the full combined denylist
+          for host in "${COMBINED_DENYLIST[@]}"; do
+            if [ "$CLIENT_HOST" = "$host" ]; then
+              echo "::error::BASE_URL hostname '$CLIENT_HOST' matches denylist entry '$host'. E2E tests must not run against production/staging."
+              exit 1
+            fi
+            if [ "$API_HOST" = "$host" ]; then
+              echo "::error::API_URL hostname '$API_HOST' matches denylist entry '$host'. E2E tests must not run against production/staging."
+              exit 1
+            fi
+          done
+
+          echo "URL safety check passed: client=$CLIENT_HOST, api=$API_HOST"
+
+      - name: Set pending commit status
+        if: steps.deploy.outputs.commit_sha != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "repos/${{ github.repository }}/statuses/${{ steps.deploy.outputs.commit_sha }}" \
+            -f state=pending \
+            -f context="E2E Tests (Playwright)" \
+            -f description="Running Playwright tests..." \
+            -f target_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -38,45 +273,229 @@ jobs:
         working-directory: e2e
         run: npm ci
 
+      - name: Cache Playwright binaries
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('e2e/package-lock.json') }}
+
       - name: Install Playwright browsers
         working-directory: e2e
-        run: npx playwright install --with-deps chromium firefox webkit
-
-      - name: Seed E2E test data
-        working-directory: server
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
-          E2E_ADMIN_UID: ${{ secrets.E2E_ADMIN_UID }}
-          E2E_USER_UID: ${{ secrets.E2E_USER_UID }}
-          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
-          E2E_SUPER_ADMIN_UID: ${{ secrets.E2E_SUPER_ADMIN_UID }}
-          E2E_SUPER_ADMIN_EMAIL: ${{ secrets.E2E_SUPER_ADMIN_EMAIL }}
         run: |
-          if [ -n "$E2E_ADMIN_EMAIL" ] && [ -n "$E2E_ADMIN_UID" ] && [ -n "$DATABASE_URL" ]; then
-            npm ci --omit=dev
-            node scripts/seedE2EData.js
+          PROFILE="${{ inputs.browser_profile || 'chromium' }}"
+          if [ "$PROFILE" = "full" ]; then
+            npx playwright install --with-deps
           else
-            echo "Skipping E2E seed: required env vars not set"
+            npx playwright install --with-deps chromium
           fi
+
+      # ── Client readiness check ───────────────────────────────────────
+      # The dispatch fires from the SERVER project. The client (faster to
+      # deploy) should already be live, but we verify to be safe. This poll
+      # uses curl with the Vercel bypass header against the stable staging
+      # client URL.
+      - name: Wait for client deployment readiness
+        env:
+          BASE_URL: ${{ env.E2E_BASE_URL }}
+          BYPASS_SECRET: ${{ env.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          echo "Waiting for client at $BASE_URL to respond with HTTP 200..."
+
+          # Fail fast if the bypass secret is missing — the staging client
+          # URL is behind Vercel deployment protection, so any probe without
+          # the header gets a 401 and the retry loop is just wasted time.
+          if [ -z "$BYPASS_SECRET" ]; then
+            echo "::error::VERCEL_AUTOMATION_BYPASS_SECRET is missing. The client readiness check cannot access a protected deployment."
+            exit 1
+          fi
+
+          CURL_ARGS=(
+            "-sL"
+            "-o" "/dev/null"
+            "-w" "%{http_code}"
+            "-H" "x-vercel-protection-bypass: ${BYPASS_SECRET}"
+          )
+
+          ATTEMPTS=0
+          MAX_ATTEMPTS=36
+          while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
+            STATUS=$(curl "${CURL_ARGS[@]}" "$BASE_URL" || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "Client deployment is ready (HTTP $STATUS)."
+              exit 0
+            fi
+
+            # 401 indicates the bypass header was rejected — the secret is
+            # set but stale or scoped to a different project. Retrying won't
+            # help, so surface the diagnosis immediately.
+            if [ "$STATUS" = "401" ]; then
+              echo "::error::Client returned HTTP 401. The Vercel bypass secret is missing or invalid for $BASE_URL."
+              exit 1
+            fi
+
+            ATTEMPTS=$((ATTEMPTS + 1))
+            echo "Attempt $ATTEMPTS/$MAX_ATTEMPTS: HTTP $STATUS — retrying in 5s..."
+            sleep 5
+          done
+          echo "::error::Client at $BASE_URL did not become ready within $((MAX_ATTEMPTS * 5))s."
+          exit 1
+
+      # ── API + DB seed check ──────────────────────────────────────────
+      # Since the dispatch fires from the server project AFTER deployment
+      # succeeds, the API should be healthy. This step confirms readiness
+      # and that the Neon ephemeral DB seed completed successfully.
+      # seed.mode is the canonical control signal: seeded/skipped → done,
+      # failed → fail immediately, in_progress → keep polling.
+      # seed.error is used only for diagnostic messages, not control flow.
+      - name: Verify API readiness and DB seed
+        env:
+          API_URL: ${{ env.E2E_API_BASE_URL }}
+          BYPASS_SECRET: ${{ env.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          HEALTH_URL="${API_URL}/api/health"
+          echo "Checking ${HEALTH_URL} for readiness + seed completion..."
+          CURL_ARGS=("-sL")
+          if [ -n "$BYPASS_SECRET" ]; then
+            CURL_ARGS+=("-H" "x-vercel-protection-bypass: ${BYPASS_SECRET}")
+            echo "Using Vercel protection bypass header."
+          fi
+          ATTEMPTS=0
+          MAX_ATTEMPTS=24
+          FIRST_CHECK=true
+          while [ $ATTEMPTS -lt $MAX_ATTEMPTS ]; do
+            BODY=$(curl "${CURL_ARGS[@]}" "$HEALTH_URL" 2>/dev/null || true)
+            STATUS=$(echo "$BODY" | jq -r '.status // empty' 2>/dev/null || true)
+            SEED_MODE=$(echo "$BODY" | jq -r '.seed.mode // empty' 2>/dev/null || true)
+            SEED_ERR=$(echo "$BODY" | jq -r '.seed.error // empty' 2>/dev/null || true)
+            SEED_ATTEMPTS=$(echo "$BODY" | jq -r '.seed.attempts // empty' 2>/dev/null || true)
+
+            # Log full response on first check for diagnostics
+            if [ "$FIRST_CHECK" = "true" ]; then
+              echo "First health response:"
+              echo "$BODY" | jq '.' 2>/dev/null || echo "$BODY"
+              FIRST_CHECK=false
+            fi
+
+            if [ "$STATUS" = "ok" ]; then
+              # seed.mode is the canonical control signal:
+              #   seeded / skipped → success, stop polling
+              #   failed           → terminal, fail immediately
+              #   in_progress / "" → keep polling
+              case "$SEED_MODE" in
+                seeded|skipped)
+                  echo "API healthy and seed complete (mode=$SEED_MODE)."
+                  exit 0
+                  ;;
+                failed)
+                  echo "::error::Seed failed terminally (mode=$SEED_MODE, server attempt ${SEED_ATTEMPTS}): $SEED_ERR"
+                  exit 1
+                  ;;
+                in_progress|"")
+                  echo "API healthy but seed not done (mode=${SEED_MODE:-pending}, server attempt ${SEED_ATTEMPTS})..."
+                  ;;
+                *)
+                  echo "Unknown seed.mode '$SEED_MODE' (server attempt ${SEED_ATTEMPTS}) — treating as in-progress, retrying..."
+                  ;;
+              esac
+            else
+              echo "Attempt $((ATTEMPTS + 1))/$MAX_ATTEMPTS: non-JSON or error response — retrying in 5s..."
+            fi
+
+            ATTEMPTS=$((ATTEMPTS + 1))
+            sleep 5
+          done
+          echo "::error::API at $HEALTH_URL did not become ready within $((MAX_ATTEMPTS * 5))s."
+          exit 1
 
       - name: Run Playwright tests
         working-directory: e2e
         env:
-          BASE_URL: ${{ inputs.base_url }}
-          E2E_ADMIN_EMAIL: ${{ secrets.E2E_ADMIN_EMAIL }}
+          BASE_URL: ${{ env.E2E_BASE_URL }}
+          E2E_BROWSER_PROFILE: ${{ inputs.browser_profile || 'chromium' }}
+          # Worker count — rollback threshold:
+          # Revert to "1" if EITHER condition is met for 3 consecutive CI runs:
+          # (a) overall failure rate increases >= 10 percentage points vs T1 baseline, or
+          # (b) retry-triggered test count increases >= 50% vs T1 baseline.
+          # Baseline reference: e2e/refactoring-analysis.md § Baseline Metrics
+          E2E_WORKERS: "2"
+          E2E_RUN_ID: ${{ github.run_id }}
           E2E_ADMIN_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD }}
-          E2E_ADMIN_UID: ${{ secrets.E2E_ADMIN_UID }}
-          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
           E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
-          E2E_SUPER_ADMIN_EMAIL: ${{ secrets.E2E_SUPER_ADMIN_EMAIL }}
           E2E_SUPER_ADMIN_PASSWORD: ${{ secrets.E2E_SUPER_ADMIN_PASSWORD }}
-        run: npx playwright test
+          E2E_MANAGE_ADMIN_TARGET_PASSWORD: ${{ secrets.E2E_MANAGE_ADMIN_TARGET_PASSWORD }}
+          E2E_INCOMPLETE_USER_PASSWORD: ${{ secrets.E2E_INCOMPLETE_USER_PASSWORD }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          GREP_ARGS=()
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            # Default fast path: exclude destructive tests
+            GREP_ARGS=(--grep-invert @destructive)
+          else
+            SUITE="${{ inputs.test_suite || 'default' }}"
+            case "$SUITE" in
+              destructive)
+                GREP_ARGS=(--grep @destructive)
+                ;;
+              all)
+                GREP_ARGS=()
+                ;;
+              *)
+                GREP_ARGS=(--grep-invert @destructive)
+                ;;
+            esac
+          fi
+          echo "Running: npx playwright test ${GREP_ARGS[*]}"
+          npx playwright test "${GREP_ARGS[@]}"
+
+      # ── Neon branch cleanup ──────────────────────────────────────────
+      # Deletes the ephemeral Neon preview branch(es) that the Vercel ↔ Neon
+      # integration created for this git branch. Runs AFTER the Playwright
+      # step so the test DB is never yanked mid-test, but uses `if: always()`
+      # so the branch is still freed on test failures. The script is
+      # best-effort — it exits 0 even when deletion fails, so a flaky Neon
+      # API call never masks the actual Playwright result. Requires the
+      # NEON_API_KEY and NEON_PROJECT_ID repository secrets to be set;
+      # missing secrets cause a soft skip.
+      - name: Delete Neon preview branch
+        if: always()
+        env:
+          NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
+          NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}
+          GIT_BRANCH: ${{ steps.deploy.outputs.git_branch }}
+        run: node e2e/scripts/cleanupNeonBranch.js
+
+      - name: Set final commit status
+        if: always() && steps.deploy.outputs.commit_sha != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            STATE="success"
+            DESC="Playwright tests passed"
+          else
+            STATE="failure"
+            DESC="Playwright tests failed"
+          fi
+          gh api "repos/${{ github.repository }}/statuses/${{ steps.deploy.outputs.commit_sha }}" \
+            -f state="$STATE" \
+            -f context="E2E Tests (Playwright)" \
+            -f description="$DESC" \
+            -f target_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
       - name: Upload Playwright report
-        if: ${{ !cancelled() }}
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: e2e/playwright-report/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload Playwright test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: e2e/test-results/
+          if-no-files-found: warn
           retention-days: 14

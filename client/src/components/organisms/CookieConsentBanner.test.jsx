@@ -15,7 +15,9 @@ describe('CookieConsentBanner', () => {
   it('shows accept button', () => {
     renderWithProviders(<CookieConsentBanner />);
 
-    expect(screen.getByText('Accept')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /accept cookies/i }),
+    ).toBeInTheDocument();
   });
 
   it('shows privacy policy link', () => {

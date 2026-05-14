@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
 import Container from 'react-bootstrap/Container';
 import Alert from 'react-bootstrap/Alert';
 import Spinner from 'react-bootstrap/Spinner';
@@ -13,8 +12,11 @@ import {
   useLazyDownloadDataQuery,
   useDeleteAccountMutation,
 } from '../../features/gdpr/gdprApi';
+import { PRIVACY_META } from '../../constants/seoMeta';
+import { PAGE_STRUCTURED_DATA } from '../../constants/structuredData';
 import PageTransition from '../templates/PageTransition';
 import Button from '../atoms/Button';
+import SeoHead from '../molecules/SeoHead';
 import DeleteAccountModal from '../organisms/DeleteAccountModal';
 
 function triggerFileDownload(data) {
@@ -68,13 +70,7 @@ export default function PrivacyPage() {
 
   return (
     <div>
-      <Helmet>
-        <title>Privacy & Data | Ichnos Protocol</title>
-        <meta
-          name="description"
-          content="Manage your personal data. Download or delete your account."
-        />
-      </Helmet>
+      <SeoHead meta={PRIVACY_META} schemas={PAGE_STRUCTURED_DATA.privacy} />
 
       <PageTransition>
         <header className="text-center py-5">

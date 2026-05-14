@@ -2,14 +2,14 @@ import { axe } from 'vitest-axe';
 import { renderWithProviders, screen, waitFor, cleanup } from '../../test-utils';
 import TeamPage from './TeamPage';
 import { TEAM_META } from '../../constants/seoMeta';
-import { TEAM_PAGE_HEADER } from '../../constants/teamContent';
+import { PAGE_STRUCTURED_DATA } from '../../constants/structuredData';
+import {
+  TEAM_MEMBERS,
+  TEAM_PAGE_HEADER,
+} from '../../constants/teamContent';
 
 vi.mock('../../hooks/useReducedMotion', () => ({
   useReducedMotion: vi.fn(() => true),
-}));
-
-vi.mock('../organisms/FounderProfile', () => ({
-  default: () => <div data-testid="founder-profile">FounderProfile</div>,
 }));
 
 vi.mock('../organisms/CareerTimeline', () => ({
@@ -33,43 +33,98 @@ describe('TeamPage', () => {
 
   it('sets meta description', async () => {
     await waitFor(() => {
-      const meta = document.querySelector('meta[name="description"]');
+      const meta = document.querySelector(
+        'meta[name="description"][data-rh="true"]',
+      );
       expect(meta).toHaveAttribute('content', TEAM_META.description);
     });
   });
 
   it('sets meta keywords', async () => {
     await waitFor(() => {
-      const meta = document.querySelector('meta[name="keywords"]');
+      const meta = document.querySelector(
+        'meta[name="keywords"][data-rh="true"]',
+      );
       expect(meta).toHaveAttribute('content', TEAM_META.keywords);
     });
   });
 
-  it('sets og:title meta tag', async () => {
+  it('sets canonical link', async () => {
     await waitFor(() => {
-      const meta = document.querySelector('meta[property="og:title"]');
-      expect(meta).toHaveAttribute('content', TEAM_META.og.title);
+      expect(
+        document.querySelector('link[rel="canonical"][data-rh="true"]'),
+      ).toHaveAttribute('href', TEAM_META.canonical);
     });
   });
 
-  it('sets og:description meta tag', async () => {
+  it('sets all og meta tags', async () => {
     await waitFor(() => {
-      const meta = document.querySelector('meta[property="og:description"]');
-      expect(meta).toHaveAttribute('content', TEAM_META.og.description);
+      expect(
+        document.querySelector('meta[property="og:title"][data-rh="true"]'),
+      ).toHaveAttribute('content', TEAM_META.og.title);
+      expect(
+        document.querySelector(
+          'meta[property="og:description"][data-rh="true"]',
+        ),
+      ).toHaveAttribute('content', TEAM_META.og.description);
+      expect(
+        document.querySelector('meta[property="og:type"][data-rh="true"]'),
+      ).toHaveAttribute('content', TEAM_META.og.type);
+      expect(
+        document.querySelector('meta[property="og:url"][data-rh="true"]'),
+      ).toHaveAttribute('content', TEAM_META.og.url);
+      expect(
+        document.querySelector(
+          'meta[property="og:site_name"][data-rh="true"]',
+        ),
+      ).toHaveAttribute('content', TEAM_META.og.siteName);
+      expect(
+        document.querySelector('meta[property="og:locale"][data-rh="true"]'),
+      ).toHaveAttribute('content', TEAM_META.og.locale);
+      expect(
+        document.querySelector('meta[property="og:image"][data-rh="true"]'),
+      ).toHaveAttribute('content', TEAM_META.og.image);
+      expect(
+        document.querySelector(
+          'meta[property="og:image:alt"][data-rh="true"]',
+        ),
+      ).toHaveAttribute('content', TEAM_META.og.imageAlt);
     });
   });
 
-  it('sets og:type meta tag', async () => {
+  it('sets all twitter meta tags', async () => {
     await waitFor(() => {
-      const meta = document.querySelector('meta[property="og:type"]');
-      expect(meta).toHaveAttribute('content', TEAM_META.og.type);
+      expect(
+        document.querySelector('meta[name="twitter:card"][data-rh="true"]'),
+      ).toHaveAttribute('content', TEAM_META.twitter.card);
+      expect(
+        document.querySelector('meta[name="twitter:title"][data-rh="true"]'),
+      ).toHaveAttribute('content', TEAM_META.twitter.title);
+      expect(
+        document.querySelector(
+          'meta[name="twitter:description"][data-rh="true"]',
+        ),
+      ).toHaveAttribute('content', TEAM_META.twitter.description);
+      expect(
+        document.querySelector('meta[name="twitter:image"][data-rh="true"]'),
+      ).toHaveAttribute('content', TEAM_META.twitter.image);
+      expect(
+        document.querySelector(
+          'meta[name="twitter:image:alt"][data-rh="true"]',
+        ),
+      ).toHaveAttribute('content', TEAM_META.twitter.imageAlt);
     });
   });
 
-  it('sets og:url meta tag', async () => {
+  it('emits JSON-LD schemas from PAGE_STRUCTURED_DATA.team', async () => {
     await waitFor(() => {
-      const meta = document.querySelector('meta[property="og:url"]');
-      expect(meta).toHaveAttribute('content', TEAM_META.og.url);
+      const scripts = document.querySelectorAll(
+        'script[type="application/ld+json"][data-rh="true"]',
+      );
+      expect(scripts.length).toBe(PAGE_STRUCTURED_DATA.team.length);
+      expect(JSON.parse(scripts[0].textContent)).toEqual(
+        PAGE_STRUCTURED_DATA.team[0],
+      );
     });
   });
 
@@ -81,12 +136,18 @@ describe('TeamPage', () => {
     expect(screen.getByText(TEAM_PAGE_HEADER.subtitle)).toBeInTheDocument();
   });
 
-  it('renders FounderProfile component', () => {
-    expect(screen.getByTestId('founder-profile')).toBeInTheDocument();
+  it('renders one FounderProfile per team member with correct names', () => {
+    TEAM_MEMBERS.forEach((member) => {
+      expect(
+        screen.getByRole('heading', { level: 2, name: member.name }),
+      ).toBeInTheDocument();
+    });
   });
 
-  it('renders CareerTimeline component', () => {
-    expect(screen.getByTestId('career-timeline')).toBeInTheDocument();
+  it('renders the recognition block for Francesco', () => {
+    const blocks = screen.getAllByTestId('recognition-block');
+    expect(blocks).toHaveLength(1);
+    expect(blocks[0]).toHaveTextContent('Recognition');
   });
 
   it('renders VisionStatement component', () => {

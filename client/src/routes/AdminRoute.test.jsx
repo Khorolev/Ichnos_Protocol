@@ -6,7 +6,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import authReducer from '../features/auth/authSlice';
 import AdminRoute from './AdminRoute';
 
-function renderWithAuth(isAuthenticated, isAdmin) {
+function renderWithAuth(isAuthenticated, isAdmin, loading = false) {
   const store = configureStore({
     reducer: { auth: authReducer },
     preloadedState: {
@@ -14,7 +14,7 @@ function renderWithAuth(isAuthenticated, isAdmin) {
         user: isAuthenticated ? { uid: '1' } : null,
         isAuthenticated,
         isAdmin,
-        loading: false,
+        loading,
         error: null,
       },
     },
@@ -58,5 +58,12 @@ describe('AdminRoute', () => {
 
     expect(screen.queryByText('Admin Panel')).not.toBeInTheDocument();
     expect(screen.getByText('Home')).toBeInTheDocument();
+  });
+
+  it('renders nothing while auth is loading', () => {
+    renderWithAuth(false, false, true);
+
+    expect(screen.queryByText('Admin Panel')).not.toBeInTheDocument();
+    expect(screen.queryByText('Home')).not.toBeInTheDocument();
   });
 });

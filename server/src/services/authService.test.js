@@ -25,8 +25,14 @@ vi.mock("../config/firebase.js", () => ({
   },
 }));
 
-const { syncProfile, verifyToken, getUser, updateProfile, setAdminClaim } =
-  await import("./authService.js");
+const {
+  syncProfile,
+  verifyToken,
+  getUser,
+  updateProfile,
+  setAdminClaim,
+  computeProfileState,
+} = await import("./authService.js");
 
 const profileData = {
   name: "John",
@@ -51,15 +57,19 @@ describe("authService", () => {
       mockCreateUser.mockResolvedValue({ firebase_uid: "uid-1" });
       mockUpsertProfile.mockResolvedValue({ ...profileData, user_id: "uid-1" });
       mockUpdateUserActivity.mockResolvedValue();
-      mockGetUser.mockResolvedValue({ customClaims: { admin: false } });
+      mockGetUser.mockResolvedValue({
+        email: "john@example.com",
+        customClaims: { admin: false },
+      });
 
       const result = await syncProfile("uid-1", profileData);
 
       expect(mockCreateUser).toHaveBeenCalledWith("uid-1");
-      expect(mockUpsertProfile).toHaveBeenCalledWith("uid-1", profileData);
       expect(mockUpdateUserActivity).toHaveBeenCalledWith("uid-1");
       expect(result.isAdmin).toBe(false);
       expect(result.profile).toEqual({ ...profileData, user_id: "uid-1" });
+      expect(result.profileState.isProfileComplete).toBe(true);
+      expect(result.profileState.missingRequiredFields).toEqual([]);
     });
 
     it("skips user creation when user already exists", async () => {
@@ -67,20 +77,108 @@ describe("authService", () => {
       mockGetUserById.mockResolvedValue(existingUser);
       mockUpsertProfile.mockResolvedValue({ ...profileData, user_id: "uid-1" });
       mockUpdateUserActivity.mockResolvedValue();
-      mockGetUser.mockResolvedValue({ customClaims: { admin: true } });
+      mockGetUser.mockResolvedValue({
+        email: "john@example.com",
+        customClaims: { admin: true },
+      });
 
       const result = await syncProfile("uid-1", profileData);
 
       expect(mockCreateUser).not.toHaveBeenCalled();
-      expect(result.user).toEqual(existingUser);
+      expect(result.user.firebaseUid).toBe("uid-1");
+      expect(result.user).not.toHaveProperty("firebase_uid");
       expect(result.isAdmin).toBe(true);
+      expect(result.profileState.isProfileComplete).toBe(true);
+    });
+
+    it("returns freshly upserted profile values on result.user for new user", async () => {
+      mockGetUserById.mockResolvedValue(null);
+      mockCreateUser.mockResolvedValue({ firebase_uid: "uid-new" });
+      mockUpsertProfile.mockResolvedValue({
+        user_id: "uid-new",
+        name: "Fresh",
+        surname: "Name",
+        email: "fresh@firebase.com",
+        phone: "+100",
+        company: "Acme",
+        linkedin: "linkedin.com/in/fresh",
+      });
+      mockUpdateUserActivity.mockResolvedValue();
+      mockGetUser.mockResolvedValue({
+        email: "fresh@firebase.com",
+        customClaims: {},
+      });
+
+      const result = await syncProfile("uid-new", {
+        name: "Fresh",
+        surname: "Name",
+        email: "fresh@firebase.com",
+        phone: "+100",
+        company: "Acme",
+        linkedin: "linkedin.com/in/fresh",
+      });
+
+      expect(result.user.firebaseUid).toBe("uid-new");
+      expect(result.user.name).toBe("Fresh");
+      expect(result.user.surname).toBe("Name");
+      expect(result.user.email).toBe("fresh@firebase.com");
+      expect(result.user.phone).toBe("+100");
+      expect(result.user.company).toBe("Acme");
+      expect(result.user.linkedin).toBe("linkedin.com/in/fresh");
+    });
+
+    it("reflects freshly submitted values on result.user when overwriting existing profile", async () => {
+      const existingUser = {
+        firebase_uid: "uid-1",
+        name: "Old",
+        surname: "Value",
+        phone: "+000",
+        company: "OldCo",
+        linkedin: "old-linkedin",
+      };
+      mockGetUserById.mockResolvedValue(existingUser);
+      mockUpsertProfile.mockResolvedValue({
+        user_id: "uid-1",
+        name: "New",
+        surname: "Submitted",
+        email: "john@firebase.com",
+        phone: "+999",
+        company: "NewCo",
+        linkedin: "new-linkedin",
+      });
+      mockUpdateUserActivity.mockResolvedValue();
+      mockGetUser.mockResolvedValue({
+        email: "john@firebase.com",
+        customClaims: {},
+      });
+
+      const result = await syncProfile("uid-1", {
+        name: "New",
+        surname: "Submitted",
+        phone: "+999",
+        company: "NewCo",
+        linkedin: "new-linkedin",
+      });
+
+      expect(result.user.name).toBe("New");
+      expect(result.user.surname).toBe("Submitted");
+      expect(result.user.phone).toBe("+999");
+      expect(result.user.company).toBe("NewCo");
+      expect(result.user.linkedin).toBe("new-linkedin");
+      expect(result.user.email).toBe("john@firebase.com");
+      expect(result.user.firebaseUid).toBe("uid-1");
+      expect(result.user.name).toBe(result.profile.name);
+      expect(result.user.surname).toBe(result.profile.surname);
     });
 
     it("sets isAdmin true when custom claim is admin", async () => {
       mockGetUserById.mockResolvedValue({ firebase_uid: "uid-1" });
-      mockUpsertProfile.mockResolvedValue({});
+      mockUpsertProfile.mockResolvedValue({ ...profileData });
       mockUpdateUserActivity.mockResolvedValue();
-      mockGetUser.mockResolvedValue({ customClaims: { admin: true } });
+      mockGetUser.mockResolvedValue({
+        email: "john@example.com",
+        customClaims: { admin: true },
+      });
 
       const result = await syncProfile("uid-1", profileData);
 
@@ -89,13 +187,45 @@ describe("authService", () => {
 
     it("sets isAdmin false when no custom claims", async () => {
       mockGetUserById.mockResolvedValue({ firebase_uid: "uid-1" });
-      mockUpsertProfile.mockResolvedValue({});
+      mockUpsertProfile.mockResolvedValue({ ...profileData });
       mockUpdateUserActivity.mockResolvedValue();
-      mockGetUser.mockResolvedValue({ customClaims: undefined });
+      mockGetUser.mockResolvedValue({
+        email: "john@example.com",
+        customClaims: undefined,
+      });
 
       const result = await syncProfile("uid-1", profileData);
 
       expect(result.isAdmin).toBe(false);
+    });
+
+    it("succeeds for brand-new user with no name or surname in payload", async () => {
+      mockGetUserById.mockResolvedValue(null);
+      mockCreateUser.mockResolvedValue({ firebase_uid: "uid-new" });
+      mockUpsertProfile.mockResolvedValue({
+        user_id: "uid-new",
+        email: "new@firebase.com",
+        name: "",
+        surname: "",
+      });
+      mockUpdateUserActivity.mockResolvedValue();
+      mockGetUser.mockResolvedValue({
+        email: "new@firebase.com",
+        customClaims: {},
+      });
+
+      const result = await syncProfile("uid-new", {});
+
+      expect(mockUpsertProfile).toHaveBeenCalledWith(
+        "uid-new",
+        expect.objectContaining({ email: "new@firebase.com" }),
+      );
+      const upsertCall = mockUpsertProfile.mock.calls[0][1];
+      expect(upsertCall).not.toHaveProperty("name");
+      expect(upsertCall).not.toHaveProperty("surname");
+      expect(result.profileState.isProfileComplete).toBe(false);
+      expect(result.profileState.missingRequiredFields).toContain("name");
+      expect(result.profileState.missingRequiredFields).toContain("surname");
     });
 
     it("propagates database errors", async () => {
@@ -104,6 +234,90 @@ describe("authService", () => {
       await expect(syncProfile("uid-1", profileData)).rejects.toThrow(
         "DB connection lost",
       );
+    });
+
+    it("returns incomplete profileState for partial input", async () => {
+      mockGetUserById.mockResolvedValue({ firebase_uid: "uid-1" });
+      mockUpsertProfile.mockResolvedValue({
+        user_id: "uid-1",
+        email: "john@firebase.com",
+      });
+      mockUpdateUserActivity.mockResolvedValue();
+      mockGetUser.mockResolvedValue({
+        email: "john@firebase.com",
+        customClaims: {},
+      });
+
+      const result = await syncProfile("uid-1", {});
+
+      expect(result.profileState.isProfileComplete).toBe(false);
+      expect(result.profileState.missingRequiredFields).toContain("name");
+      expect(result.profileState.missingRequiredFields).toContain("surname");
+      expect(result.profile.email).toBe("john@firebase.com");
+    });
+
+    it("uses canonical Firebase email over provided email", async () => {
+      mockGetUserById.mockResolvedValue({ firebase_uid: "uid-1" });
+      mockUpsertProfile.mockResolvedValue({
+        ...profileData,
+        email: "canonical@firebase.com",
+      });
+      mockUpdateUserActivity.mockResolvedValue();
+      mockGetUser.mockResolvedValue({
+        email: "canonical@firebase.com",
+        customClaims: {},
+      });
+
+      await syncProfile("uid-1", {
+        ...profileData,
+        email: "user@input.com",
+      });
+
+      const upsertCall = mockUpsertProfile.mock.calls[0][1];
+      expect(upsertCall.email).toBe("canonical@firebase.com");
+    });
+
+    it("merges partial input with existing profile fields", async () => {
+      const existingUser = {
+        firebase_uid: "uid-1",
+        name: "John",
+        surname: "Doe",
+        email: "old@example.com",
+      };
+      mockGetUserById.mockResolvedValue(existingUser);
+      mockUpsertProfile.mockResolvedValue({
+        ...existingUser,
+        email: "canonical@firebase.com",
+      });
+      mockUpdateUserActivity.mockResolvedValue();
+      mockGetUser.mockResolvedValue({
+        email: "canonical@firebase.com",
+        customClaims: {},
+      });
+
+      await syncProfile("uid-1", {});
+
+      const upsertCall = mockUpsertProfile.mock.calls[0][1];
+      expect(upsertCall.name).toBe("John");
+      expect(upsertCall.surname).toBe("Doe");
+      expect(upsertCall.email).toBe("canonical@firebase.com");
+    });
+
+    // Atomicity fix for analysis hotspot #2 (spec:refactoring-analysis §2.2):
+    // Firebase auth().getUser() now runs BEFORE any DB write. If Firebase
+    // fails, createUser() is never called, so the users table cannot be
+    // left with an orphan row. This test verifies the fixed ordering.
+    it("does not call createUser when Firebase getUser fails (atomicity fix)", async () => {
+      mockGetUserById.mockResolvedValue(null);
+      mockGetUser.mockRejectedValue(new Error("auth/user-not-found"));
+
+      await expect(
+        syncProfile("uid-orphan", profileData),
+      ).rejects.toThrow("auth/user-not-found");
+
+      expect(mockCreateUser).not.toHaveBeenCalled();
+      expect(mockUpsertProfile).not.toHaveBeenCalled();
+      expect(mockUpdateUserActivity).not.toHaveBeenCalled();
     });
   });
 
@@ -126,15 +340,24 @@ describe("authService", () => {
   });
 
   describe("getUser", () => {
-    it("returns user with isAdmin flag", async () => {
-      const user = { firebase_uid: "uid-1", name: "John" };
+    it("returns user with isAdmin flag and profileState", async () => {
+      const user = {
+        firebase_uid: "uid-1",
+        name: "John",
+        surname: "Doe",
+        email: "john@example.com",
+      };
       mockGetUserById.mockResolvedValue(user);
       mockGetUser.mockResolvedValue({ customClaims: { admin: true } });
 
       const result = await getUser("uid-1");
 
-      expect(result.user).toEqual(user);
+      expect(result.user.firebaseUid).toBe("uid-1");
+      expect(result.user.name).toBe("John");
+      expect(result.user).not.toHaveProperty("firebase_uid");
       expect(result.isAdmin).toBe(true);
+      expect(result.profileState.isProfileComplete).toBe(true);
+      expect(result.profileState.missingRequiredFields).toEqual([]);
     });
 
     it("throws 404 when user not found", async () => {
@@ -155,6 +378,58 @@ describe("authService", () => {
 
       await expect(getUser("nonexistent")).rejects.toThrow();
       expect(mockGetUser).not.toHaveBeenCalled();
+    });
+
+    it("returns incomplete profileState for user missing fields", async () => {
+      const user = { firebase_uid: "uid-1", name: "John" };
+      mockGetUserById.mockResolvedValue(user);
+      mockGetUser.mockResolvedValue({ customClaims: {} });
+
+      const result = await getUser("uid-1");
+
+      expect(result.profileState.isProfileComplete).toBe(false);
+      expect(result.profileState.missingRequiredFields).toContain("surname");
+      expect(result.profileState.missingRequiredFields).toContain("email");
+    });
+
+    it("overlays Firebase email when DB email is null", async () => {
+      const user = {
+        firebase_uid: "uid-1",
+        name: "John",
+        surname: "Doe",
+        email: null,
+      };
+      mockGetUserById.mockResolvedValue(user);
+      mockGetUser.mockResolvedValue({
+        email: "canonical@firebase.com",
+        customClaims: {},
+      });
+
+      const result = await getUser("uid-1");
+
+      expect(result.user.email).toBe("canonical@firebase.com");
+      expect(result.profileState.isProfileComplete).toBe(true);
+      expect(result.profileState.missingRequiredFields).toEqual([]);
+    });
+
+    it("overlays Firebase email when DB email is outdated", async () => {
+      const user = {
+        firebase_uid: "uid-1",
+        name: "John",
+        surname: "Doe",
+        email: "old@example.com",
+      };
+      mockGetUserById.mockResolvedValue(user);
+      mockGetUser.mockResolvedValue({
+        email: "new@firebase.com",
+        customClaims: { admin: true },
+      });
+
+      const result = await getUser("uid-1");
+
+      expect(result.user.email).toBe("new@firebase.com");
+      expect(result.isAdmin).toBe(true);
+      expect(result.profileState.isProfileComplete).toBe(true);
     });
   });
 
@@ -195,6 +470,74 @@ describe("authService", () => {
       await updateProfile("uid-1", { name: "Jane" });
 
       expect(mockUpdateUserActivity).toHaveBeenCalledWith("uid-1");
+    });
+  });
+
+  describe("computeProfileState", () => {
+    it("returns complete for profile with all required fields", () => {
+      const result = computeProfileState({
+        name: "John",
+        surname: "Doe",
+        email: "john@example.com",
+      });
+
+      expect(result.isProfileComplete).toBe(true);
+      expect(result.missingRequiredFields).toEqual([]);
+    });
+
+    it("returns all fields missing for null profile", () => {
+      const result = computeProfileState(null);
+
+      expect(result.isProfileComplete).toBe(false);
+      expect(result.missingRequiredFields).toEqual([
+        "name",
+        "surname",
+        "email",
+      ]);
+    });
+
+    it("returns all fields missing for undefined profile", () => {
+      const result = computeProfileState(undefined);
+
+      expect(result.isProfileComplete).toBe(false);
+      expect(result.missingRequiredFields).toEqual([
+        "name",
+        "surname",
+        "email",
+      ]);
+    });
+
+    it("detects partially missing fields", () => {
+      const result = computeProfileState({
+        name: "John",
+        surname: null,
+        email: null,
+      });
+
+      expect(result.isProfileComplete).toBe(false);
+      expect(result.missingRequiredFields).toEqual(["surname", "email"]);
+    });
+
+    it("treats whitespace-only fields as missing", () => {
+      const result = computeProfileState({
+        name: "  ",
+        surname: "Doe",
+        email: "a@b.com",
+      });
+
+      expect(result.isProfileComplete).toBe(false);
+      expect(result.missingRequiredFields).toEqual(["name"]);
+    });
+
+    it("treats empty string fields as missing", () => {
+      const result = computeProfileState({
+        name: "",
+        surname: "Doe",
+        email: "a@b.com",
+      });
+
+      expect(result.isProfileComplete).toBe(false);
+      expect(result.missingRequiredFields).toEqual(["name"]);
     });
   });
 

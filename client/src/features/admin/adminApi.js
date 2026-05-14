@@ -1,9 +1,11 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
+import { API_BASE_URL } from '../../constants/api';
+
 export const adminApi = createApi({
   reducerPath: 'adminApi',
   baseQuery: fetchBaseQuery({
-    baseUrl: import.meta.env.VITE_API_BASE_URL,
+    baseUrl: API_BASE_URL,
     prepareHeaders: async (headers) => {
       const { auth } = await import('../../config/firebase');
       const user = auth.currentUser;

@@ -5,25 +5,38 @@ vi.mock("../../config/firebase", () => ({
   auth: { currentUser: null },
 }));
 
+const NativeRequest = globalThis.Request;
+globalThis.Request = class extends NativeRequest {
+  constructor(input, init) {
+    const url =
+      typeof input === "string" && input.startsWith("/")
+        ? `http://localhost${input}`
+        : input;
+    super(url, init);
+  }
+};
+
+import {
+  gdprApi,
+  useDeleteAccountMutation,
+  useDownloadDataQuery,
+  useLazyDownloadDataQuery,
+} from "./gdprApi.js";
+
 describe("gdprApi - deleteAccount endpoint", () => {
   let store;
-  let gdprApi;
+  let originalFetch;
 
-  beforeEach(async () => {
-    vi.resetModules();
-    vi.stubEnv("VITE_API_BASE_URL", "http://localhost:3000");
-
-    const module = await import("./gdprApi.js");
-    gdprApi = module.gdprApi;
-
+  beforeEach(() => {
     store = configureStore({
       reducer: { [gdprApi.reducerPath]: gdprApi.reducer },
       middleware: (getDefault) => getDefault().concat(gdprApi.middleware),
     });
+    originalFetch = globalThis.fetch;
   });
 
   afterEach(() => {
-    vi.unstubAllEnvs();
+    globalThis.fetch = originalFetch;
   });
 
   it("sends POST to /api/gdpr/delete with { confirm: true } body", async () => {
@@ -31,34 +44,32 @@ describe("gdprApi - deleteAccount endpoint", () => {
     let interceptedMethod = null;
     let interceptedBody = null;
 
-    const originalFetch = globalThis.fetch;
     globalThis.fetch = vi.fn(async (input, init) => {
-      const request =
-        input instanceof Request ? input : new Request(input, init);
-      interceptedUrl = request.url;
-      interceptedMethod = request.method;
-      interceptedBody = await request.clone().text();
+      if (input instanceof Request) {
+        interceptedUrl = input.url;
+        interceptedMethod = input.method;
+        interceptedBody = await input.clone().text();
+      } else {
+        interceptedUrl = String(input);
+        interceptedMethod = init?.method ?? "GET";
+        interceptedBody = init?.body != null ? String(init.body) : "";
+      }
       return new Response(JSON.stringify({ data: { success: true } }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
     });
 
-    try {
-      await store.dispatch(gdprApi.endpoints.deleteAccount.initiate());
+    await store.dispatch(gdprApi.endpoints.deleteAccount.initiate());
 
-      expect(interceptedUrl).toContain("/api/gdpr/delete");
-      expect(interceptedMethod).toBe("POST");
-      expect(JSON.parse(interceptedBody)).toEqual({ confirm: true });
-    } finally {
-      globalThis.fetch = originalFetch;
-    }
+    expect(interceptedUrl).toContain("/api/gdpr/delete");
+    expect(interceptedMethod).toBe("POST");
+    expect(JSON.parse(interceptedBody)).toEqual({ confirm: true });
   });
 
-  it("exports expected hooks", async () => {
-    const module = await import("./gdprApi.js");
-    expect(module.useDeleteAccountMutation).toBeDefined();
-    expect(module.useDownloadDataQuery).toBeDefined();
-    expect(module.useLazyDownloadDataQuery).toBeDefined();
+  it("exports expected hooks", () => {
+    expect(useDeleteAccountMutation).toBeDefined();
+    expect(useDownloadDataQuery).toBeDefined();
+    expect(useLazyDownloadDataQuery).toBeDefined();
   });
 });

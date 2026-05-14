@@ -56,6 +56,7 @@ export default function ChatOnlyLeads() {
       <Offcanvas
         show={!!selectedUserId}
         placement="end"
+        data-testid="chat-drawer"
         onHide={() => setSelectedUserId(null)}
       >
         <Offcanvas.Header closeButton>

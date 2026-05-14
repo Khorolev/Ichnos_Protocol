@@ -127,3 +127,45 @@ sequenceDiagram
 
     Note over DB,Tracking: All migrations tracked and idempotent
 ```
+
+## Orphan-Row Cleanup Runbook
+
+An **orphan user** is a row in the `users` table that has no matching row in
+`user_profiles` (i.e., a `LEFT JOIN` on `user_profiles.user_id = users.firebase_uid`
+returns `NULL`). This can occur when `createUser` inserts into `users` but a
+subsequent Firebase lookup fails before `upsertProfile` runs. Orphan rows have
+no completed profile and cannot log in normally.
+
+> ⚠️ **This operation is irreversible. Always run the audit (dry-run) first
+> and review the output before applying.**
+
+### Step 1 — Audit (dry-run, no changes)
+
+```bash
+DATABASE_URL="postgresql://..." node server/scripts/cleanupOrphanUsers.js --dry-run
+```
+
+The script prints the count and `firebase_uid` values of all orphan rows and
+exits without making any database changes.
+
+### Step 2 — Apply (destructive delete)
+
+Only run this after reviewing the dry-run output and confirming the targeted
+rows are safe to remove.
+
+```bash
+DATABASE_URL="postgresql://..." node server/scripts/cleanupOrphanUsers.js --apply
+```
+
+The script deletes the identified orphan `users` rows and prints the count of
+deleted rows.
+
+### Notes
+
+- The script is located at `server/scripts/cleanupOrphanUsers.js`.
+- `DATABASE_URL` must be set; the script exits with code 1 if it is missing.
+- Only rows with **no** `user_profiles` entry are targeted. Non-orphan users
+  and their profiles are never touched.
+- Because `user_profiles.user_id` has a `RESTRICT` FK to `users.firebase_uid`,
+  orphan users (by definition lacking a profile) also have no dependent
+  `contact_requests` or `questions` rows, making the delete safe.

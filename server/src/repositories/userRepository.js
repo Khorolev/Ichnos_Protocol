@@ -24,11 +24,14 @@ export async function upsertProfile(userId, profileData) {
     const { name, surname, email, phone, company, linkedin } = profileData;
     const { rows } = await pool.query(
       `INSERT INTO user_profiles (user_id, name, surname, email, phone, company, linkedin)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       VALUES ($1, COALESCE($2, ''), COALESCE($3, ''), $4, $5, $6, $7)
        ON CONFLICT (user_id)
-       DO UPDATE SET name = $2, surname = $3, email = $4, phone = $5, company = $6, linkedin = $7
+       DO UPDATE SET
+         name = COALESCE($2, user_profiles.name),
+         surname = COALESCE($3, user_profiles.surname),
+         email = $4, phone = $5, company = $6, linkedin = $7
        RETURNING *`,
-      [userId, name, surname, email, phone || null, company || null, linkedin || null],
+      [userId, name ?? null, surname ?? null, email, phone || null, company || null, linkedin || null],
     );
     return rows[0];
   } catch (error) {

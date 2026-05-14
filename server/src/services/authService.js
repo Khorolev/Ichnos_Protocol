@@ -6,6 +6,9 @@
  */
 import firebaseAdmin from "../config/firebase.js";
 import * as userRepository from "../repositories/userRepository.js";
+import { mapUserRow } from "../helpers/mapUserRow.js";
+
+const REQUIRED_PROFILE_FIELDS = ["name", "surname", "email"];
 
 function buildError(message, statusCode) {
   const error = new Error(message);
@@ -17,23 +20,66 @@ function extractAdminFlag(customClaims) {
   return customClaims?.admin === true;
 }
 
+export function computeProfileState(profile) {
+  const missingRequiredFields = REQUIRED_PROFILE_FIELDS.filter(
+    (field) => !profile?.[field] || !String(profile[field]).trim(),
+  );
+
+  return {
+    isProfileComplete: missingRequiredFields.length === 0,
+    missingRequiredFields,
+  };
+}
+
 export async function syncProfile(firebaseUid, profileData) {
   let user = await userRepository.getUserById(firebaseUid);
+
+  const firebaseUser = await firebaseAdmin.auth().getUser(firebaseUid);
+  const isAdmin = extractAdminFlag(firebaseUser.customClaims);
 
   if (!user) {
     user = await userRepository.createUser(firebaseUid);
   }
 
+  const mergedProfile = {
+    name: user?.name,
+    surname: user?.surname,
+    phone: user?.phone,
+    company: user?.company,
+    linkedin: user?.linkedin,
+    ...Object.fromEntries(
+      Object.entries(profileData).filter(([, v]) => v !== undefined),
+    ),
+    email: firebaseUser.email,
+  };
+
+  const profileForUpsert = Object.fromEntries(
+    Object.entries(mergedProfile).filter(([, v]) => v !== undefined),
+  );
+
   const profile = await userRepository.upsertProfile(
     firebaseUid,
-    profileData,
+    profileForUpsert,
   );
   await userRepository.updateUserActivity(firebaseUid);
 
-  const firebaseUser = await firebaseAdmin.auth().getUser(firebaseUid);
-  const isAdmin = extractAdminFlag(firebaseUser.customClaims);
+  const profileState = computeProfileState(profile);
 
-  return { user, profile, isAdmin };
+  const canonicalUserRow = {
+    firebase_uid: firebaseUid,
+    name: profile?.name,
+    surname: profile?.surname,
+    phone: profile?.phone,
+    company: profile?.company,
+    linkedin: profile?.linkedin,
+  };
+
+  return {
+    user: mapUserRow(canonicalUserRow, firebaseUser.email),
+    profile,
+    isAdmin,
+    profileState,
+  };
 }
 
 export async function verifyToken(idToken) {
@@ -52,8 +98,10 @@ export async function getUser(firebaseUid) {
 
   const firebaseUser = await firebaseAdmin.auth().getUser(firebaseUid);
   const isAdmin = extractAdminFlag(firebaseUser.customClaims);
+  const canonicalUser = mapUserRow(user, firebaseUser.email ?? user.email);
+  const profileState = computeProfileState(canonicalUser);
 
-  return { user, isAdmin };
+  return { user: canonicalUser, isAdmin, profileState };
 }
 
 export async function updateProfile(firebaseUid, updates) {

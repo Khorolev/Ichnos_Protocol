@@ -7,7 +7,6 @@ import {
 
 describe("syncProfileSchema", () => {
   const validProfile = {
-    firebaseUid: "uid-1",
     name: "John",
     surname: "Doe",
     email: "john@example.com",
@@ -28,35 +27,52 @@ describe("syncProfileSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects missing firebaseUid", () => {
-    const { firebaseUid: _firebaseUid, ...noUid } = validProfile;
-    const result = syncProfileSchema.safeParse(noUid);
-    expect(result.success).toBe(false);
+  it("accepts empty object (all fields optional, none required)", () => {
+    const result = syncProfileSchema.safeParse({});
+    expect(result.success).toBe(true);
   });
 
-  it("rejects missing name", () => {
+  it("accepts missing name (now optional)", () => {
     const result = syncProfileSchema.safeParse({
-      firebaseUid: "uid-1",
       surname: "Doe",
       email: "a@b.com",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts missing surname (now optional)", () => {
+    const result = syncProfileSchema.safeParse({
+      name: "John",
+      email: "a@b.com",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts missing email (now optional)", () => {
+    const result = syncProfileSchema.safeParse({
+      name: "John",
+      surname: "Doe",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts unknown legacy fields such as firebaseUid without error", () => {
+    const result = syncProfileSchema.safeParse({ firebaseUid: "uid-1" });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects empty-string name when provided", () => {
+    const result = syncProfileSchema.safeParse({
+      firebaseUid: "uid-1",
+      name: "",
     });
     expect(result.success).toBe(false);
   });
 
-  it("rejects missing surname", () => {
+  it("rejects empty-string surname when provided", () => {
     const result = syncProfileSchema.safeParse({
       firebaseUid: "uid-1",
-      name: "John",
-      email: "a@b.com",
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects missing email", () => {
-    const result = syncProfileSchema.safeParse({
-      firebaseUid: "uid-1",
-      name: "John",
-      surname: "Doe",
+      surname: "",
     });
     expect(result.success).toBe(false);
   });

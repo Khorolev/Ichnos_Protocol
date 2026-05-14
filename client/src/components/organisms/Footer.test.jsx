@@ -1,23 +1,72 @@
 import { axe } from 'vitest-axe';
-import { renderWithProviders, screen, cleanup } from '../../test-utils';
+import { within } from '@testing-library/react';
+import { Routes, Route, useLocation } from 'react-router-dom';
+import {
+  renderWithProviders,
+  screen,
+  cleanup,
+  fireEvent,
+} from '../../test-utils';
 import Footer from './Footer';
 import { COMPANY_INFO, CONTACT_INFO } from '../../constants/companyInfo';
+
+function LocationProbe() {
+  const location = useLocation();
+  return (
+    <div data-testid="location-probe">
+      <span data-testid="probe-pathname">{location.pathname}</span>
+      <span data-testid="probe-scroll-to">
+        {location.state?.scrollTo ?? ''}
+      </span>
+    </div>
+  );
+}
+
+function FooterWithRouteProbe() {
+  return (
+    <>
+      <Footer />
+      <Routes>
+        <Route path="*" element={<LocationProbe />} />
+      </Routes>
+    </>
+  );
+}
+
+const ATTRIBUTION_TEXT =
+  '© 2026 Ichnos Protocol Pte. Ltd. — All rights reserved.';
 
 describe('Footer', () => {
   beforeEach(() => {
     renderWithProviders(<Footer />);
   });
 
-  it('displays COMPANY_INFO.legalName', () => {
-    expect(screen.getByText(COMPANY_INFO.legalName)).toBeInTheDocument();
+  it('displays COMPANY_INFO.legalName in attribution row', () => {
+    const attribution = screen.getByTestId('footer-attribution');
+    expect(attribution).toHaveTextContent(COMPANY_INFO.legalName);
   });
 
-  it('displays UEN number', () => {
-    expect(screen.getByText(`UEN: ${COMPANY_INFO.uen}`)).toBeInTheDocument();
+  it('displays UEN number in contact column', () => {
+    const contactCol = screen.getByTestId('footer-col-contact');
+    expect(
+      within(contactCol).getByText(`UEN: ${COMPANY_INFO.uen}`),
+    ).toBeInTheDocument();
+    const brandCol = screen.getByTestId('footer-col-brand');
+    expect(within(brandCol).queryByText(/UEN/i)).toBeNull();
   });
 
-  it('displays registered address', () => {
-    expect(screen.getByText(COMPANY_INFO.registeredAddress)).toBeInTheDocument();
+  it('brand column shows the exact tagline copy', () => {
+    const brandCol = screen.getByTestId('footer-col-brand');
+    expect(
+      within(brandCol).getByText('Engineering, compliance, circularity.'),
+    ).toBeInTheDocument();
+  });
+
+  it('displays registered address in contact column', () => {
+    const contactCol = screen.getByTestId('footer-col-contact');
+    expect(
+      within(contactCol).getByText(COMPANY_INFO.registeredAddress),
+    ).toBeInTheDocument();
   });
 
   it('displays email link with mailto: href', () => {
@@ -25,26 +74,125 @@ describe('Footer', () => {
     expect(emailLink).toHaveAttribute('href', `mailto:${CONTACT_INFO.email}`);
   });
 
-  it('renders SocialLinks with LinkedIn and Calendly links', () => {
+  it('renders SocialLinks with LinkedIn and Calendly icons by aria-label', () => {
     expect(screen.getByLabelText('LinkedIn Company')).toBeInTheDocument();
     expect(screen.getByLabelText('LinkedIn Founder')).toBeInTheDocument();
     expect(screen.getByLabelText('Book a Meeting')).toBeInTheDocument();
   });
 
-  it('all social links have target="_blank"', () => {
-    const linkedInLink = screen.getByLabelText('LinkedIn Company');
-    const founderLink = screen.getByLabelText('LinkedIn Founder');
-    const calendlyLink = screen.getByLabelText('Book a Meeting');
-
-    expect(linkedInLink).toHaveAttribute('target', '_blank');
-    expect(founderLink).toHaveAttribute('target', '_blank');
-    expect(calendlyLink).toHaveAttribute('target', '_blank');
+  it('all social icon links have target="_blank" and rel="noopener noreferrer"', () => {
+    ['LinkedIn Company', 'LinkedIn Founder', 'Book a Meeting'].forEach(
+      (label) => {
+        const link = screen.getByLabelText(label);
+        expect(link).toHaveAttribute('target', '_blank');
+        expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+      },
+    );
   });
 
-  it('displays copyright with current year', () => {
-    const year = new Date().getFullYear();
-    const copyright = screen.getByText(new RegExp(`\\u00A9\\s*${year}`));
-    expect(copyright).toBeInTheDocument();
+  it('social icon hrefs match CONTACT_INFO values', () => {
+    expect(screen.getByLabelText('LinkedIn Company')).toHaveAttribute(
+      'href',
+      CONTACT_INFO.linkedInCompany,
+    );
+    expect(screen.getByLabelText('LinkedIn Founder')).toHaveAttribute(
+      'href',
+      CONTACT_INFO.linkedInFounder,
+    );
+    expect(screen.getByLabelText('Book a Meeting')).toHaveAttribute(
+      'href',
+      CONTACT_INFO.calendly,
+    );
+  });
+
+  it('Company column contains Why Ichnos → / and Team → /team and excludes Services/About', () => {
+    const companyCol = screen.getByTestId('footer-col-company');
+    expect(
+      within(companyCol).getByRole('link', { name: 'Why Ichnos' }),
+    ).toHaveAttribute('href', '/');
+    expect(
+      within(companyCol).getByRole('link', { name: 'Team' }),
+    ).toHaveAttribute('href', '/team');
+    expect(
+      within(companyCol).queryByRole('link', { name: 'Why Ichnos Protocol' }),
+    ).toBeNull();
+    expect(
+      within(companyCol).queryByRole('link', { name: 'Services' }),
+    ).toBeNull();
+    expect(
+      within(companyCol).queryByRole('link', { name: 'About' }),
+    ).toBeNull();
+  });
+
+  it('Services column has exactly three locked pillar links to /services', () => {
+    const servicesCol = screen.getByTestId('footer-col-services');
+    const labels = ['Engineering', 'Compliance', 'Circularity'];
+    labels.forEach((label) => {
+      expect(
+        within(servicesCol).getByRole('link', { name: label }),
+      ).toHaveAttribute('href', '/services');
+    });
+    expect(within(servicesCol).getAllByRole('link')).toHaveLength(3);
+    // Delivery Models is intentionally not surfaced in the footer — there is
+    // only one delivery-method service (Technical Lead with agile PM merged),
+    // and pillars are the canonical footer navigation primitives.
+    expect(
+      within(servicesCol).queryByRole('link', { name: 'Delivery Models' }),
+    ).toBeNull();
+  });
+
+  it('Services column links navigate to /services with the locked scrollTo state', () => {
+    const cases = [
+      { label: 'Engineering', scrollTo: 'engineering' },
+      { label: 'Compliance', scrollTo: 'compliance' },
+      { label: 'Circularity', scrollTo: 'circularity' },
+    ];
+    cases.forEach(({ label, scrollTo }) => {
+      cleanup();
+      renderWithProviders(<FooterWithRouteProbe />);
+      const servicesCol = screen.getByTestId('footer-col-services');
+      const link = within(servicesCol).getByRole('link', { name: label });
+      fireEvent.click(link);
+      expect(screen.getByTestId('probe-pathname')).toHaveTextContent(
+        '/services',
+      );
+      expect(screen.getByTestId('probe-scroll-to')).toHaveTextContent(
+        scrollTo,
+      );
+    });
+  });
+
+  it('Products column has Battery Passport → /passport', () => {
+    const productsCol = screen.getByTestId('footer-col-products');
+    expect(
+      within(productsCol).getByRole('link', { name: 'Battery Passport' }),
+    ).toHaveAttribute('href', '/passport');
+  });
+
+  it('contact column has Submit an Inquiry link to /contact', () => {
+    const contactCol = screen.getByTestId('footer-col-contact');
+    expect(
+      within(contactCol).getByRole('link', { name: 'Submit an Inquiry' }),
+    ).toHaveAttribute('href', '/contact');
+  });
+
+  it('contact column does not render a text link labeled "LinkedIn Company"', () => {
+    const contactCol = screen.getByTestId('footer-col-contact');
+    expect(within(contactCol).queryByText('LinkedIn Company')).toBeNull();
+  });
+
+  it('attribution row contains exact text, year 2026, and legal name', () => {
+    const attribution = screen.getByTestId('footer-attribution');
+    expect(attribution).toHaveTextContent(ATTRIBUTION_TEXT);
+    expect(attribution).toHaveTextContent('2026');
+    expect(attribution).toHaveTextContent(COMPANY_INFO.legalName);
+  });
+
+  it('attribution row does not include any photo credit text', () => {
+    const attribution = screen.getByTestId('footer-attribution');
+    expect(attribution).not.toHaveTextContent('Photo:');
+    expect(attribution).not.toHaveTextContent('Photography:');
+    expect(attribution).not.toHaveTextContent('Unsplash');
   });
 
   it('has semantic <footer> element', () => {
@@ -52,16 +200,10 @@ describe('Footer', () => {
     expect(footer).toBeInTheDocument();
   });
 
-  it('all links are keyboard accessible', () => {
+  it('email link is keyboard focusable', () => {
     const emailLink = screen.getByRole('link', { name: CONTACT_INFO.email });
     emailLink.focus();
     expect(emailLink).toHaveFocus();
-  });
-
-  it('social links have aria-labels', () => {
-    expect(screen.getByLabelText('LinkedIn Company')).toHaveAttribute('href', CONTACT_INFO.linkedInCompany);
-    expect(screen.getByLabelText('LinkedIn Founder')).toHaveAttribute('href', CONTACT_INFO.linkedInFounder);
-    expect(screen.getByLabelText('Book a Meeting')).toHaveAttribute('href', CONTACT_INFO.calendly);
   });
 
   it('has no accessibility violations', async () => {

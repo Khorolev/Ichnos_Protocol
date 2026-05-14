@@ -6,9 +6,15 @@
     "test": "playwright test",
     "test:headed": "playwright test --headed",
     "test:chromium": "playwright test --project=chromium",
+    "test:unit": "vitest run --dir scripts/helpers",
     "report": "playwright show-report"
   },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "firebase-admin": "^13.6.1"
+  },
   "devDependencies": {
-    "@playwright/test": "^1.50.0"
+    "@playwright/test": "^1.50.0",
+    "vitest": "^4.0.18"
   }
 }

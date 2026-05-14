@@ -22,6 +22,11 @@ jobs:
     environment: production
 
     steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Discover latest client preview deployment
         id: discover-client
         env:

@@ -24,6 +24,7 @@ export default function UserMenu() {
       <Dropdown.Toggle
         variant="link"
         className="d-flex align-items-center gap-2 text-decoration-none user-menu-toggle"
+        data-testid="user-menu-toggle"
       >
         <span className="user-avatar">{getUserInitial(user)}</span>
         <span className="d-none d-lg-inline user-menu-name">

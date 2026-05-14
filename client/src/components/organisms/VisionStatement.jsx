@@ -2,16 +2,19 @@ import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 
 import Icon from '../atoms/Icon';
-import { VISION_STATEMENT, SECTION_HEADINGS } from '../../constants/teamContent';
+import { VISION_STATEMENT } from '../../constants/teamContent';
+
+const SECTION_TITLE = 'Our Vision';
+const SECTION_SUBTITLE = 'The conviction driving everything we build.';
 
 export default function VisionStatement() {
   return (
     <section className="py-5">
       <h2 className="text-center mb-2 section-heading">
-        {SECTION_HEADINGS.vision.title}
+        {SECTION_TITLE}
       </h2>
       <p className="text-center mb-5 section-subtext">
-        {SECTION_HEADINGS.vision.subtitle}
+        {SECTION_SUBTITLE}
       </p>
       <Row className="justify-content-center">
         <Col xs={12} md={8} lg={6} className="text-center">

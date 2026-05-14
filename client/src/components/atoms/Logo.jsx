@@ -1,7 +1,15 @@
 import { useState } from 'react';
 
-export default function Logo({ className = '' }) {
+const LOGO_SOURCES = {
+  light: '/logo-dark.png',
+  dark: '/logo.png',
+  advisory: '/logo-dark.png',
+  passport: '/logo.png',
+};
+
+export default function Logo({ className = '', theme = 'light' }) {
   const [failed, setFailed] = useState(false);
+  const src = LOGO_SOURCES[theme] ?? LOGO_SOURCES.light;
 
   if (failed) {
     return (
@@ -13,7 +21,7 @@ export default function Logo({ className = '' }) {
 
   return (
     <img
-      src="/logo.png"
+      src={src}
       alt="Ichnos Protocol"
       className={className}
       onError={() => setFailed(true)}

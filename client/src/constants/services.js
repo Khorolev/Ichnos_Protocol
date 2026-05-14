@@ -1,228 +1,88 @@
 export const SERVICES_LIST = [
   {
-    id: "regulation-compliance",
-    title: "Battery Regulation Compliance",
+    id: "battery-systems-safety",
+    icon: "bi-shield-check",
+    title: "Battery Systems & Safety Engineering",
+    tagline:
+      "System architecture, requirement and test management, and full FMEA discipline.",
     description:
-      "Gap analysis, compliance roadmap, and documentation preparation for the EU Battery Regulation.",
-    details: [
-      "Regulatory gap analysis against EU Battery Regulation requirements",
-      "Compliance roadmap with milestones and deliverables",
-      "Documentation preparation and review",
-    ],
+      "System architecture, requirement and test management, and full FMEA discipline — S-FMEA, D-FMEA, P-FMEA — across cell, module, and pack levels. Test planning, traceability, and design-review support for battery development programs that need rigorous engineering process from concept to SOP.",
+    pillar: "engineering",
+    deliveryMethod: false,
   },
   {
-    id: "homologation",
-    title: "Homologation Support",
+    id: "battery-mechanical-development",
+    icon: "bi-tools",
+    title: "Battery Mechanical Development",
+    tagline:
+      "Pack architecture, cell housing, thermal hardware, and design-for-manufacture.",
     description:
-      "End-to-end support for type approval processes, including coordination with notified bodies in the EU.",
-    details: [
-      "Type approval process management",
-      "Coordination with EU notified bodies",
-      "Technical documentation for homologation dossiers",
-    ],
+      "Pack and module mechanical design, cell housing, thermal hardware integration, and design-for-manufacture. Drawing on a doctorate in Production Engineering of E-Mobility Components and patents on battery modules and aluminium cell housings.",
+    pillar: "engineering",
+    deliveryMethod: false,
   },
   {
-    id: "testing-coordination",
-    title: "Testing Center Coordination",
+    id: "eu-apac-compliance-bridge",
+    icon: "bi-globe-asia-australia",
+    title: "EU–APAC Battery Compliance Bridge",
+    tagline:
+      "Translating European battery regulation into APAC supply-chain reality — and vice versa.",
     description:
-      "Selection of and liaison with accredited testing centers for battery safety, performance, and durability.",
-    details: [
-      "Accredited testing center selection",
-      "Test plan development and review",
-      "Liaison and results interpretation",
-    ],
+      "Translating European battery regulation into APAC (including ASEAN) supply-chain reality — and vice versa. Coverage includes EU 2023/1542, Malaysian MS 2818, regional certification frameworks, and supplier alignment for OEMs operating across both regions. Practitioner-grade understanding of where regulatory text meets the factory floor.",
+    pillar: "compliance",
+    deliveryMethod: false,
   },
   {
-    id: "requirement-management",
-    title: "Requirement Management",
+    id: "battery-passport-implementation",
+    icon: "bi-shield-fill-check",
+    title: "Battery Passport Implementation",
+    tagline:
+      "EU 2023/1542 and MS 2818 readiness audits, gap analyses, and end-to-end implementation.",
     description:
-      "Structuring and managing technical, legal, and regulatory requirements for battery system development.",
-    details: [
-      "Technical requirement structuring",
-      "Legal and regulatory requirement tracking",
-      "Traceability matrix management",
-    ],
+      "EU 2023/1542 and Malaysian MS 2818 readiness audits, gap analyses, and end-to-end implementation: data model design, supplier data collection workflows, and carbon-footprint pipelines. Tied directly to the digital Battery Passport platform Ichnos Protocol is building — see /passport.",
+    passportLink: "/passport",
+    pillar: "compliance",
+    deliveryMethod: false,
   },
   {
-    id: "passport-development",
-    title: "Battery Passport Development",
+    id: "remanufacturing-recycling-circular-economy",
+    icon: "bi-arrow-repeat",
+    title: "Battery Remanufacturing, Recycling & Circular Economy",
+    tagline:
+      "Second-life pathways, design for remanufacturing, design for recycling, design for cost.",
     description:
-      "Help your engineering team build a Battery Passport solution tailored to your products and processes.",
-    details: [
-      "Architecture consulting for passport systems",
-      "Data model design and integration support",
-      "Tailored to your product line and processes",
-    ],
+      "Second-life pathways, design for remanufacturing, design for recycling, and design for cost. PhD-level expertise in circular-economy battery systems — backed by the 3rd-place RWTH Innovation Award and four peer-reviewed publications on remanufacturing, recycling, and cell housing design. Founder lectured on battery recycling at the RWTH Aachen PEM Chair.",
+    pillar: "circularity",
+    deliveryMethod: false,
   },
   {
-    id: "circular-economy",
-    title: "Circular Economy Strategy",
+    id: "technical-lead-battery-systems",
+    icon: "bi-person-workspace",
+    title: "Technical Lead — Battery Systems",
+    tagline:
+      "Embedded technical leadership and agile project management for battery development programs.",
     description:
-      "Advisory on remanufacturing, repurposing, and second-life strategies to maximize battery asset value.",
-    details: [
-      "Remanufacturing feasibility assessment",
-      "Second-life application strategy",
-      "Asset value maximization roadmap",
-    ],
-  },
-];
-
-export const BATTERY_PASSPORT_FEATURES = [
-  {
-    feature: "Composition & Materials Data",
-    mandated: true,
-    status: "Updating",
-    phase: "Prototype",
-  },
-  {
-    feature: "Identification and Labeling",
-    mandated: true,
-    status: "Updating",
-    phase: "Prototype",
-  },
-  {
-    feature: "Performance & Reliability",
-    mandated: true,
-    status: "Updating",
-    phase: "Prototype",
-  },
-  {
-    feature: "Recycled and Recovered Materials",
-    mandated: true,
-    status: "Updating",
-    phase: "Prototype",
-  },
-  {
-    feature: "Carbon Footprint Declaration",
-    mandated: true,
-    status: "In Development",
-    phase: "Prototype",
-  },
-  {
-    feature: "Supply Chain Due Diligence",
-    mandated: true,
-    status: "In Development",
-    phase: "Prototype",
-  },
-  {
-    feature: "Remanufacturing Readiness Score",
-    mandated: false,
-    status: "Planned",
-    phase: "Prototype",
-  },
-  {
-    feature: "Second-Life Application Matching",
-    mandated: false,
-    status: "Planned",
-    phase: "Production",
-  },
-  // Deferred to later stage
-  // {
-  //   feature: "SME Marketplace Integration",
-  //   mandated: false,
-  //   status: "Planned",
-  //   phase: "Production",
-  // },
-  {
-    feature: "Degradation Forecasting",
-    mandated: false,
-    status: "Planned",
-    phase: "Production",
-  },
-  {
-    feature: "Repurposer/Remanufacturer Tools",
-    mandated: false,
-    status: "Planned",
-    phase: "Production",
-  },
-];
-
-export const ROADMAP_PHASES = [
-  {
-    id: "prototype",
-    title: "Prototype Phase",
-    badge: "CURRENT",
-    description:
-      "SQL (PostgreSQL) and NoSQL (Firestore) databases for rapid iteration and validation of the data model.",
-    features: [
-      "PostgreSQL for structured battery data",
-      "Firestore for document storage and metadata",
-      "Rapid iteration on data model and APIs",
-      "Full compliance with DIN SPEC 99100 requirements",
-      "Validation with early adopters",
-    ],
-  },
-  {
-    id: "production",
-    title: "Production Phase",
-    badge: "PLANNED",
-    description:
-      "Migration to Solana blockchain for immutable, decentralized battery lifecycle records with user engagement features.",
-    features: [
-      "Solana blockchain for immutable records",
-      "DID based identity management for batteries and stakeholders",
-      "Decentralized battery lifecycle tracking",
-      "Transparent provenance and audit trail",
-      "Cross-platform interoperability",
-    ],
+      "Embedded senior battery expertise for early-stage teams and in-house programs that need experienced direction without a full-time hire — combined with sprint cadence, requirement traceability, milestone management, and cross-functional coordination. PSM I (Professional Scrum Master™ I) certified, backed by thirteen years of cross-functional project engineering across Ducati, Technogym, and FEV — from gasoline engines and motorcycle design through electrification and vehicle battery systems.",
+    pillar: "engineering",
+    deliveryMethod: false,
   },
 ];
 
 export const SERVICES_PAGE_CONTENT = {
   title: "Services & Solutions",
-  subtitle:
-    "Expert consulting and the Battery Passport platform — built for the battery regulation landscape.",
+  subtitle: "Expert consulting for the battery regulation landscape.",
 };
 
-export const SERVICES_LIST_CONTENT = {
-  heading: "Our Services",
-  subtext:
-    "Consulting and development services for the battery regulation landscape.",
-};
-
-export const FEATURE_MATRIX_CONTENT = {
-  heading: "Battery Passport: Feature Maturity Matrix",
-  subtext:
-    "Beyond DIN SPEC 99100 — delivering real utility for the battery lifecycle.",
-  columns: {
-    feature: "Feature",
-    mandated: "Mandated",
-    status: "Status",
-    phase: "Phase",
-  },
-};
-
-export const TECHNOLOGY_ROADMAP_CONTENT = {
-  heading: "Technology Roadmap",
-  subtext:
-    "A staged architecture from rapid prototyping to blockchain-backed production.",
-  footer:
-    "The Solana choice aligns with the project's values: high throughput, low cost, and a growing ecosystem of sustainability-focused decentralized applications.",
-};
-
-export const CONTACT_SECTION_CONTENT = {
-  heading: "Get in Touch",
-  subtext:
-    "Ready to discuss your battery compliance needs? Reach out directly.",
-  contactCardTitle: "Contact",
-  companyCardTitle: "Company Details",
-  links: {
-    linkedInCompany: "LinkedIn Company Page",
-    linkedInFounder: "LinkedIn Founder",
-    bookMeeting: "Book a Meeting",
-  },
-  labels: {
-    legalName: "Legal Name:",
-    uen: "UEN:",
-    address: "Address:",
-  },
-};
-
-export const TARGET_INDUSTRIES = [
-  "Automotive",
-  "Motorcycle",
-  "Energy Storage",
-  "Industrial Equipment",
-  "Marine",
-  "Aviation",
+export const SERVICE_PILLARS = [
+  { id: "engineering", label: "Engineering", anchor: "engineering" },
+  { id: "compliance", label: "Compliance", anchor: "compliance" },
+  { id: "circularity", label: "Circularity", anchor: "circularity" },
 ];
+
+// Note: DELIVERY_METHODS_HEADER and getDeliveryMethodServices() removed —
+// Technical Lead is now part of the Engineering pillar (3 services) so there
+// is no separate Delivery Models section on /services any more.
+
+export function getServicesByPillar(pillarId) {
+  return SERVICES_LIST.filter((s) => s.pillar === pillarId);
+}

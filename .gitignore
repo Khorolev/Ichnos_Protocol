@@ -4,6 +4,9 @@
 .env
 .env.*
 !.env.example
+!.env.e2e.example
+# E2E config: non-sensitive values (test emails, UIDs, Firebase API key), safe to commit
+!e2e/.env.e2e
 *.pem
 *.key
 *.p12
@@ -13,9 +16,16 @@
 firebase-service-account*.json
 serviceAccountKey*.json
 credentials*.json
-.ichnos-protocol-firebase-adminsdk-fbsvc-2046c58e9e.json
-.ichnos-protocol-test-firebase-adminsdk-fbsvc-af7f7c29c0.json
+# Firebase admin SDK key files — catch current and historical filename variants
+# (e.g. *_staging.json, *_test.json, date-tagged keys) instead of exact names.
+.ichnos-protocol-*firebase-adminsdk*.json
+*firebase-adminsdk*.json
 secrets/
+
+# ============================================
+# MCP configuration (machine and project-specific, may contain secrets)
+# ============================================
+.mcp.json
 
 # ============================================
 # Dependencies
@@ -39,6 +49,7 @@ coverage/
 playwright-report/
 test-results/
 blob-report/
+e2e/.auth/
 
 # ============================================
 # IDE and editor files
@@ -75,9 +86,17 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # ============================================
-# Claude CLI (local settings are machine-specific)
+# Claude CLI (local settings + per-feature worktrees are machine-specific)
 # ============================================
 .claude/settings.local.json
+.claude/worktrees/
+
+# ============================================
+# MCP server runtime artifacts (browser session captures, page snapshots,
+# console logs from automated browsing — never reproducible, may contain
+# session-specific data)
+# ============================================
+.playwright-mcp/
 
 # ============================================
 # Knowledge base PDFs (large binaries, proprietary sources)

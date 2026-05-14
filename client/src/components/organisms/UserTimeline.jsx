@@ -88,6 +88,7 @@ export default function UserTimeline({ userId, onClose }) {
     <Offcanvas
       show={!!userId}
       placement="end"
+      data-testid="timeline-drawer"
       onHide={() => {
         closeDetail();
         onClose();

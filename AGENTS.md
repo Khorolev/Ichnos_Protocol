@@ -7,18 +7,18 @@ Monorepo: `client/` (React frontend) + `server/` (Express backend).
 
 ## Tech stack
 
-| Layer        | Technology                     |
-|--------------|--------------------------------|
-| Frontend     | React 18+, Vite, Bootstrap 5, Redux Toolkit (RTK Query), React Router v6+ |
-| Backend      | Express.js 5, REST API, ES modules |
-| SQL DB       | PostgreSQL (Neon Tech)         |
-| NoSQL/Files  | Firebase Firestore + Storage   |
-| Auth         | Firebase Authentication        |
-| Chatbot      | X.ai Grok API (RAG)           |
-| LinkedIn     | Third-party embed widget       |
-| Testing      | Vitest, React Testing Library, Supertest, Playwright (E2E) |
-| Deployment   | Vercel (Monorepo)              |
-| Linting      | ESLint + Prettier              |
+| Layer       | Technology                                                                |
+| ----------- | ------------------------------------------------------------------------- |
+| Frontend    | React 18+, Vite, Bootstrap 5, Redux Toolkit (RTK Query), React Router v6+ |
+| Backend     | Express.js 5, REST API, ES modules                                        |
+| SQL DB      | PostgreSQL (Neon Tech)                                                    |
+| NoSQL/Files | Firebase Firestore + Storage                                              |
+| Auth        | Firebase Authentication                                                   |
+| Chatbot     | X.ai Grok API (RAG)                                                       |
+| LinkedIn    | Third-party embed widget                                                  |
+| Testing     | Vitest, React Testing Library, Supertest, Playwright (E2E)                |
+| Deployment  | Vercel (Monorepo)                                                         |
+| Linting     | ESLint + Prettier                                                         |
 
 ## Repository structure
 
@@ -138,10 +138,14 @@ cd server && vercel --prod   # deploy backend
 
 - E2E tests live in `e2e/tests/` at the repository root (separate from client/server).
 - **Local**: Start client + server locally, run `cd e2e && npx playwright test`.
-- **CI**: E2E runs as a dependent job (`needs: [deploy-client-preview, deploy-server-preview]`) inside the `Vercel Preview` workflow. The client preview URL is passed directly via job outputs — no cross-workflow artifact transfer.
-- A standalone `e2e.yml` workflow exists for **manual/ad-hoc** runs via `workflow_dispatch` (requires a `base_url` input).
-- Browsers: Chromium, Firefox, WebKit in CI; Chromium-only locally.
-- E2E tests run on every PR and after merges to `main`. Merge to `main` is blocked until E2E passes (required status check: `Vercel Preview / E2E Tests (Playwright)`).
+- **CI**: E2E is triggered by `repository_dispatch (vercel.deployment.success)` from the **server** Vercel project (`ichnos-protocol_server`) only. Repository Dispatch Events are enabled on the server project; the client project does not emit dispatches.
+  - **Filter**: The workflow guards on `contains(github.event.client_payload.project.name || '', 'server')` — a safety check since only the server emits dispatches.
+  - **Target URLs**: Stable E2E URLs from the committed `e2e/.env.e2e` file (`E2E_BASE_URL` for client, `E2E_API_BASE_URL` for API) — not per-deployment hash URLs.
+  - **Client readiness**: The workflow polls `E2E_BASE_URL` (loaded from `e2e/.env.e2e`) to verify the client is live before running Playwright.
+  - **Seed readiness**: The workflow polls `/api/health` for `seed.mode` — `seeded` and `skipped` are accepted as ready states, `failed` is terminal, `in_progress` triggers retry.
+  - **Safety gate**: A fail-closed production-host denylist (exact hostname match, lowercase normalized, port removed) validates all target URLs before tests execute. Denylist constants are canonical in `e2e.yml`.
+- `e2e.yml` also supports **manual/ad-hoc** runs via `workflow_dispatch`. Both trigger modes resolve target URLs from the committed `e2e/.env.e2e` file — there is no manual URL input. The same denylist safety gate applies.
+- Browsers: **Chromium only** for `repository_dispatch` CI runs; **full suite** (Chromium, Firefox, WebKit) for `workflow_dispatch` manual runs; Chromium-only locally.
 
 ## Git conventions
 
@@ -149,6 +153,7 @@ cd server && vercel --prod   # deploy backend
 - Types: `feat`, `fix`, `refactor`, `test`, `chore`, `docs`, `style`
 - Scopes: `client`, `server`, `db`, `chat`, `auth`, `admin`, `linkedin`
 - Branch per feature: `feature/<short-description>` from `main`
+- `staging` is a **long-lived parallel branch** for manual QA, auto-synced from `main` by `sync-staging.yml`. It is not in the promotion chain (`feature/* → main → release` is unchanged). Never open PRs targeting `staging`.
 
 ## Security essentials
 
@@ -164,12 +169,14 @@ cd server && vercel --prod   # deploy backend
 ## Security best practices
 
 ### Authorization: middleware, not controllers
+
 - Authorization guards (e.g., super-admin checks) must live in **middleware**, not inside controller handler bodies.
 - Each middleware in the chain should be a single-responsibility check: `auth` → `admin` → `superAdmin` → handler.
 - Example: `router.post("/manage-admins", auth, admin, superAdmin, validate(...), controller.manageAdmins)`.
 - Never write `if (req.user?.superAdmin !== true) return res.status(403)...` inside a controller.
 
 ### AI prompt injection prevention
+
 - Never inject raw user-supplied text directly into AI `system` role content or as part of system instructions.
 - Always place user input in the `user` role only.
 - Before passing user text to topic classification or any AI system prompt, sanitize (strip control characters) and truncate to a maximum length.
@@ -177,31 +184,45 @@ cd server && vercel --prod   # deploy backend
 - Correct pattern: `[{ role: "system", content: systemPrompt }, { role: "user", content: sanitize(message) }]`.
 
 ### HTML injection in server-rendered pages
+
 - Always escape values interpolated into HTML templates using an `escapeHtml()` helper.
 - Validate URL scheme before using a value as `href` or `src` — reject `javascript:`, `data:`, and any non-http/https protocol.
 - This applies even to environment variables: env vars can be misconfigured.
 - Reference implementation: `server/src/helpers/buildStatusPage.js` (`escapeHtml`, `sanitizeOrigin`).
 
 ### Firebase Admin SDK initialization guard
+
 - Firebase Admin SDK must be initialized exactly once (singleton pattern).
 - Guard initialization with `!admin.apps.length` before calling `admin.initializeApp()`.
 - Never call `admin.auth()`, `admin.storage()`, or `admin.firestore()` before the app is fully initialized.
 - Reference implementation: `server/src/config/firebase.js`.
+
+### Auth API contract (post-T3/T4/T5 refactor)
+
+- **`POST /api/auth/sync-profile`** is auth-protected — the `auth` middleware must be present on this route. Identity is derived exclusively from `req.user.uid` (the verified Firebase token). The request body must **not** include `firebaseUid`; any body-supplied UID is ignored.
+- **`GET /api/auth/me`** returns `data.user` in camelCase shape: `{ firebaseUid, email, name, surname, phone, company, linkedin }`. The DB snake_case row is normalized via `mapUserRow` at the service boundary before reaching the client.
+- **`400` validation failures** from profile-completion flows render a stable generic message (`"An unexpected error occurred."`) — not field-level detail — to avoid leaking schema information.
+- **Redux `auth.user`** always stores the canonical camelCase server shape. Never read `firebase_uid` from Redux state; always use `firebaseUid`.
+- **Rule**: Never trust body-supplied UIDs. Always verify Firebase identity server-side via middleware. Normalize DB shapes at the service boundary (`mapUserRow`) before returning to clients.
 
 ## Deployment (Vercel Monorepo)
 
 - Deployed on **Vercel** as two projects from the same repo.
 - **Frontend** (`client/`): Vite static build → `dist/`. SPA rewrites to `index.html`.
 - **Backend** (`server/`): Express app wrapped as a Vercel serverless function via `server/api/index.js` using `@vercel/node`.
-- **Vercel Git auto-deploy is disabled** via `git.deploymentEnabled: false` in both `client/vercel.json` and `server/vercel.json`. All deployments are workflow-driven.
-- **Enforced pipeline order**: CI → Vercel Preview → E2E (Playwright) → manual production promotion.
-- CI success on any branch triggers **preview** deployments (via `Vercel Preview` workflow). Production promotion is always manual (via `Promote to Production` workflow with approval gate).
+- **Vercel Git integration handles preview deployments** automatically on every branch push and PR — no GitHub Actions workflow is involved in creating previews.
+- **Enforced pipeline order**: CI → Vercel Preview (native) → E2E (Playwright via `repository_dispatch (vercel.deployment.success)`) → approval-gated production promotion.
+- `repository_dispatch (vercel.deployment.success)` events from the **server** Vercel project (`ichnos-protocol_server`) trigger `e2e.yml`. The workflow uses project-name filtering (`contains(project.name, 'server')`) and targets stable E2E URLs from the committed `e2e/.env.e2e` file (`E2E_BASE_URL`, `E2E_API_BASE_URL`).
+- Production promotion is triggered automatically on push to `release` and requires human approval via the GitHub `production` environment before the latest validated `main` preview is promoted.
 - Environment variables set in Vercel project settings, never committed.
 - `server/api/index.js` only re-exports the Express app. All setup stays in `server/src/app.js`.
+- **Staging manual-QA lane**: The `staging` branch produces a Vercel Preview deployment that uses **production Firebase** and **production Neon DB** via branch-scoped env overrides. `SKIP_E2E_SEED=true` prevents automated seed injection. Manual QA actions on `staging` write to the production database — this is explicitly accepted.
+- `sync-staging.yml` force-pushes `main` to `staging` after every server deployment (unconditional, same `repository_dispatch` trigger as `e2e.yml`, runs in parallel). Uses `SYNC_PAT` (not `GITHUB_TOKEN`) to trigger Vercel redeployment.
 
 ## CI/CD best practices
 
 ### Integration test gating
+
 - Integration tests that require external services (PostgreSQL, Firebase, xAI) must gate on an env var using the pattern:
   ```js
   const skip = !process.env.TEST_DATABASE_URL;
@@ -211,30 +232,53 @@ cd server && vercel --prod   # deploy backend
 - Document which secret enables each integration test suite in a comment at the top of the file.
 
 ### Schema edge-case testing
+
 - Write unit tests for schema validators that explicitly cover edge cases: empty string, whitespace-only, too long, wrong type.
 - Test at the validator level (direct Zod schema test) in addition to route-level tests.
 - Edge-case tests must run in CI without any external dependencies.
 
 ### Build verification in CI
+
 - The CI pipeline must run `npm run build` for the client as a separate step before any deployment.
 - A broken Vite build should fail in CI, not only be caught at Vercel deploy time.
 - Add a `build` step to `lint-and-test-client` or as a separate `build-client` job in `ci.yml`.
 
 ### Preview-first deployment model
-- CI success on any branch produces **preview** deployments (via `vercel-preview-on-main.yml`).
-- Production promotion is always **manual** (via `vercel-promote-production.yml` with `workflow_dispatch`).
+
+- **Vercel's native Git integration** creates preview deployments automatically on every branch push and PR — no GitHub Actions workflow is involved.
+- Production promotion is **approval-gated**: the `Promote to Production` workflow triggers automatically on push to `release` and requires human approval via the GitHub `production` environment.
 - This allows reviewing every deployment on preview before it reaches users.
 - Production environment should have an approval gate configured in GitHub → Settings → Environments.
-- **Fork PR trust boundary**: Preview deployments only run when the triggering CI run originates from the same repository (`head_repository.full_name == github.repository`). Fork PRs do not get preview deployments to prevent secret exfiltration via attacker-controlled code.
+- **Fork PR trust boundary**: Vercel's Git integration does not expose environment variables to builds from forks by default, preventing secret exfiltration via attacker-controlled code.
 - See `DEPLOYMENT_GITHUB_ACTIONS.md` for setup instructions.
+- The `staging` branch is an auto-synced parallel manual-QA lane that sits outside the automated pipeline. It uses production credentials for real-user QA. See `DEPLOYMENT_GITHUB_ACTIONS.md` for full details.
+
+### Neon preview branches for E2E
+
+- Vercel's native Neon integration automatically creates a Neon preview branch for each Vercel preview deployment — no GitHub Actions step provisions or deletes branches.
+- E2E test data is seeded automatically by the server on preview startup. When `VERCEL_ENV === 'preview'` and E2E account env vars are present (`E2E_ADMIN_EMAIL`, `E2E_ADMIN_UID`), the server runs idempotent seed queries using its own `DATABASE_URL` (injected by the Neon-Vercel integration).
+- GitHub Actions does not interact with the database at all — no Neon API calls, no direct DB connections, no seed tokens.
+- E2E account env vars (`E2E_ADMIN_EMAIL`, `E2E_ADMIN_UID`, etc.) must be set as Vercel server environment variables scoped to **Preview** only.
+- Seeding can be suppressed by setting `SKIP_E2E_SEED=true` as a Vercel server Preview env var; `/api/health` then reports `seed.mode=skipped`.
+- `/api/health` exposes `seed.mode` (enum: `seeded | skipped | in_progress | failed`) as the canonical readiness signal for CI orchestration. The backward-compatible fields (`seed.seeded`, `seed.error`, `seed.attempts`) are retained alongside it.
+- For local/manual seeding outside Vercel, use `node server/scripts/seedE2EData.js`.
+- The `staging` branch does **not** use an ephemeral Neon branch — it connects directly to the production Neon database via a branch-scoped `DATABASE_URL` override. Any Neon ephemeral branch auto-created for the `staging` preview is unused and expires automatically.
 
 ### E2E URL targeting in GitHub Actions
-- E2E tests run as a dependent job inside the `Vercel Preview` workflow (not as a separate `workflow_run` workflow).
-- The client preview URL is passed via job outputs from `deploy-client-preview` — no cross-workflow artifact transfer.
-- A standalone `e2e.yml` workflow exists for manual/ad-hoc runs via `workflow_dispatch`.
-- E2E tests must target the **client** deployment URL only, never the server.
+
+- E2E tests are triggered by `repository_dispatch (vercel.deployment.success)` from the **server** Vercel project (`ichnos-protocol_server`) via `e2e.yml`, not as a dependent job inside another workflow.
+- The workflow uses **project-name filtering** (`contains(project.name, 'server')`) as the event guard — not hostname pattern matching.
+- Tests target stable E2E URLs from the committed `e2e/.env.e2e` file (`E2E_BASE_URL`, `E2E_API_BASE_URL`), not per-deployment hash URLs and not secrets.
+- Detection does not use `VERCEL_PROJECT_ID_CLIENT` or hostname matching.
+- Both `repository_dispatch` and `workflow_dispatch` modes resolve targets from the committed `e2e/.env.e2e` file — no manual URL input is accepted.
+- Production-host denylist constants (`PRODUCTION_HOSTS_CLIENT`, `PRODUCTION_HOSTS_API`) are canonical in the `e2e.yml` workflow `env` block. Updates require maintainer-reviewed PRs on the workflow file. Docs are descriptive only and must not introduce alternate policy sources.
+- The denylist gate is fail-closed: empty/missing constants or unparseable URLs abort the run. Hostname matching is exact-match after lowercase normalization and port removal.
+- API readiness is `seed.mode`-based: the workflow polls `/api/health` and accepts `seeded` or `skipped` as ready; `failed` triggers immediate failure.
+- E2E tests must target the **client** staging URL only, never the server.
+- `E2E_BASE_URL` and `E2E_API_BASE_URL` (in `e2e/.env.e2e`) point to **ephemeral preview** targets — never to the `staging` branch URL. The `staging` environment is a separate manual-QA lane with its own distinct URL and production credentials.
 
 ### Secret-conditional steps
+
 - Any CI step that requires a secret must check for presence before running, not fail silently:
   ```bash
   if [ -n "$MY_SECRET" ]; then
@@ -243,6 +287,37 @@ cd server && vercel --prod   # deploy backend
     echo "Skipping: MY_SECRET not set"
   fi
   ```
+
+## MCP Servers (AI Agent Integrations)
+
+MCP (Model Context Protocol) servers give AI agents direct access to external
+services — no manual copy-paste of URLs, credentials, or API responses.
+
+### Available servers by agent
+
+| MCP Server     | Claude Code |         Traycer          | What it does                                                              |
+| -------------- | :---------: | :----------------------: | ------------------------------------------------------------------------- |
+| **GitHub**     |     ✅      |            ✅            | Repo operations: PRs, issues, commits, code search, file contents         |
+| **Neon**       |     ✅      |            ✅            | PostgreSQL: SQL queries, schema inspection, branch management, migrations |
+| **Vercel**     |     ✅      | ❌ (OAuth not supported) | Deployments: logs, env vars, project settings, promotion                  |
+| **DBHub**      |     ✅      |            —             | Direct SQL access to Neon DB (legacy, see Neon MCP)                       |
+| **Playwright** |     ✅      |            —             | E2E test execution and browser automation                                 |
+| **Context7**   |     ✅      |            —             | Library/framework documentation lookup                                    |
+
+### When to use which
+
+- **Debugging a deployment failure** → Vercel MCP (Claude) for logs + Neon MCP for DB state
+- **Investigating a data bug** → Neon MCP to query production data directly
+- **Reviewing a PR or checking CI** → GitHub MCP
+- **Checking if DB tables/migrations exist** → Neon MCP (`search_objects` or `execute_sql`)
+- **Looking up library API docs** → Context7 MCP
+
+### Setup
+
+- **GitHub MCP**: Pre-configured in Claude Code. Traycer uses remote endpoint with PAT auth.
+- **Neon MCP**: Remote server at `https://mcp.neon.tech/mcp`. Auth via OAuth (Claude) or API key (Traycer). Get API key from Neon Console → Settings → API Keys.
+- **Vercel MCP**: Remote server at `https://mcp.vercel.com`. Auth via OAuth (Claude Code only — Vercel restricts to approved clients). Added via `claude mcp add --transport http --scope user vercel https://mcp.vercel.com`.
+- **DBHub**: Local stdio server configured in `.mcp.json` (gitignored). See CLAUDE.md §19 for setup.
 
 ## Development workflow
 
@@ -253,3 +328,7 @@ cd server && vercel --prod   # deploy backend
 - Run `npm run build` locally before opening a PR to catch Vite build errors early.
 - All authorization guards go in middleware, never inline in controllers.
 - All magic strings in API/service code go in named constants.
+
+### Traycer YOLO verification trigger
+
+When Claude is running from a Traycer YOLO handoff, phase completion must be signaled by creating the watched JSON artifact under `~/.traycer/yolo_artifacts/`, using the handoff identifier exposed by Traycer (`$TRAYCER_TASK_ID` when present, otherwise `$TRAYCER_PHASE_ID` or the explicit handoff-provided artifact name). The repo-local Markdown notes under `.claude/yolo-artifacts/` are optional human-readable logs only; they do **not** trigger Traycer verification. If no `TRAYCER_*` environment variables are present, assume the session was not started through Traycer YOLO mode and automatic verification cannot be triggered.

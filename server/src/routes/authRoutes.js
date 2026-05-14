@@ -19,6 +19,7 @@ const router = Router();
 
 router.post(
   "/sync-profile",
+  auth,
   validateRequest(syncProfileSchema),
   authController.syncProfile,
 );

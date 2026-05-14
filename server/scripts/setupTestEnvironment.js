@@ -18,7 +18,7 @@ config({ path: join(__dirname, "../.env.test") });
 
 import admin from "firebase-admin";
 import { runMigrations } from "./runMigrations.js";
-import { setupFirebaseTestUsers } from "./helpers/firebaseTestSetup.js";
+import { setupFirebaseTestUsers } from "../../e2e/scripts/helpers/firebaseTestSetup.js";
 import { seedTestDatabase } from "./helpers/dbTestSeed.js";
 import { SEED_DOCUMENTS } from "./helpers/knowledgeBaseDocs.js";
 

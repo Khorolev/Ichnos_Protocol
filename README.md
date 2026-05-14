@@ -8,10 +8,11 @@
 
 ## Workflows
 
-[![Vercel Preview (main PRs)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/vercel-preview-on-main.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/vercel-preview-on-main.yml)
+[![CI](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/ci.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/ci.yml)
+[![E2E Tests (Playwright)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/e2e.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/e2e.yml)
 [![Promote to Production](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/promote-to-production.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/promote-to-production.yml)
 [![Release Policy Check](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/release-policy-check.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/release-policy-check.yml)
-[![Promote Vercel Preview to Production](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/vercel-promote-production.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/vercel-promote-production.yml)
+[![Sync Staging](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/sync-staging.yml/badge.svg)](https://github.com/Khorolev/Ichnos_Protocol/actions/workflows/sync-staging.yml)
 
 ---
 
@@ -258,7 +259,7 @@ The color palette is derived from the **company logo** (a tree with circuit-boar
 | Chatbot         | X.ai Grok API (RAG)                                            | AI-powered visitor engagement                      |
 | LinkedIn        | Third-party embed widget                                       | Company feed on landing page                       |
 | Testing         | Vitest, eslint-plugin-vitest, React Testing Library, Supertest | Unit, component, and API test suites               |
-| E2E Testing     | Playwright                                                     | End-to-end tests against Vercel previews           |
+| E2E Testing     | Playwright                                                     | End-to-end tests against stable staging URLs       |
 | Linting         | ESLint + Prettier                                              | Code quality enforcement                           |
 | Linting Plugins | eslint-plugin-vitest                                           | Vitest globals recognition and test-specific rules |
 | Deployment      | Vercel (Monorepo)                                              | Two projects: `client/` + `server/`                |
@@ -362,7 +363,7 @@ cd e2e && npx playwright test --headed
 cd e2e && npx playwright show-report
 ```
 
-In CI, Playwright runs automatically against Vercel preview deployment URLs via GitHub Actions — no need to start local servers.
+In CI, Playwright is triggered by `repository_dispatch` (`vercel.deployment.success`) from the server Vercel project and runs against stable E2E URLs from the committed `e2e/.env.e2e` file (`E2E_BASE_URL` and `E2E_API_BASE_URL`) — no need to start local servers. Both `repository_dispatch` and `workflow_dispatch` modes resolve targets from the same source; there is no manual URL input. A fail-closed production-host denylist (exact hostname match, canonical in `e2e.yml`) validates all target URLs before tests execute. The workflow uses `seed.mode` from `/api/health` for readiness — `seeded` or `skipped` are both accepted as ready states.
 
 ### Linting and Formatting
 
@@ -435,11 +436,11 @@ Ichnos_Protocol/
 │   └── package.json               # Playwright dependencies
 ├── .github/
 │   └── workflows/
-│       ├── vercel-preview-on-main.yml       # Unified PR gate: CI + preview deploy + E2E (PRs to main)
+│       ├── ci.yml                           # Lint + unit tests + client build verification (PRs to main)
+│       ├── e2e.yml                          # E2E Tests (Playwright) — repository_dispatch + workflow_dispatch
 │       ├── promote-to-production.yml        # Production promotion on push to release (approval-gated)
 │       ├── release-policy-check.yml         # Policy gate: confirms PR head is main before release merge
-│       ├── vercel-promote-production.yml    # Emergency manual production promotion
-│       └── e2e.yml                          # Manual/ad-hoc Playwright run via workflow_dispatch
+│       └── sync-staging.yml                 # Auto-sync main → staging (manual QA lane)
 ├── assets/                        # Brand assets (logo, images)
 ├── CLAUDE.md                      # Claude AI coding instructions
 ├── AGENTS.md                      # Shared agent conventions
@@ -466,10 +467,10 @@ The project is deployed on **Vercel** as a monorepo with two separate Vercel pro
 
 ### Architecture
 
-| Component | Vercel Project  | Root Directory | Runtime        | Output                |
-| --------- | --------------- | -------------- | -------------- | --------------------- |
-| Frontend  | `ichnos-client` | `client/`      | Vite (static)  | `dist/` (static site) |
-| Backend   | `ichnos-server` | `server/`      | `@vercel/node` | Serverless function   |
+| Component | Vercel Project          | Root Directory | Runtime        | Output                |
+| --------- | ----------------------- | -------------- | -------------- | --------------------- |
+| Frontend  | `ichnos-client`         | `client/`      | Vite (static)  | `dist/` (static site) |
+| Backend   | `ichnos-protocolserver` | `server/`      | `@vercel/node` | Serverless function   |
 
 ### How It Works
 
@@ -490,14 +491,17 @@ The project is deployed on **Vercel** as a monorepo with two separate Vercel pro
 The project follows a **2-branch deployment model**:
 
 ```
-feature/* → main (PR-gated: CI + Deploy + E2E)
+feature/* → main (PR-gated: CI + Vercel Preview + E2E)
     → release (PR from main only, Release Policy Check required)
         → production (environment approval required, promote-only model)
+
+main ─── sync-staging.yml ───→ staging (parallel manual-QA lane, not in promotion chain)
 ```
 
-- **Preview deployments**: PRs targeting `main` get unique preview URLs for both frontend and backend, used by the E2E gate.
+- **Preview deployments**: PRs targeting `main` get unique Vercel preview URLs for both frontend and backend; E2E tests are triggered by `repository_dispatch` (`vercel.deployment.success`) from the server project and run against stable E2E URLs from the committed `e2e/.env.e2e` file (`E2E_BASE_URL` for client, `E2E_API_BASE_URL` for API), not per-deployment preview URLs. `workflow_dispatch` also resolves from the same source — there is no manual URL override. A fail-closed production-host denylist (exact hostname match, canonical in `e2e.yml`) prevents tests from running against production. The workflow accepts `seed.mode` values of `seeded` or `skipped` from `/api/health` as ready states before running Playwright.
 - **Production deployments**: Merges to `release` trigger `promote-to-production.yml`, which discovers the latest READY `main` preview and promotes it — no rebuild. Requires human approval via the GitHub `production` environment.
 - **Environment variables**: Configured in each Vercel project's settings dashboard (Production, Preview, Development scopes). Never committed to the repository.
+- **Staging (manual QA)**: The `staging` branch is a long-lived parallel lane for manual QA. It is auto-synced from `main` after every server deployment via `sync-staging.yml`. Staging deploys as a Vercel preview with production Firebase and production Neon credentials (branch-scoped env overrides). `SKIP_E2E_SEED=true` prevents automated seed injection. Manual QA actions on staging write to the production database — this is explicitly accepted. `staging` does not gate any automated checks and is not a valid PR source for `release`. E2E targets (`E2E_BASE_URL`, `E2E_API_BASE_URL` in the committed `e2e/.env.e2e`) remain pointed at ephemeral preview URLs and are unaffected by staging.
 
 For the authoritative CI/CD reference, see [`DEPLOYMENT_GITHUB_ACTIONS.md`](DEPLOYMENT_GITHUB_ACTIONS.md). For infrastructure setup, see [`DEPLOYMENT.md`](DEPLOYMENT.md). For GitHub settings, see [`GITHUB_SETTINGS.md`](GITHUB_SETTINGS.md). For Vercel settings, see [`VERCEL_SETTINGS.md`](VERCEL_SETTINGS.md).
 

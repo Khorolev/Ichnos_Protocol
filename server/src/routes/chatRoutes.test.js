@@ -6,6 +6,8 @@ const mockQuery = vi.fn();
 const mockFetch = vi.fn();
 const mockQueryKnowledgeBase = vi.fn();
 
+vi.mock("@vercel/functions", () => ({ waitUntil: vi.fn() }));
+
 vi.mock("../config/firebase.js", () => ({
   default: {
     auth: () => ({
@@ -51,6 +53,55 @@ function xaiResponse(content) {
   };
 }
 
+function parseSSEFrames(text) {
+  return text
+    .split("\n\n")
+    .filter((f) => f.trim())
+    .map((frame) => {
+      const lines = frame.split("\n");
+      const eventLine = lines.find((l) => l.startsWith("event:"));
+      const dataLine = lines.find((l) => l.startsWith("data:"));
+      if (!eventLine || !dataLine) return null;
+      return {
+        event: eventLine.slice(6).trim(),
+        data: JSON.parse(dataLine.slice(5).trim()),
+      };
+    })
+    .filter(Boolean);
+}
+
+function encodeXaiSSE(chunks) {
+  const encoder = new TextEncoder();
+  let index = 0;
+  const frames = chunks.map((c) => {
+    if (c === "[DONE]") return "data: [DONE]\n\n";
+    return `data: ${JSON.stringify({ choices: [{ delta: { content: c } }] })}\n\n`;
+  });
+  const fullText = frames.join("");
+  const encoded = encoder.encode(fullText);
+
+  return {
+    read() {
+      if (index === 0) {
+        index++;
+        return Promise.resolve({ done: false, value: encoded });
+      }
+      return Promise.resolve({ done: true, value: undefined });
+    },
+  };
+}
+
+function xaiStreamResponse(chunks) {
+  return {
+    ok: true,
+    body: { getReader: () => encodeXaiSSE(chunks) },
+  };
+}
+
+function xaiErrorResponse(status) {
+  return { ok: false, status };
+}
+
 describe("chat routes", () => {
   beforeEach(() => {
     vi.stubEnv("XAI_API_KEY", "test-key");
@@ -65,26 +116,60 @@ describe("chat routes", () => {
   });
 
   describe("POST /api/chat/message", () => {
-    it("returns 200 with answer on success", async () => {
+    it("returns SSE stream with token and done events on success", async () => {
       mockVerifyIdToken.mockResolvedValue(decodedToken);
-      mockQuery
-        .mockResolvedValueOnce({ rows: [{ count: 2 }] })
-        .mockResolvedValueOnce({
-          rows: [{ id: "q-1", question: "Hello", answer: "Hi there" }],
-        })
-        .mockResolvedValueOnce({ rowCount: 1 });
-      mockQueryKnowledgeBase.mockResolvedValue([]);
-      mockFetch.mockResolvedValue(xaiResponse("Hi there"));
+      // getDailyChatCount
+      mockQuery.mockResolvedValueOnce({ rows: [{ count: 0 }] });
+      mockQueryKnowledgeBase.mockResolvedValue([
+        { content: "Battery passport info" },
+      ]);
+      // xAI streaming fetch
+      mockFetch.mockResolvedValueOnce(
+        xaiStreamResponse(["Hello", " world", "[DONE]"]),
+      );
+      // createQuestion INSERT
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: "q-1" }] });
+      // updateUserActivity
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+      // topic classification fetch (non-blocking)
+      mockFetch.mockResolvedValueOnce(xaiResponse("battery"));
+      // createTopic
+      mockQuery.mockResolvedValueOnce({ rows: [] });
 
       const res = await request(app)
         .post("/api/chat/message")
         .set(authHeader())
-        .send({ question: "Hello" });
+        .send({ question: "Hello" })
+        .buffer(true)
+        .parse((res, cb) => {
+          let data = "";
+          res.on("data", (chunk) => { data += chunk.toString(); });
+          res.on("end", () => cb(null, data));
+        });
 
-      expect(res.status).toBe(200);
-      expect(res.body.data.answer).toBe("Hi there");
-      expect(res.body.data.messageId).toBe("q-1");
-      expect(res.body.message).toBe("Message sent");
+      expect(res.headers["content-type"]).toContain("text/event-stream");
+
+      const frames = parseSSEFrames(res.body);
+      const tokenFrames = frames.filter((f) => f.event === "token");
+      const doneFrames = frames.filter((f) => f.event === "done");
+      const errorFrames = frames.filter((f) => f.event === "error");
+
+      // Zero error frames on success
+      expect(errorFrames).toHaveLength(0);
+
+      // At least one token frame with a delta
+      expect(tokenFrames.length).toBeGreaterThanOrEqual(1);
+      expect(tokenFrames[0].data).toHaveProperty("delta");
+
+      // Exactly one done frame with both messageId and dailyCount
+      expect(doneFrames).toHaveLength(1);
+      expect(doneFrames[0].data).toHaveProperty("messageId");
+      expect(doneFrames[0].data).toHaveProperty("dailyCount");
+
+      // All token frames precede the done frame
+      const lastTokenIdx = frames.findLastIndex((f) => f.event === "token");
+      const doneIdx = frames.findIndex((f) => f.event === "done");
+      expect(lastTokenIdx).toBeLessThan(doneIdx);
     });
 
     it("returns 401 without auth token", async () => {
@@ -143,18 +228,33 @@ describe("chat routes", () => {
       expect(res.status).toBe(429);
     });
 
-    it("returns 503 when xAI service is down", async () => {
+    it("returns SSE error event when xAI service is down", async () => {
       mockVerifyIdToken.mockResolvedValue(decodedToken);
+      // getDailyChatCount
       mockQuery.mockResolvedValueOnce({ rows: [{ count: 0 }] });
       mockQueryKnowledgeBase.mockResolvedValue([]);
-      mockFetch.mockResolvedValue({ ok: false, status: 500 });
+      // xAI returns 500
+      mockFetch.mockResolvedValueOnce(xaiErrorResponse(500));
 
       const res = await request(app)
         .post("/api/chat/message")
         .set(authHeader())
-        .send({ question: "Hello" });
+        .send({ question: "Hello" })
+        .buffer(true)
+        .parse((res, cb) => {
+          let data = "";
+          res.on("data", (chunk) => { data += chunk.toString(); });
+          res.on("end", () => cb(null, data));
+        });
 
-      expect(res.status).toBe(503);
+      const frames = parseSSEFrames(res.body);
+      const errorFrames = frames.filter((f) => f.event === "error");
+
+      expect(errorFrames).toHaveLength(1);
+      expect(errorFrames[0].data.code).toBe("STREAM_ERROR");
+      expect(errorFrames[0].data.message).toBe(
+        "AI temporarily unavailable",
+      );
     });
   });
 

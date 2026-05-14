@@ -1,12 +1,15 @@
-import { Helmet } from "react-helmet-async";
-
 import { TEAM_META } from "../../constants/seoMeta";
-import { TEAM_PAGE_HEADER } from "../../constants/teamContent";
+import { PAGE_STRUCTURED_DATA } from "../../constants/structuredData";
+import {
+  TEAM_MEMBERS,
+  TEAM_PAGE_HEADER,
+} from "../../constants/teamContent";
 import PageTransition from "../templates/PageTransition";
 import NavbarSkeleton from "../molecules/NavbarSkeleton";
 import ContentCardSkeleton from "../molecules/ContentCardSkeleton";
+import SeoHead from "../molecules/SeoHead";
+import AdvisoryPageHero from "../organisms/AdvisoryPageHero";
 import FounderProfile from "../organisms/FounderProfile";
-import CareerTimeline from "../organisms/CareerTimeline";
 import VisionStatement from "../organisms/VisionStatement";
 
 const teamSkeleton = (
@@ -21,25 +24,18 @@ const teamSkeleton = (
 export default function TeamPage() {
   return (
     <div>
-      <Helmet>
-        <title>{TEAM_META.title}</title>
-        <meta name="description" content={TEAM_META.description} />
-        <meta name="keywords" content={TEAM_META.keywords} />
-        <meta property="og:title" content={TEAM_META.og.title} />
-        <meta property="og:description" content={TEAM_META.og.description} />
-        <meta property="og:type" content={TEAM_META.og.type} />
-        <meta property="og:url" content={TEAM_META.og.url} />
-      </Helmet>
+      <SeoHead meta={TEAM_META} schemas={PAGE_STRUCTURED_DATA.team} />
 
       <PageTransition skeleton={teamSkeleton}>
-        <header className="text-center py-5">
-          <h1 className="mb-3 page-title">{TEAM_PAGE_HEADER.title}</h1>
-          <p className="lead section-subtext">{TEAM_PAGE_HEADER.subtitle}</p>
-        </header>
+        <AdvisoryPageHero
+          title={TEAM_PAGE_HEADER.title}
+          subtitle={TEAM_PAGE_HEADER.subtitle}
+        />
 
         <div className="container">
-          <FounderProfile />
-          <CareerTimeline />
+          {TEAM_MEMBERS.map((member) => (
+            <FounderProfile key={member.id} member={member} />
+          ))}
           <VisionStatement />
         </div>
       </PageTransition>

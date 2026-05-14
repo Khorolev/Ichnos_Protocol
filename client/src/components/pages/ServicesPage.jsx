@@ -1,14 +1,19 @@
-import { Helmet } from "react-helmet-async";
 import Container from "react-bootstrap/Container";
 
-import { SEO_META } from "../../constants/seo";
-import { SERVICES_PAGE_CONTENT } from "../../constants/services";
+import { SERVICES_META } from "../../constants/seoMeta";
+import { PAGE_STRUCTURED_DATA } from "../../constants/structuredData";
+import {
+  SERVICES_PAGE_CONTENT,
+  SERVICE_PILLARS,
+  getServicesByPillar,
+} from "../../constants/services";
+import { useScrollToSection } from "../../hooks/useScrollToSection";
 import PageTransition from "../templates/PageTransition";
 import NavbarSkeleton from "../molecules/NavbarSkeleton";
 import ContentCardSkeleton from "../molecules/ContentCardSkeleton";
-import ServicesList from "../organisms/ServicesList";
-import FeatureMaturityMatrix from "../organisms/FeatureMaturityMatrix";
-import TechnologyRoadmap from "../organisms/TechnologyRoadmap";
+import SeoHead from "../molecules/SeoHead";
+import AdvisoryPageHero from "../organisms/AdvisoryPageHero";
+import ServicesGroup from "../organisms/ServicesGroup";
 import ContactSection from "../organisms/ContactSection";
 
 const servicesSkeleton = (
@@ -20,25 +25,36 @@ const servicesSkeleton = (
   </>
 );
 
+const LOCKED_PILLAR_ORDER = ["engineering", "compliance", "circularity"];
+
+function getPillarById(pillarId) {
+  return SERVICE_PILLARS.find((pillar) => pillar.id === pillarId);
+}
+
 export default function ServicesPage() {
+  useScrollToSection();
+
+  const orderedPillars = LOCKED_PILLAR_ORDER.map(getPillarById).filter(Boolean);
+
   return (
     <div>
-      <Helmet>
-        <title>{SEO_META.services.title}</title>
-        <meta name="description" content={SEO_META.services.description} />
-        <meta name="keywords" content={SEO_META.services.keywords} />
-      </Helmet>
+      <SeoHead meta={SERVICES_META} schemas={PAGE_STRUCTURED_DATA.services} />
 
       <PageTransition skeleton={servicesSkeleton}>
-        <header className="text-center py-5">
-          <h1 className="mb-3 page-title">{SERVICES_PAGE_CONTENT.title}</h1>
-          <p className="lead section-subtext">{SERVICES_PAGE_CONTENT.subtitle}</p>
-        </header>
+        <AdvisoryPageHero
+          title={SERVICES_PAGE_CONTENT.title}
+          subtitle={SERVICES_PAGE_CONTENT.subtitle}
+        />
 
         <Container>
-          <ServicesList />
-          <FeatureMaturityMatrix />
-          <TechnologyRoadmap />
+          {orderedPillars.map((pillar) => (
+            <ServicesGroup
+              key={pillar.id}
+              id={pillar.anchor}
+              label={pillar.label}
+              services={getServicesByPillar(pillar.id)}
+            />
+          ))}
           <ContactSection />
         </Container>
       </PageTransition>

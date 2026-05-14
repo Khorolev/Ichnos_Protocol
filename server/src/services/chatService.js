@@ -14,8 +14,23 @@ import {
 } from "../helpers/chatHelpers.js";
 
 const DAILY_LIMIT = 3;
-const XAI_TIMEOUT_MS = 8000;
-const TOPIC_TIMEOUT_MS = 2000;
+
+// xAI streaming timeouts — sized for a growing RAG knowledge base where
+// retrieval + model prompt construction can produce long, high-quality
+// streams. Sit just under the Vercel Pro function ceiling (maxDuration: 300s
+// in vercel.json) so the server can clean up gracefully before Vercel kills
+// the function.
+//
+// TOTAL is the hard ceiling on the full stream lifecycle (request to last
+// token). IDLE is the maximum allowed silence between consecutive token
+// chunks; resets on every chunk. A stalled upstream gets caught quickly by
+// the idle timer; a healthy but long stream rides out under the total cap.
+export const XAI_STREAM_TOTAL_TIMEOUT_MS = 290_000;
+export const XAI_STREAM_IDLE_TIMEOUT_MS = 60_000;
+
+// Topic classification is a fire-and-forget short call (≈1–3 tokens of
+// output). Kept tight to avoid dragging the tail-work pipeline.
+const TOPIC_TIMEOUT_MS = 2_000;
 
 export function extractKeywords(text) {
   const tokens = text
@@ -42,6 +57,8 @@ export async function callXaiApi(messages, timeoutMs, { model = "grok-3-mini", t
     });
 
     if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      console.error(`[xAI] HTTP ${response.status}: ${body.slice(0, 300)}`);
       const status = response.status >= 500 ? 503 : 500;
       throw buildError("xAI API request failed", status);
     }
@@ -76,7 +93,7 @@ async function classifyTopics(questionId, message) {
   }
 }
 
-export async function sendMessage(userId, message) {
+export async function prepareChat(userId, message) {
   const today = new Date().toISOString().split("T")[0];
   const dailyCount = await questionRepository.getDailyChatCount(userId, today);
 
@@ -88,25 +105,35 @@ export async function sendMessage(userId, message) {
   const documents = await knowledgeRepository.queryKnowledgeBase(keywords, null);
   const userContent = buildUserContent(buildContextString(documents), message);
 
-  const answer = await callXaiApi(
-    [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: userContent },
-    ],
-    XAI_TIMEOUT_MS,
-  );
+  const messages = [
+    { role: "system", content: SYSTEM_PROMPT },
+    { role: "user", content: userContent },
+  ];
 
-  const question = await questionRepository.createQuestion(userId, {
+  return { messages, dailyCount };
+}
+
+export async function persistChat(userId, message, answer) {
+  const questionData = {
     question: message,
     answer,
     source: "chat",
     contactRequestId: null,
+  };
+
+  const question = await questionRepository.createQuestion(userId, questionData);
+  const messageId = question.id;
+
+  runTailWork(userId, messageId, message);
+
+  return { messageId };
+}
+
+function runTailWork(userId, questionId, message) {
+  userRepository.updateUserActivity(userId).catch((err) => {
+    console.warn("User activity update failed (non-blocking):", err.message);
   });
-
-  await userRepository.updateUserActivity(userId);
-  await classifyTopics(question.id, message);
-
-  return { answer, messageId: question.id, dailyCount: dailyCount + 1 };
+  classifyTopics(questionId, message);
 }
 
 export async function getChatHistory(userId) {

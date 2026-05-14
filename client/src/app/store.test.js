@@ -32,7 +32,7 @@ describe('Redux store', () => {
     expect(auth.user).toBeNull();
     expect(auth.isAuthenticated).toBe(false);
     expect(auth.isAdmin).toBe(false);
-    expect(auth.loading).toBe(false);
+    expect(auth.loading).toBe(true);
     expect(auth.error).toBeNull();
   });
 

@@ -1,20 +1,9 @@
-/* ========== Colors ========== */
+/* ========== Typography / Spacing / Transitions / Z-index ========== */
 :root {
-  --color-primary-dark: #0A1628;
-  --color-primary: #1E90FF;
-  --color-accent-cyan: #00D1C1;
-  --color-accent-warm: #C8A24E;
-  --color-gradient-start: #14F195;
-  --color-gradient-end: #9945FF;
-  --color-surface: #1A2744;
-  --color-text-primary: #E8ECF1;
-  --color-text-secondary: #8B9DC3;
-  --color-bg-alt: #F5F7FA;
-  --color-text-dark: #1A1A2E;
-
   /* ========== Typography ========== */
   --font-sans: 'Inter', 'Plus Jakarta Sans', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
+  --font-display: 'Fraunces', 'Georgia', 'Times New Roman', serif;
   --font-size-base: 16px;
   --font-size-sm: 14px;
   --font-size-lg: 18px;
@@ -52,6 +41,52 @@
   --z-tooltip: 1050;
 }
 
+/* ========== Theme: Advisory (default) ========== */
+.theme-advisory,
+body {
+  --color-bg-base: #FAFBFC;
+  --color-bg-alt: #F0F3F7;
+  --color-surface: #FFFFFF;
+  --color-text-primary: #0F1419;
+  --color-text-secondary: #5B6B85;
+  --color-accent-primary: #00A89A;
+  --color-accent-cyan: #00A89A;
+  --color-accent-warm: #A87E1F;
+  --color-border: rgba(15, 20, 25, 0.08);
+  --color-shadow: rgba(15, 20, 25, 0.06);
+}
+
+/* ========== Theme: Passport (override) ========== */
+.theme-passport {
+  --color-bg-base: #0A1628;
+  --color-bg-alt: #1A2744;
+  --color-surface: #1A2744;
+  --color-accent-primary: #1E90FF;
+  --color-accent-cyan: #00D1C1;
+  --color-accent-warm: #C8A24E;
+  --color-gradient-start: #14F195;
+  --color-gradient-end: #9945FF;
+  --color-text-primary: #E8ECF1;
+  --color-text-secondary: #8B9DC3;
+  background-color: var(--color-bg-base);
+  color: var(--color-text-primary);
+}
+
+/* ========== Surface: Footer Dark ========== */
+.footer-dark {
+  --color-bg-base: #0F1419;
+  --color-bg-alt: #1A2030;
+  --color-surface: #1A2030;
+  --color-text-primary: #E8ECF1;
+  --color-text-secondary: #9AA5B8;
+  --color-border: rgba(232, 236, 241, 0.08);
+  position: relative;
+  padding: var(--spacing-2xl) var(--spacing-md) var(--spacing-md);
+  border-top: 1px solid var(--color-surface);
+  color: var(--color-text-primary);
+  background: linear-gradient(rgba(15, 20, 25, 0.85), rgba(15, 20, 25, 0.92)), url('/bg-footer.jpg') center/cover no-repeat;
+}
+
 /* ========== Base Styles ========== */
 html {
   scroll-behavior: smooth;
@@ -64,12 +99,15 @@ body {
   font-size: var(--font-size-base);
   line-height: var(--line-height-normal);
   color: var(--color-text-primary);
-  background-color: var(--color-primary-dark);
+  background-color: var(--color-bg-base);
 }
 
 /* ========== Logo ========== */
+/* Source PNGs (logo.png, logo-dark.png) are tight-cropped to the lockup
+   itself (~3:1 aspect, 1080×354). At 56px height the navbar grows to
+   ~72px total, giving the brand mark proper presence without dominating. */
 .logo-img {
-  height: 40px;
+  height: 56px;
   width: auto;
   display: block;
 }
@@ -98,7 +136,7 @@ body {
 }
 
 .nav-link-active {
-  color: var(--color-primary);
+  color: var(--color-accent-primary);
   transition: var(--transition-base);
 }
 
@@ -120,12 +158,15 @@ body {
 
 /* ========== Mobile Nav Overlay ========== */
 .mobile-nav-overlay {
+  --color-text-primary: #E8ECF1;
+  --color-text-secondary: #8B9DC3;
   position: fixed;
   inset: 0;
   z-index: var(--z-overlay);
   background-color: rgba(10, 22, 40, 0.95);
   transition: var(--transition-base);
   overflow-y: auto;
+  color: var(--color-text-primary);
 }
 
 .mobile-nav-overlay--open {
@@ -165,21 +206,63 @@ body {
 }
 
 /* ========== Footer ========== */
-.footer-main {
-  background-color: var(--color-primary-dark);
-  border-top: 1px solid var(--color-surface);
+/* Tight-cropped lockup at 64px height ≈ previous 88px visible mass. */
+.footer-logo {
+  height: 64px;
+  width: auto;
+  display: block;
+  margin-bottom: var(--spacing-sm);
+}
+
+.footer-brand-desc {
+  max-width: 32ch;
+  margin-bottom: var(--spacing-sm);
 }
 
 .footer-heading {
   color: var(--color-text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--spacing-sm);
 }
 
 .footer-text {
   color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: 1.55;
 }
 
 .footer-link {
-  color: var(--color-primary);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: var(--transition-base);
+  font-size: var(--font-size-sm);
+}
+
+.footer-link:hover,
+.footer-link:focus-visible {
+  color: var(--color-accent-cyan);
+}
+
+.footer-address {
+  font-style: normal;
+  color: var(--color-text-secondary);
+  margin: var(--spacing-sm) 0;
+}
+
+.footer-socials {
+  margin-top: var(--spacing-sm);
+}
+
+.footer-attribution {
+  max-width: 1200px;
+  margin: var(--spacing-xl) auto 0;
+  padding-top: var(--spacing-md);
+  border-top: 1px solid rgba(232, 236, 241, 0.1);
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  text-align: center;
 }
 
 /* ========== Landing Sections ========== */
@@ -187,7 +270,7 @@ body {
   min-height: 85vh;
   background: linear-gradient(
     135deg,
-    var(--color-primary-dark) 0%,
+    var(--color-bg-base) 0%,
     var(--color-surface) 100%
   );
   padding: var(--spacing-3xl) 0;
@@ -195,7 +278,7 @@ body {
 
 .hero-cta-btn {
   background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
-  color: var(--color-primary-dark);
+  color: var(--color-bg-base);
   border: none;
   border-radius: 8px;
   transition: var(--transition-base);
@@ -251,7 +334,7 @@ body {
 }
 
 .service-card:hover {
-  border-color: var(--color-accent-cyan) !important;
+  border-color: var(--color-accent-warm) !important;
   transform: translateY(-4px);
 }
 
@@ -268,6 +351,20 @@ body {
 }
 
 /* ========== Page & Section Headings ========== */
+h1.page-title,
+.hero-headline,
+.section-display-heading {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.theme-passport h1.page-title,
+.theme-passport .hero-headline,
+.theme-passport .section-display-heading {
+  font-family: var(--font-sans);
+}
+
 .page-title {
   color: var(--color-text-primary);
   font-weight: var(--font-weight-bold);
@@ -280,6 +377,28 @@ body {
 
 .section-subtext {
   color: var(--color-text-secondary);
+}
+
+/* ========== Section Rhythm & Elevation Utilities ========== */
+.section-rhythm-primary {
+  background-color: var(--color-bg-base);
+}
+
+.section-rhythm-alt {
+  background-color: var(--color-bg-alt);
+}
+
+.card-elevated {
+  background-color: var(--color-surface);
+  box-shadow: 0 2px 12px var(--color-shadow);
+  border: none;
+  border-radius: 12px;
+  transition: var(--transition-base);
+}
+
+.card-elevated:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px var(--color-shadow);
 }
 
 /* ========== Accent Text ========== */
@@ -304,10 +423,10 @@ body {
 }
 
 .table-dark-custom thead th {
-  background-color: var(--color-primary-dark);
+  background-color: var(--color-bg-base);
   color: var(--color-text-primary);
   font-weight: var(--font-weight-semibold);
-  border-bottom: 2px solid var(--color-primary);
+  border-bottom: 2px solid var(--color-accent-primary);
 }
 
 .table-cell-text {
@@ -322,7 +441,7 @@ body {
 
 .badge-status-dev {
   background-color: rgba(30, 144, 255, 0.15);
-  color: var(--color-primary);
+  color: var(--color-accent-primary);
 }
 
 .badge-status-planned {
@@ -383,7 +502,7 @@ body {
 }
 
 .contact-link {
-  color: var(--color-primary);
+  color: var(--color-accent-primary);
   transition: var(--transition-base);
 }
 
@@ -430,7 +549,7 @@ body {
   min-height: 14px;
   border-radius: 50%;
   background-color: var(--color-accent-cyan);
-  border: 2px solid var(--color-primary-dark);
+  border: 2px solid var(--color-bg-base);
 }
 
 .timeline-connector {
@@ -440,7 +559,7 @@ body {
 
 .timeline-year {
   background-color: rgba(30, 144, 255, 0.15);
-  color: var(--color-primary);
+  color: var(--color-accent-primary);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
 }
@@ -520,7 +639,7 @@ body {
 }
 
 .auth-modal-body {
-  background-color: var(--color-primary-dark);
+  background-color: var(--color-bg-base);
   color: var(--color-text-primary);
 }
 
@@ -534,8 +653,8 @@ body {
 
 .auth-modal-body .nav-link.active {
   background-color: transparent;
-  color: var(--color-primary);
-  border-color: rgba(139, 157, 195, 0.15) rgba(139, 157, 195, 0.15) var(--color-primary-dark);
+  color: var(--color-accent-primary);
+  border-color: rgba(139, 157, 195, 0.15) rgba(139, 157, 195, 0.15) var(--color-bg-base);
 }
 
 .auth-modal-body .form-label {
@@ -550,7 +669,7 @@ body {
 }
 
 .auth-modal-body .form-control:focus {
-  border-color: var(--color-primary);
+  border-color: var(--color-accent-primary);
   box-shadow: 0 0 0 0.2rem rgba(30, 144, 255, 0.25);
 }
 
@@ -574,10 +693,15 @@ body {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
-  color: var(--color-primary-dark);
+  background: var(--color-accent-primary);
+  color: #FFFFFF;
   font-weight: var(--font-weight-bold);
   font-size: var(--font-size-sm);
+}
+
+.theme-passport .user-avatar {
+  background: linear-gradient(135deg, var(--color-gradient-start), var(--color-gradient-end));
+  color: var(--color-bg-base);
 }
 
 .user-menu-name {
@@ -597,21 +721,243 @@ body {
 
 .user-menu-dropdown .dropdown-item:hover {
   background-color: rgba(30, 144, 255, 0.1);
-  color: var(--color-primary);
+  color: var(--color-accent-primary);
 }
 
 .user-menu-dropdown .dropdown-divider {
   border-color: rgba(139, 157, 195, 0.15);
 }
 
+/* ========== Chat Panel ========== */
+.chat-panel {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 2px 12px var(--color-shadow);
+  padding: var(--spacing-md);
+  overflow: hidden;
+}
+
+.chat-panel--modal {
+  height: 60vh;
+}
+
+.chat-panel--inline {
+  height: 480px;
+}
+
+.chat-panel__disclaimer {
+  margin: var(--spacing-sm) 0 0;
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-normal);
+  opacity: 0.6;
+  text-align: center;
+}
+
+.chat-panel__messages {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  padding-right: var(--spacing-xs);
+  margin-bottom: var(--spacing-sm);
+}
+
+.chat-panel__bubble {
+  max-width: 80%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: 12px;
+  line-height: var(--line-height-normal);
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  box-shadow: 0 1px 2px var(--color-shadow);
+}
+
+.chat-panel__bubble--bot {
+  align-self: flex-start;
+  background-color: var(--color-bg-alt);
+  color: var(--color-text-primary);
+  border-bottom-left-radius: 4px;
+}
+
+.chat-panel__bubble--user {
+  align-self: flex-end;
+  background-color: var(--color-accent-primary);
+  color: #FFFFFF;
+  border-bottom-right-radius: 4px;
+}
+
+.chat-panel__loading {
+  align-self: flex-start;
+  margin-bottom: var(--spacing-sm);
+  color: var(--color-text-secondary);
+}
+
+.chat-panel__count {
+  align-self: flex-start;
+  margin-bottom: var(--spacing-sm);
+}
+
+.chat-panel__input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-top: auto;
+}
+
+.chat-panel__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 40px;
+  padding: 0 var(--spacing-md);
+  border-radius: 9999px;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  line-height: 1.2;
+}
+
+.chat-panel__input:focus {
+  border-color: var(--color-accent-cyan);
+  box-shadow: 0 0 0 0.2rem rgba(0, 168, 154, 0.15);
+}
+
+.chat-panel__send-btn {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  background-color: var(--color-accent-cyan);
+  border-color: var(--color-accent-cyan);
+  color: #FFFFFF;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.chat-panel__send-btn:hover:not(:disabled),
+.chat-panel__send-btn:focus:not(:disabled) {
+  background-color: var(--color-accent-cyan);
+  border-color: var(--color-accent-cyan);
+  filter: brightness(0.95);
+  color: #FFFFFF;
+}
+
+.chat-panel__send-btn:disabled {
+  background-color: var(--color-accent-cyan);
+  border-color: var(--color-accent-cyan);
+  opacity: 0.5;
+  color: #FFFFFF;
+}
+
+@media (max-width: 480px) {
+  .chat-panel__bubble {
+    max-width: 92%;
+  }
+
+  .chat-panel__input-row {
+    gap: var(--spacing-xs);
+  }
+}
+
 /* ========== Cookie Consent ========== */
 .cookie-consent-link {
-  color: var(--color-primary);
+  color: var(--color-accent-primary);
   text-decoration: underline;
 }
 
 .cookie-consent-link:hover {
   color: var(--color-accent-cyan);
+}
+
+/* ========== Scaffold: Full-Bleed Section ========== */
+.full-bleed-section {
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+}
+
+/* ========== Scaffold: Advisory Hero Variant (T04) ========== */
+.hero-section--advisory {
+  background:
+    linear-gradient(rgba(245, 247, 250, 0.80), rgba(232, 236, 241, 0.92)),
+    url('/bg-advisory.jpg') center / cover no-repeat;
+  color: var(--color-text-primary);
+}
+
+.hero-section--advisory .hero-cta-btn {
+  background: var(--color-accent-primary);
+  color: #FFFFFF;
+}
+
+.hero-section--advisory .hero-cta-btn:hover {
+  background: var(--color-accent-primary);
+  opacity: 0.9;
+}
+
+/* ========== Scaffold: Advisory Page Hero (Phase 9) ========== */
+.advisory-page-hero {
+  background:
+    linear-gradient(rgba(245, 247, 250, 0.85), rgba(232, 236, 241, 0.95)),
+    url('/bg-advisory.jpg') center / cover no-repeat;
+  padding: var(--spacing-3xl) var(--spacing-md);
+  text-align: center;
+  color: var(--color-text-primary);
+}
+
+/* ========== Cookie Consent Banner (replaces inline styles) ========== */
+/* react-cookie-consent applies inline `background`, `color`, and `zIndex`
+   to the container and inline `background`, `color`, `border`, `borderRadius`,
+   `padding`, and `margin` to the button. Inline styles beat external stylesheet
+   rules, so the affected properties below use `!important` to win the cascade. */
+.cookie-consent-banner {
+  background-color: var(--color-surface) !important;
+  color: var(--color-text-primary) !important;
+  padding: var(--spacing-md) var(--spacing-lg);
+  z-index: var(--z-tooltip) !important;
+}
+
+.cookie-consent-button {
+  background-color: var(--color-accent-primary) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: 6px !important;
+  padding: 8px 24px !important;
+  font-weight: var(--font-weight-medium);
+}
+
+/* ========== Pillar Badge ========== */
+.pillar-badge {
+  display: inline-block;
+  margin-top: 0.25rem;
+  margin-bottom: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-semibold, 600);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  line-height: 1.2;
+  border-radius: 4px;
+  border: 1px solid currentColor;
+  background-color: transparent;
+}
+
+.pillar-badge--pillar {
+  color: var(--color-accent-cyan);
+}
+
+.pillar-badge--delivery-method {
+  color: var(--color-accent-warm);
 }
 
 /* ========== Reduced Motion ========== */
