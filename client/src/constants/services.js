@@ -63,8 +63,8 @@ export const SERVICES_LIST = [
       "Embedded technical leadership and agile project management for battery development programs.",
     description:
       "Embedded senior battery expertise for early-stage teams and in-house programs that need experienced direction without a full-time hire — combined with sprint cadence, requirement traceability, milestone management, and cross-functional coordination. PSM I (Professional Scrum Master™ I) certified, backed by thirteen years of cross-functional project engineering across Ducati, Technogym, and FEV — from gasoline engines and motorcycle design through electrification and vehicle battery systems.",
-    pillar: null,
-    deliveryMethod: true,
+    pillar: "engineering",
+    deliveryMethod: false,
   },
 ];
 
@@ -79,17 +79,10 @@ export const SERVICE_PILLARS = [
   { id: "circularity", label: "Circularity", anchor: "circularity" },
 ];
 
-export const DELIVERY_METHODS_HEADER = {
-  label: "Delivery Models",
-  anchor: "delivery-models",
-  intro:
-    "An embedded engagement format that combines hands-on technical leadership with agile project management — available across every pillar.",
-};
+// Note: DELIVERY_METHODS_HEADER and getDeliveryMethodServices() removed —
+// Technical Lead is now part of the Engineering pillar (3 services) so there
+// is no separate Delivery Models section on /services any more.
 
 export function getServicesByPillar(pillarId) {
   return SERVICES_LIST.filter((s) => s.pillar === pillarId);
-}
-
-export function getDeliveryMethodServices() {
-  return SERVICES_LIST.filter((s) => s.deliveryMethod === true);
 }

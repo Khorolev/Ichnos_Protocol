@@ -70,10 +70,9 @@ describe('ServicesSnapshot', () => {
       return acc;
     }, {});
     expect(counts).toEqual({
-      ENGINEERING: 2,
+      ENGINEERING: 3,
       COMPLIANCE: 2,
       CIRCULARITY: 1,
-      'DELIVERY METHOD': 1,
     });
   });
 

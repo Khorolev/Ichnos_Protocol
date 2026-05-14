@@ -6,9 +6,7 @@ import { PAGE_STRUCTURED_DATA } from '../../constants/structuredData';
 import {
   SERVICES_PAGE_CONTENT,
   SERVICE_PILLARS,
-  DELIVERY_METHODS_HEADER,
   getServicesByPillar,
-  getDeliveryMethodServices,
 } from '../../constants/services';
 
 vi.mock('../../hooks/useReducedMotion', () => ({
@@ -154,17 +152,19 @@ describe('ServicesPage', () => {
     expect(useScrollToSection).toHaveBeenCalled();
   });
 
-  it('renders all four section ids: engineering, compliance, circularity, delivery-models', () => {
-    ['engineering', 'compliance', 'circularity', 'delivery-models'].forEach(
-      (sectionId) => {
-        expect(document.getElementById(sectionId)).not.toBeNull();
-      },
-    );
+  it('renders all three section ids: engineering, compliance, circularity', () => {
+    ['engineering', 'compliance', 'circularity'].forEach((sectionId) => {
+      expect(document.getElementById(sectionId)).not.toBeNull();
+    });
   });
 
-  it('renders exactly four services-group sections', () => {
+  it('does not render a delivery-models section any more (Technical Lead now lives in Engineering)', () => {
+    expect(document.getElementById('delivery-models')).toBeNull();
+  });
+
+  it('renders exactly three services-group sections', () => {
     const sections = document.querySelectorAll('section.services-group');
-    expect(sections.length).toBe(4);
+    expect(sections.length).toBe(3);
   });
 
   it('does not render service cards under the wrong pillar section', () => {
@@ -185,38 +185,13 @@ describe('ServicesPage', () => {
           }),
         ).toBeNull();
       });
-      getDeliveryMethodServices().forEach((service) => {
-        expect(
-          within(section).queryByText(service.title, {
-            selector: '.service-card-title',
-          }),
-        ).toBeNull();
-      });
     });
   });
 
-  it('does not render pillar service cards under the delivery-models section', () => {
-    const section = document.getElementById(DELIVERY_METHODS_HEADER.anchor);
-    const deliveryTitles = new Set(
-      getDeliveryMethodServices().map((s) => s.title),
-    );
-    SERVICE_PILLARS.flatMap((p) => getServicesByPillar(p.id)).forEach(
-      (service) => {
-        if (deliveryTitles.has(service.title)) return;
-        expect(
-          within(section).queryByText(service.title, {
-            selector: '.service-card-title',
-          }),
-        ).toBeNull();
-      },
-    );
-  });
-
-  it('renders the four sections in locked order', () => {
+  it('renders the three sections in locked order', () => {
     const engineering = document.getElementById('engineering');
     const compliance = document.getElementById('compliance');
     const circularity = document.getElementById('circularity');
-    const delivery = document.getElementById('delivery-models');
 
     expect(
       engineering.compareDocumentPosition(compliance) &
@@ -226,19 +201,24 @@ describe('ServicesPage', () => {
       compliance.compareDocumentPosition(circularity) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+  });
+
+  it('renders ContactSection after the three section groups', () => {
+    const circularity = document.getElementById('circularity');
+    const contact = screen.getByTestId('contact-section');
     expect(
-      circularity.compareDocumentPosition(delivery) &
+      circularity.compareDocumentPosition(contact) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
   });
 
-  it('renders ContactSection after the four section groups', () => {
-    const delivery = document.getElementById('delivery-models');
-    const contact = screen.getByTestId('contact-section');
+  it('renders Technical Lead under the Engineering pillar section', () => {
+    const engineering = document.getElementById('engineering');
     expect(
-      delivery.compareDocumentPosition(contact) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+      within(engineering).getByText('Technical Lead — Battery Systems', {
+        selector: '.service-card-title',
+      }),
+    ).toBeInTheDocument();
   });
 
   it.each(SERVICE_PILLARS)(
@@ -256,18 +236,6 @@ describe('ServicesPage', () => {
       });
     },
   );
-
-  it('renders delivery model services under the delivery-models section', () => {
-    const section = document.getElementById(DELIVERY_METHODS_HEADER.anchor);
-    expect(section).not.toBeNull();
-    getDeliveryMethodServices().forEach((service) => {
-      expect(
-        within(section).getByText(service.title, {
-          selector: '.service-card-title',
-        }),
-      ).toBeInTheDocument();
-    });
-  });
 
   it('has no accessibility violations', async () => {
     cleanup();
