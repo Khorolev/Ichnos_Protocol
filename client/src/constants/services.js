@@ -60,20 +60,9 @@ export const SERVICES_LIST = [
     icon: "bi-person-workspace",
     title: "Technical Lead — Battery Systems",
     tagline:
-      "Embedded technical leadership for battery systems development programs.",
+      "Embedded technical leadership and agile project management for battery development programs.",
     description:
-      "Embedded technical leadership for battery systems development programs. Senior battery expertise on demand for early-stage teams or in-house programs that need experienced direction without a full-time hire.",
-    pillar: null,
-    deliveryMethod: true,
-  },
-  {
-    id: "agile-project-management",
-    icon: "bi-kanban",
-    title: "Agile Project Management — Battery Programs",
-    tagline:
-      "Sprint cadence, requirement traceability, and cross-functional coordination for battery development efforts.",
-    description:
-      "Methodology, milestone management, and stakeholder coordination for battery system development programmes. Backed by PSM I certification (Professional Scrum Master™ I) and thirteen years of cross-functional project engineering across Ducati, Technogym, and FEV — from gasoline engines and motorcycle design through electrification and vehicle battery systems.",
+      "Embedded senior battery expertise for early-stage teams and in-house programs that need experienced direction without a full-time hire — combined with sprint cadence, requirement traceability, milestone management, and cross-functional coordination. PSM I (Professional Scrum Master™ I) certified, backed by thirteen years of cross-functional project engineering across Ducati, Technogym, and FEV — from gasoline engines and motorcycle design through electrification and vehicle battery systems.",
     pillar: null,
     deliveryMethod: true,
   },
@@ -94,7 +83,7 @@ export const DELIVERY_METHODS_HEADER = {
   label: "Delivery Models",
   anchor: "delivery-models",
   intro:
-    "Two engagement formats available across every pillar — pick the one that matches how your team needs to consume our expertise.",
+    "An embedded engagement format that combines hands-on technical leadership with agile project management — available across every pillar.",
 };
 
 export function getServicesByPillar(pillarId) {

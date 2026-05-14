@@ -73,7 +73,7 @@ describe('ServicesSnapshot', () => {
       ENGINEERING: 2,
       COMPLIANCE: 2,
       CIRCULARITY: 1,
-      'DELIVERY METHOD': 2,
+      'DELIVERY METHOD': 1,
     });
   });
 

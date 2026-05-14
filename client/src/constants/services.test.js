@@ -7,8 +7,8 @@ import {
 } from "./services";
 
 describe("SERVICES_LIST", () => {
-  it("has seven entries", () => {
-    expect(SERVICES_LIST.length).toBe(7);
+  it("has six entries", () => {
+    expect(SERVICES_LIST.length).toBe(6);
   });
 });
 
@@ -27,7 +27,10 @@ describe("getServicesByPillar", () => {
 });
 
 describe("getDeliveryMethodServices", () => {
-  it("returns two delivery-method services", () => {
-    expect(getDeliveryMethodServices().length).toBe(2);
+  it("returns one delivery-method service (Technical Lead, with agile PM merged)", () => {
+    expect(getDeliveryMethodServices().length).toBe(1);
+    expect(getDeliveryMethodServices()[0].id).toBe(
+      "technical-lead-battery-systems",
+    );
   });
 });
