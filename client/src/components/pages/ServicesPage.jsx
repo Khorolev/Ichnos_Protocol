@@ -5,9 +5,7 @@ import { PAGE_STRUCTURED_DATA } from "../../constants/structuredData";
 import {
   SERVICES_PAGE_CONTENT,
   SERVICE_PILLARS,
-  DELIVERY_METHODS_HEADER,
   getServicesByPillar,
-  getDeliveryMethodServices,
 } from "../../constants/services";
 import { useScrollToSection } from "../../hooks/useScrollToSection";
 import PageTransition from "../templates/PageTransition";
@@ -36,7 +34,6 @@ function getPillarById(pillarId) {
 export default function ServicesPage() {
   useScrollToSection();
 
-  const deliveryServices = getDeliveryMethodServices();
   const orderedPillars = LOCKED_PILLAR_ORDER.map(getPillarById).filter(Boolean);
 
   return (
@@ -58,12 +55,6 @@ export default function ServicesPage() {
               services={getServicesByPillar(pillar.id)}
             />
           ))}
-          <ServicesGroup
-            id={DELIVERY_METHODS_HEADER.anchor}
-            label={DELIVERY_METHODS_HEADER.label}
-            intro={DELIVERY_METHODS_HEADER.intro}
-            services={deliveryServices}
-          />
           <ContactSection />
         </Container>
       </PageTransition>
