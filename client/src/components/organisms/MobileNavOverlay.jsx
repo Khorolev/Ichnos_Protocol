@@ -46,6 +46,35 @@ export default function MobileNavOverlay({ isOpen, onClose }) {
 
       <div className="d-flex flex-column gap-2">
         {NAV_ITEMS.map((item) => {
+          // Dropdown items: render the parent label as a non-interactive section
+          // heading, then each child as its own flat link beneath it.
+          if (item.children) {
+            return (
+              <div key={item.label} className="d-flex flex-column">
+                <span className="px-3 mobile-nav-section-label small text-uppercase">
+                  {item.label}
+                </span>
+                {item.children.map((child) => {
+                  const isChildActive =
+                    child.path && pathname === child.path;
+                  const childClass = isChildActive
+                    ? 'active nav-link-active'
+                    : 'nav-link-default';
+                  return (
+                    <a
+                      key={child.label}
+                      href={child.path ?? '/'}
+                      onClick={(event) => handleSelect(event, child)}
+                      className={`nav-link mobile-nav-link-item px-4 py-2 ${childClass}`}
+                    >
+                      {child.label}
+                    </a>
+                  );
+                })}
+              </div>
+            );
+          }
+
           const isActive =
             pathname === item.path || pathname.startsWith(`${item.path}/`);
           const stateClass = isActive

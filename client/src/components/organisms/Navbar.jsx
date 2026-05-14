@@ -7,9 +7,33 @@ import { useActiveSection } from '../../hooks/useActiveSection';
 import Logo from '../atoms/Logo';
 import Icon from '../atoms/Icon';
 import Button from '../atoms/Button';
+import NavDropdown from '../molecules/NavDropdown';
 import UserMenu from './UserMenu';
 
-function renderTopItem(item, { isHome, activeSection, pathname, onSelect }) {
+function isDropdownActive(item, { isHome, activeSection, pathname }) {
+  if (isHome && item.activeSectionId && activeSection === item.activeSectionId) {
+    return true;
+  }
+  return item.children.some(
+    (child) =>
+      child.path &&
+      (pathname === child.path || pathname.startsWith(`${child.path}/`)),
+  );
+}
+
+function renderTopItem(item, ctx) {
+  if (item.children) {
+    return (
+      <NavDropdown
+        key={item.label}
+        label={item.label}
+        items={item.children}
+        isActive={isDropdownActive(item, ctx)}
+      />
+    );
+  }
+
+  const { isHome, activeSection, pathname, onSelect } = ctx;
   const isActive = isHome
     ? Boolean(item.activeSectionId && activeSection === item.activeSectionId)
     : pathname === item.path || pathname.startsWith(`${item.path}/`);

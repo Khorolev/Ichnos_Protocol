@@ -1,15 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-export default function NavDropdown({ label, items, onItemClick }) {
+// `isActive` may be passed in by the caller (e.g., Navbar with scrollspy state).
+// When omitted, falls back to matching a child's route against the current pathname.
+export default function NavDropdown({ label, items, onItemClick, isActive: isActiveProp }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
   const hasRouteItems = items.some((item) => item.path);
-  const isActive = hasRouteItems
+  const fallbackActive = hasRouteItems
     ? items.some((item) => item.path === location.pathname)
     : location.pathname === '/';
+  const isActive = isActiveProp ?? fallbackActive;
 
   useEffect(() => {
     const handleClickOutside = (e) => {
