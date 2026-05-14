@@ -103,8 +103,11 @@ body {
 }
 
 /* ========== Logo ========== */
+/* Source PNGs (logo.png, logo-dark.png) are tight-cropped to the lockup
+   itself (~3:1 aspect, 1080×354). At 56px height the navbar grows to
+   ~72px total, giving the brand mark proper presence without dominating. */
 .logo-img {
-  height: 40px;
+  height: 56px;
   width: auto;
   display: block;
 }
@@ -203,8 +206,9 @@ body {
 }
 
 /* ========== Footer ========== */
+/* Tight-cropped lockup at 64px height ≈ previous 88px visible mass. */
 .footer-logo {
-  height: 88px;
+  height: 64px;
   width: auto;
   display: block;
   margin-bottom: var(--spacing-sm);

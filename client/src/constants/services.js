@@ -60,22 +60,11 @@ export const SERVICES_LIST = [
     icon: "bi-person-workspace",
     title: "Technical Lead — Battery Systems",
     tagline:
-      "Embedded technical leadership for battery systems development programs.",
+      "Embedded technical leadership and agile project management for battery development programs.",
     description:
-      "Embedded technical leadership for battery systems development programs. Senior battery expertise on demand for early-stage teams or in-house programs that need experienced direction without a full-time hire.",
-    pillar: null,
-    deliveryMethod: true,
-  },
-  {
-    id: "agile-project-management",
-    icon: "bi-kanban",
-    title: "Agile Project Management — Battery Programs",
-    tagline:
-      "Sprint cadence, requirement traceability, and cross-functional coordination for battery development efforts.",
-    description:
-      "Methodology, milestone management, and stakeholder coordination for battery system development programmes. Backed by PSM I certification (Professional Scrum Master™ I) and thirteen years of cross-functional project engineering across Ducati, Technogym, and FEV — from gasoline engines and motorcycle design through electrification and vehicle battery systems.",
-    pillar: null,
-    deliveryMethod: true,
+      "Embedded senior battery expertise for early-stage teams and in-house programs that need experienced direction without a full-time hire — combined with sprint cadence, requirement traceability, milestone management, and cross-functional coordination. PSM I (Professional Scrum Master™ I) certified, backed by thirteen years of cross-functional project engineering across Ducati, Technogym, and FEV — from gasoline engines and motorcycle design through electrification and vehicle battery systems.",
+    pillar: "engineering",
+    deliveryMethod: false,
   },
 ];
 
@@ -90,17 +79,10 @@ export const SERVICE_PILLARS = [
   { id: "circularity", label: "Circularity", anchor: "circularity" },
 ];
 
-export const DELIVERY_METHODS_HEADER = {
-  label: "Delivery Models",
-  anchor: "delivery-models",
-  intro:
-    "Two engagement formats available across every pillar — pick the one that matches how your team needs to consume our expertise.",
-};
+// Note: DELIVERY_METHODS_HEADER and getDeliveryMethodServices() removed —
+// Technical Lead is now part of the Engineering pillar (3 services) so there
+// is no separate Delivery Models section on /services any more.
 
 export function getServicesByPillar(pillarId) {
   return SERVICES_LIST.filter((s) => s.pillar === pillarId);
-}
-
-export function getDeliveryMethodServices() {
-  return SERVICES_LIST.filter((s) => s.deliveryMethod === true);
 }

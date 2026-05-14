@@ -41,11 +41,6 @@ const MENUS = [
         to: '/services',
         state: { scrollTo: 'circularity' },
       },
-      {
-        label: 'Delivery Models',
-        to: '/services',
-        state: { scrollTo: 'delivery-models' },
-      },
     ],
   },
   {

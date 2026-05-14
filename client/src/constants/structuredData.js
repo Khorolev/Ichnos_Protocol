@@ -107,10 +107,6 @@ export const SERVICE_SCHEMAS = [
     "Pack and module mechanical design, cell housing, thermal hardware integration, and design-for-manufacture.",
   ),
   service(
-    "Technical Lead — Battery Systems",
-    "Embedded technical leadership for battery systems development programs.",
-  ),
-  service(
     "EU–APAC Battery Compliance Bridge",
     "Translating European battery regulation into APAC (incl. ASEAN) supply-chain reality and vice versa. Covers EU 2023/1542, Malaysian MS 2818, regional certification, and supplier alignment.",
   ),
@@ -123,8 +119,8 @@ export const SERVICE_SCHEMAS = [
     "EU 2023/1542 and Malaysian MS 2818 readiness audits, gap analyses, and end-to-end implementation including data model, supplier data collection workflows, and carbon-footprint pipelines.",
   ),
   service(
-    "Agile Project Management — Battery Programs",
-    "Sprint cadence, requirement traceability, and cross-functional coordination for battery development efforts. Backed by PSM I certification and thirteen years of cross-functional project engineering.",
+    "Technical Lead — Battery Systems",
+    "Embedded technical leadership combined with agile project management for battery systems development programs. PSM I certified; thirteen years of cross-functional project engineering.",
   ),
 ];
 
