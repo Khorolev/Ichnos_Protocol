@@ -7,6 +7,7 @@ import {
   SERVICE_PILLARS,
   getServicesByPillar,
 } from "../../constants/services";
+import { PILLAR_ORDER } from "../../constants/brandVocabulary";
 import { useScrollToSection } from "../../hooks/useScrollToSection";
 import PageTransition from "../templates/PageTransition";
 import NavbarSkeleton from "../molecules/NavbarSkeleton";
@@ -25,8 +26,6 @@ const servicesSkeleton = (
   </>
 );
 
-const LOCKED_PILLAR_ORDER = ["engineering", "compliance", "circularity"];
-
 function getPillarById(pillarId) {
   return SERVICE_PILLARS.find((pillar) => pillar.id === pillarId);
 }
@@ -34,7 +33,7 @@ function getPillarById(pillarId) {
 export default function ServicesPage() {
   useScrollToSection();
 
-  const orderedPillars = LOCKED_PILLAR_ORDER.map(getPillarById).filter(Boolean);
+  const orderedPillars = PILLAR_ORDER.map(getPillarById).filter(Boolean);
 
   return (
     <div>

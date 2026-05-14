@@ -1,3 +1,5 @@
+import { PILLAR_LIST } from "./brandVocabulary";
+
 export const SERVICES_LIST = [
   {
     id: "battery-systems-safety",
@@ -73,11 +75,12 @@ export const SERVICES_PAGE_CONTENT = {
   subtitle: "Expert consulting for the battery regulation landscape.",
 };
 
-export const SERVICE_PILLARS = [
-  { id: "engineering", label: "Engineering", anchor: "engineering" },
-  { id: "compliance", label: "Compliance", anchor: "compliance" },
-  { id: "circularity", label: "Circularity", anchor: "circularity" },
-];
+// Derived from brandVocabulary so labels/order can never drift.
+export const SERVICE_PILLARS = PILLAR_LIST.map(({ id, label, anchor }) => ({
+  id,
+  label,
+  anchor,
+}));
 
 // Note: DELIVERY_METHODS_HEADER and getDeliveryMethodServices() removed —
 // Technical Lead is now part of the Engineering pillar (3 services) so there

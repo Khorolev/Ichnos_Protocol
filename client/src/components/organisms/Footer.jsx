@@ -4,44 +4,31 @@ import Col from 'react-bootstrap/Col';
 import { Link } from 'react-router-dom';
 
 import { COMPANY_INFO, CONTACT_INFO } from '../../constants/companyInfo';
+import { BRAND_TAGLINE_LOWER, PILLAR_LIST } from '../../constants/brandVocabulary';
 import SocialLinks from '../molecules/SocialLinks';
 import Logo from '../atoms/Logo';
 
-const BRAND_DESCRIPTION = 'Engineering, compliance, circularity.';
+const BRAND_DESCRIPTION = BRAND_TAGLINE_LOWER;
+
+const SERVICES_LINKS = PILLAR_LIST.map(({ label, anchor }) => ({
+  label,
+  to: '/services',
+  state: { scrollTo: anchor },
+}));
 
 const MENUS = [
   {
     heading: 'Company',
     testId: 'footer-col-company',
     links: [
-      {
-        label: 'Why Ichnos',
-        to: '/',
-        state: { scrollTo: 'company' },
-      },
+      { label: 'Why Ichnos', to: '/', state: { scrollTo: 'company' } },
       { label: 'Team', to: '/team' },
     ],
   },
   {
     heading: 'Services',
     testId: 'footer-col-services',
-    links: [
-      {
-        label: 'Engineering',
-        to: '/services',
-        state: { scrollTo: 'engineering' },
-      },
-      {
-        label: 'Compliance',
-        to: '/services',
-        state: { scrollTo: 'compliance' },
-      },
-      {
-        label: 'Circularity',
-        to: '/services',
-        state: { scrollTo: 'circularity' },
-      },
-    ],
+    links: SERVICES_LINKS,
   },
   {
     heading: 'Products',

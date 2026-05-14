@@ -6,15 +6,14 @@ import Col from 'react-bootstrap/Col';
 import Card from 'react-bootstrap/Card';
 
 import { SERVICES_LIST } from '../../constants/services';
+import { getPillarBadgeLabel } from '../../constants/brandVocabulary';
 
 function getBadge({ pillar, deliveryMethod }) {
   if (deliveryMethod === true) {
     return { label: 'DELIVERY METHOD', variant: 'delivery-method' };
   }
-  if (pillar === 'engineering') return { label: 'ENGINEERING', variant: 'pillar' };
-  if (pillar === 'compliance') return { label: 'COMPLIANCE', variant: 'pillar' };
-  if (pillar === 'circularity') return { label: 'CIRCULARITY', variant: 'pillar' };
-  return null;
+  const label = getPillarBadgeLabel(pillar);
+  return label ? { label, variant: 'pillar' } : null;
 }
 
 const SnapshotCard = ({ icon, title, tagline, badge }) => (
