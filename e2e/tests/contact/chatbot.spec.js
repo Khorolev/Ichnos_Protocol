@@ -10,13 +10,16 @@ test.describe('Chatbot - Unauthenticated Flow', { tag: ['@contact'] }, () => {
     await waitForAppReady(page, '/contact');
   });
 
-  test('opens auth modal when chat is opened by unauthenticated user', async ({
+  test('opens auth modal when unauthenticated user attempts to send a chat message', async ({
     page,
   }) => {
     const contact = new ContactPage(page);
     const auth = new AuthPage(page);
 
-    await contact.clickStartChat();
+    // ChatPanel is rendered inline on /contact. Sending while unauthenticated
+    // triggers the auth modal (no "Start Chat" button gate any more).
+    await expect(contact.chatPanel).toBeVisible();
+    await contact.sendChatMessage('test unauthenticated send');
 
     await expect(auth.authModal).toBeVisible();
     await expect(
@@ -32,11 +35,11 @@ test.describe('Chatbot - Authenticated Flow', { tag: ['@contact'] }, () => {
     await waitForAuthedAppReady(page, '/contact');
   });
 
-  test('chat modal shows correct daily limit denominator', async ({
+  test('inline chat panel shows correct daily limit denominator', async ({
     page,
   }) => {
     const contact = new ContactPage(page);
-    await contact.clickStartChat();
+    await expect(contact.chatPanel).toBeVisible();
 
     const badge = page.getByText(/Messages today:.*\/\s*3/);
     await expect(badge).toBeVisible();
@@ -67,8 +70,7 @@ test.describe('Chatbot - Rate Limit Behavior (Authenticated)', { tag: ['@contact
       }),
     );
 
-    await contact.clickStartChat();
-    await expect(contact.chatTitle).toBeVisible();
+    await expect(contact.chatPanel).toBeVisible();
     await contact.sendChatMessage('test rate limit');
 
     await expect(
@@ -97,8 +99,7 @@ test.describe('Chatbot - AI Unavailable Fallback (Authenticated)', { tag: ['@con
       }),
     );
 
-    await contact.clickStartChat();
-    await expect(contact.chatTitle).toBeVisible();
+    await expect(contact.chatPanel).toBeVisible();
     await contact.sendChatMessage('test ai unavailable');
 
     await expect(

@@ -12,8 +12,11 @@ test.describe('Contact Page - Public Access', { tag: ['@contact'] }, () => {
 
   test('displays all contact options', async ({ page }) => {
     const contact = new ContactPage(page);
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Get in Touch');
-    await expect(contact.startChatButton).toBeVisible();
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      'Contact Ichnos Protocol',
+    );
+    // Inline chat panel is the primary touchpoint; "Start Chat" button is gone.
+    await expect(contact.chatPanel).toBeVisible();
     await expect(contact.submitInquiryButton).toBeVisible();
     await expect(contact.bookMeetingButton).toBeVisible();
   });
