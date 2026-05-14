@@ -124,15 +124,21 @@ describe('Footer', () => {
     ).toBeNull();
   });
 
-  it('Services column has exactly four locked links to /services', () => {
+  it('Services column has exactly three locked pillar links to /services', () => {
     const servicesCol = screen.getByTestId('footer-col-services');
-    const labels = ['Engineering', 'Compliance', 'Circularity', 'Delivery Models'];
+    const labels = ['Engineering', 'Compliance', 'Circularity'];
     labels.forEach((label) => {
       expect(
         within(servicesCol).getByRole('link', { name: label }),
       ).toHaveAttribute('href', '/services');
     });
-    expect(within(servicesCol).getAllByRole('link')).toHaveLength(4);
+    expect(within(servicesCol).getAllByRole('link')).toHaveLength(3);
+    // Delivery Models is intentionally not surfaced in the footer — there is
+    // only one delivery-method service (Technical Lead with agile PM merged),
+    // and pillars are the canonical footer navigation primitives.
+    expect(
+      within(servicesCol).queryByRole('link', { name: 'Delivery Models' }),
+    ).toBeNull();
   });
 
   it('Services column links navigate to /services with the locked scrollTo state', () => {
@@ -140,7 +146,6 @@ describe('Footer', () => {
       { label: 'Engineering', scrollTo: 'engineering' },
       { label: 'Compliance', scrollTo: 'compliance' },
       { label: 'Circularity', scrollTo: 'circularity' },
-      { label: 'Delivery Models', scrollTo: 'delivery-models' },
     ];
     cases.forEach(({ label, scrollTo }) => {
       cleanup();
